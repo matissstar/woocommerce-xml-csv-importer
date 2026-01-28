@@ -84,6 +84,18 @@ $woocommerce_fields = array(
                 'description' => __('Unique product identifier. Can be mapped from file or auto-generated.', 'wc-xml-csv-import')
             ),
             'name' => array('label' => __('Product Name', 'wc-xml-csv-import'), 'required' => false, 'type' => 'text'),
+            'type' => array(
+                'label' => __('Product Type', 'wc-xml-csv-import'), 
+                'required' => false, 
+                'type' => 'product_type_select',
+                'options' => array(
+                    'simple' => __('Simple', 'wc-xml-csv-import'),
+                    'variable' => __('Variable', 'wc-xml-csv-import'),
+                    'grouped' => __('Grouped', 'wc-xml-csv-import'),
+                    'external' => __('External/Affiliate', 'wc-xml-csv-import'),
+                ),
+                'description' => __('Product type. Auto-detected if grouped_products or external_url is mapped.', 'wc-xml-csv-import')
+            ),
             'description' => array('label' => __('Description', 'wc-xml-csv-import'), 'required' => false, 'type' => 'text'),
             'short_description' => array('label' => __('Short Description', 'wc-xml-csv-import'), 'required' => false, 'type' => 'text'),
             'status' => array(
@@ -541,50 +553,41 @@ $ai_providers = array(
                     ?>
                     
                     <!-- ═══════════════════════════════════════════════════════════════ -->
-                    <!-- Smart Mapping Options - Minimal, non-intrusive block            -->
+                    <!-- AI Auto-Mapping - Minimal, non-intrusive block                -->
                     <!-- ═══════════════════════════════════════════════════════════════ -->
-                    <?php if ($can_smart_mapping || $can_ai_mapping): ?>
+                    <?php if ($can_ai_mapping): ?>
                     <div class="smart-mapping-options" style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 15px 20px; margin-bottom: 20px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                             <div>
                                 <h4 style="margin: 0 0 5px 0; font-size: 14px; color: #495057; font-weight: 600;">
-                                    <?php _e('Smart Mapping Options', 'wc-xml-csv-import'); ?>
+                                    <?php _e('AI Auto-Mapping', 'wc-xml-csv-import'); ?>
                                 </h4>
                                 <p style="margin: 0; font-size: 13px; color: #6c757d;">
-                                    <?php _e('Automatically match file columns to WooCommerce fields using pattern recognition or AI analysis.', 'wc-xml-csv-import'); ?>
+                                    <?php _e('Let AI automatically match your file columns to WooCommerce fields.', 'wc-xml-csv-import'); ?>
                                 </p>
                             </div>
                             
                             <div style="display: flex; gap: 8px; align-items: center;">
-                                <!-- Smart Auto-Map Button -->
-                                <button type="button" id="btn-smart-auto-map" class="button button-secondary" style="display: flex; align-items: center; gap: 5px;">
-                                    <span class="dashicons dashicons-admin-generic" style="font-size: 16px; width: 16px; height: 16px;"></span>
-                                    <?php _e('Smart Match', 'wc-xml-csv-import'); ?>
-                                </button>
-                                
                                 <?php if ($has_any_ai): ?>
                                 <!-- AI Auto-Map Button -->
-                                <button type="button" id="btn-ai-auto-map" class="button button-secondary" style="display: flex; align-items: center; gap: 5px;">
+                                <button type="button" id="btn-ai-auto-map" class="button button-primary" style="display: flex; align-items: center; gap: 5px;">
                                     <span class="dashicons dashicons-lightbulb" style="font-size: 16px; width: 16px; height: 16px;"></span>
-                                    <?php _e('AI Match', 'wc-xml-csv-import'); ?>
+                                    <?php _e('AI Auto-Map', 'wc-xml-csv-import'); ?>
                                 </button>
                                 <select id="ai-mapping-provider" style="height: 30px; border-radius: 4px; padding: 0 8px; font-size: 12px;">
                                     <?php if ($has_openai): ?><option value="openai">OpenAI</option><?php endif; ?>
                                     <?php if ($has_claude): ?><option value="claude">Claude</option><?php endif; ?>
                                     <?php if ($has_gemini): ?><option value="gemini">Gemini</option><?php endif; ?>
                                 </select>
+                                <?php else: ?>
+                                <span style="color: #6c757d; font-size: 12px;">
+                                    <?php _e('Configure AI provider in Settings to enable auto-mapping', 'wc-xml-csv-import'); ?>
+                                </span>
                                 <?php endif; ?>
                             </div>
                         </div>
                         
-                        <!-- Status containers (hidden by default) -->
-                        <div id="smart-mapping-status" style="display: none; margin-top: 12px; padding: 10px; background: #e9ecef; border-radius: 4px; font-size: 13px;">
-                            <div id="smart-mapping-progress" style="display: none;">
-                                <span class="spinner is-active" style="float: none; margin: 0 8px 0 0;"></span>
-                                <span id="smart-mapping-progress-text"><?php _e('Analyzing fields...', 'wc-xml-csv-import'); ?></span>
-                            </div>
-                            <div id="smart-mapping-result" style="display: none;"></div>
-                        </div>
+                        <!-- AI Mapping Status container (hidden by default) -->
                         <div id="ai-mapping-status" style="display: none; margin-top: 12px; padding: 10px; background: #e9ecef; border-radius: 4px; font-size: 13px;">
                             <div id="ai-mapping-progress" style="display: none;">
                                 <span class="spinner is-active" style="float: none; margin: 0 8px 0 0;"></span>
@@ -1161,6 +1164,41 @@ $ai_providers = array(
                                                             <p class="description" style="font-size: 11px; margin-top: 4px;">
                                                                 <?php _e('XML values: yes/no, true/false, 1/0', 'wc-xml-csv-import'); ?>
                                                             </p>
+                                                        </div>
+                                                    <?php break;
+                                                    
+                                                    case 'product_type_select': ?>
+                                                        <!-- Product Type Select: Dropdown + Map option -->
+                                                        <div class="select-with-map-options">
+                                                            <label class="select-map-option">
+                                                                <input type="radio" 
+                                                                       name="field_mapping[<?php echo $field_key; ?>][select_mode]" 
+                                                                       value="fixed" 
+                                                                       class="select-mode-radio"
+                                                                       checked>
+                                                                <select name="field_mapping[<?php echo $field_key; ?>][fixed_value]" class="fixed-value-select select-fixed-value">
+                                                                    <?php foreach ($field['options'] as $opt_value => $opt_label): ?>
+                                                                        <option value="<?php echo esc_attr($opt_value); ?>" <?php selected($opt_value, 'simple'); ?>>
+                                                                            <?php echo esc_html($opt_label); ?>
+                                                                        </option>
+                                                                    <?php endforeach; ?>
+                                                                </select>
+                                                            </label>
+                                                            <label class="select-map-option" style="margin-top: 8px; display: block;">
+                                                                <input type="radio" 
+                                                                       name="field_mapping[<?php echo $field_key; ?>][select_mode]" 
+                                                                       value="map" 
+                                                                       class="select-mode-radio">
+                                                                <span><?php _e('Map from XML:', 'wc-xml-csv-import'); ?></span>
+                                                            </label>
+                                                            <div class="select-map-field" style="display: none; margin-top: 8px; margin-left: 24px;">
+                                                                <select name="field_mapping[<?php echo $field_key; ?>][source]" class="field-source-select" style="width: 100%;">
+                                                                    <option value=""><?php _e('-- Select XML Field --', 'wc-xml-csv-import'); ?></option>
+                                                                </select>
+                                                                <p class="description" style="font-size: 11px; margin-top: 4px;">
+                                                                    <?php _e('Values: simple, variable, grouped, external', 'wc-xml-csv-import'); ?>
+                                                                </p>
+                                                            </div>
                                                         </div>
                                                     <?php break;
                                                     

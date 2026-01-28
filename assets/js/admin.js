@@ -344,15 +344,12 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         // NEW: Product Type Mode Selection
         initializeProductTypeMode();
         
-        // AI Auto-Mapping (ADVANCED tier)
+        // AI Auto-Mapping (PRO tier)
         initializeAiAutoMapping();
-        
-        // Smart Auto-Mapping (FREE - no AI needed)
-        initializeSmartAutoMapping();
     }
     
     /**
-     * Initialize AI Auto-Mapping functionality (ADVANCED tier feature)
+     * Initialize AI Auto-Mapping functionality (PRO tier feature)
      */
     function initializeAiAutoMapping() {
         console.log('★★★ initializeAiAutoMapping() CALLED ★★★');
@@ -463,6 +460,22 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 }
             });
         });
+        
+        // Confirm mapping button (OK button on warning)
+        $('#btn-confirm-mapping').on('click', function() {
+            window.autoMappingVerified = true;
+            $('#auto-mapping-warning').slideUp(300);
+            
+            // Show success message
+            var $msg = $('<div style="background: #e8f5e9; color: #2e7d32; padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">' +
+                '<span style="font-size: 20px;">✅</span>' +
+                '<span>Mappings verified! You can now proceed with the import.</span>' +
+                '</div>');
+            $('#auto-mapping-warning').after($msg);
+            setTimeout(function() {
+                $msg.fadeOut(500, function() { $msg.remove(); });
+            }, 3000);
+        });
     }
     
     /**
@@ -561,6 +574,9 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         // Price patterns
         'regular_price': ['price', 'regular_price', 'cena', 'base_price', 'retail_price', 'msrp', 'preis', 'unit_price'],
         'sale_price': ['sale_price', 'special_price', 'akcijas_cena', 'discount_price', 'offer_price', 'promo_price'],
+        // Sale price dates
+        'sale_price_dates_from': ['sale_price_dates_from', 'sale_from', 'sale_start', 'sale_start_date', 'sale_date_from', 'special_from_date', 'akcijas_sakums', 'discount_start'],
+        'sale_price_dates_to': ['sale_price_dates_to', 'sale_to', 'sale_end', 'sale_end_date', 'sale_date_to', 'special_to_date', 'akcijas_beigas', 'discount_end'],
         // Stock patterns
         'stock_quantity': ['stock', 'qty', 'quantity', 'stock_quantity', 'daudzums', 'skaits', 'noliktava', 'inventory', 'available', 'bestand', 'amount'],
         // Weight/dimensions
@@ -579,122 +595,24 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         'ean': ['ean', 'ean13', 'ean_code', 'gtin', 'eans'],
         'upc': ['upc', 'upc_code'],
         // Tags
-        'tags': ['tags', 'birkas', 'keywords', 'tag']
+        'tags': ['tags', 'birkas', 'keywords', 'tag'],
+        // ID/Slug
+        'id': ['id', 'product_id', 'woo_id', 'woocommerce_id', 'external_id'],
+        'slug': ['slug', 'url_key', 'permalink', 'handle', 'url_slug', 'seo_url'],
+        // Stock management
+        'backorders': ['backorders', 'backorder', 'allow_backorders', 'pasūtījumi_rezervēti'],
+        'sold_individually': ['sold_individually', 'sold_individual', 'individual_sale', 'limit_one'],
+        // Related products
+        'upsell_ids': ['upsell_ids', 'upsells', 'upsell', 'upsell_products', 'related_upsell'],
+        'cross_sell_ids': ['cross_sell_ids', 'cross_sells', 'crosssell', 'crosssells', 'cross_sell_products'],
+        // Reviews
+        'reviews_allowed': ['reviews_allowed', 'allow_reviews', 'enable_reviews', 'reviews_enabled'],
+        'average_rating': ['average_rating', 'rating', 'avg_rating', 'star_rating', 'vērtējums'],
+        'rating_count': ['rating_count', 'review_count', 'reviews_count', 'num_reviews', 'atsauksmju_skaits']
     };
     
     /**
-     * Initialize Smart Auto-Mapping (PHP/JS based - no AI needed)
-     */
-    function initializeSmartAutoMapping() {
-        console.log('★★★ initializeSmartAutoMapping() CALLED ★★★');
-        
-        // Track if auto-mapping was used
-        window.autoMappingUsed = false;
-        window.autoMappingVerified = false;
-        
-        $('#btn-smart-auto-map').on('click', function() {
-            var $btn = $(this);
-            var $statusContainer = $('#smart-mapping-status');
-            var $progress = $('#smart-mapping-progress');
-            var $result = $('#smart-mapping-result');
-            
-            // Check if we have source fields
-            var sourceFields = window.allKnownFieldsOrder || [];
-            if (sourceFields.length === 0) {
-                alert('Please wait for file structure to load first, or there are no fields in the file.');
-                return;
-            }
-            
-            // Show progress
-            $btn.prop('disabled', true);
-            var originalText = $btn.html();
-            $btn.html('<span class="spinner is-active" style="float: none; margin: 0 5px 0 0;"></span> Analyzing...');
-            
-            $statusContainer.show();
-            $progress.show();
-            $result.hide();
-            
-            console.log('★★★ Smart Auto-Mapping - Processing fields:', sourceFields);
-            
-            // Perform smart matching (client-side)
-            setTimeout(function() {
-                var mappings = performSmartMapping(sourceFields);
-                var mappedFields = [];
-                var unmappedFields = [];
-                
-                // Apply mappings
-                $.each(mappings, function(sourceField, targetField) {
-                    if (targetField) {
-                        mappedFields.push({source: sourceField, target: targetField});
-                    } else {
-                        unmappedFields.push(sourceField);
-                    }
-                });
-                
-                // Find truly unmapped fields
-                $.each(sourceFields, function(i, field) {
-                    if (!mappings[field] && unmappedFields.indexOf(field) === -1) {
-                        unmappedFields.push(field);
-                    }
-                });
-                
-                // Apply to form
-                applySmartMappings(mappings);
-                
-                $progress.hide();
-                
-                // Build result HTML
-                var resultHtml = '<div style="color: #90EE90;">';
-                resultHtml += '<strong>✅ Smart Auto-Mapping completed! Mapped ' + mappedFields.length + ' of ' + sourceFields.length + ' fields.</strong>';
-                resultHtml += '</div>';
-                
-                if (mappedFields.length > 0) {
-                    resultHtml += '<div style="margin-top: 10px; font-size: 12px;">';
-                    resultHtml += '<strong>Mapped fields:</strong><br>';
-                    $.each(mappedFields, function(i, item) {
-                        resultHtml += '<span style="display: inline-block; margin: 2px 5px 2px 0; padding: 2px 8px; background: rgba(255,255,255,0.2); border-radius: 3px;">';
-                        resultHtml += item.source + ' → ' + item.target + ' <span style="opacity: 0.7;">(100%)</span>';
-                        resultHtml += '</span>';
-                    });
-                    resultHtml += '</div>';
-                }
-                
-                if (unmappedFields.length > 0) {
-                    resultHtml += '<div style="margin-top: 8px; font-size: 11px; opacity: 0.8;">';
-                    resultHtml += 'Unmapped: ' + unmappedFields.join(', ');
-                    resultHtml += '</div>';
-                }
-                
-                $result.html(resultHtml).show();
-                $btn.prop('disabled', false).html(originalText);
-                
-                // Mark auto-mapping as used and show warning
-                window.autoMappingUsed = true;
-                window.autoMappingVerified = false;
-                showAutoMappingWarning();
-                
-            }, 500); // Small delay for UX
-        });
-        
-        // Confirm mapping button
-        $('#btn-confirm-mapping').on('click', function() {
-            window.autoMappingVerified = true;
-            $('#auto-mapping-warning').slideUp(300);
-            
-            // Show success message
-            var $msg = $('<div style="background: #e8f5e9; color: #2e7d32; padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">' +
-                '<span style="font-size: 20px;">✅</span>' +
-                '<span>Mappings verified! You can now proceed with the import.</span>' +
-                '</div>');
-            $('#auto-mapping-warning').after($msg);
-            setTimeout(function() {
-                $msg.fadeOut(500, function() { $msg.remove(); });
-            }, 3000);
-        });
-    }
-    
-    /**
-     * Perform smart mapping using pattern matching
+     * Perform smart mapping using pattern matching (used internally by AI mapping fallback)
      */
     function performSmartMapping(sourceFields) {
         var mappings = {};
@@ -2274,17 +2192,15 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         // Also maintain original order in allKnownFieldsOrder array
         if (structure && structure.length > 0) {
             structure.forEach(function(field) {
-                // Only add leaf nodes (text fields), not objects or arrays
-                if (field.type !== 'object' && field.type !== 'array') {
-                    var path = field.path;
-                    if (!window.allKnownFields[path]) {
-                        window.allKnownFields[path] = field;
-                        // Add to order array (maintains original XML sequence)
-                        window.allKnownFieldsOrder.push(path);
-                    } else if (!window.allKnownFields[path].sample && field.sample) {
-                        // Update sample value if we have one now
-                        window.allKnownFields[path].sample = field.sample;
-                    }
+                // Add ALL field types including objects and arrays for attribute/variation mapping
+                var path = field.path;
+                if (!window.allKnownFields[path]) {
+                    window.allKnownFields[path] = field;
+                    // Add to order array (maintains original XML sequence)
+                    window.allKnownFieldsOrder.push(path);
+                } else if (!window.allKnownFields[path].sample && field.sample) {
+                    // Update sample value if we have one now
+                    window.allKnownFields[path].sample = field.sample;
                 }
             });
         }

@@ -128,6 +128,8 @@ return array(
         // ─────────────────────────────────────────────────────────
         'simple_products'           => true,         // Simple products
         'variable_products'         => true,         // Variable products
+        'grouped_products'          => true,         // ✅ Grouped products
+        'external_products'         => true,         // ✅ External/Affiliate products
         'variations'                => true,         // Variations handling
         'attributes'                => true,         // Attributes handling
         

@@ -597,6 +597,9 @@ class WC_XML_CSV_AI_Import_Importer {
                     $this->handle_missing_products();
                 }
                 
+                // Phase 2: Resolve product relationships (grouped children, upsells, cross-sells)
+                $this->resolve_product_relationships();
+                
                 $this->update_import_status('completed');
                 $this->log('info', sprintf(__('Import completed successfully. Processed %d products.', 'wc-xml-csv-import'), $import->processed_products));
             } else {
@@ -1478,7 +1481,60 @@ class WC_XML_CSV_AI_Import_Importer {
      * @return   int Product ID
      */
     private function create_product($product_data, $mapped_data = array()) {
-        $product = new WC_Product_Simple();
+        // Determine product type - check explicit type field first
+        $product_type = isset($product_data['type']) ? strtolower(trim($product_data['type'])) : '';
+        
+        // Auto-detect product type if not explicitly set
+        if (empty($product_type) || $product_type === 'simple') {
+            // If grouped_products field has values, it's a Grouped product
+            if (!empty($product_data['grouped_products'])) {
+                $product_type = 'grouped';
+                $this->log('info', sprintf(__('Auto-detected Grouped product type for "%s" (has grouped_products field)', 'wc-xml-csv-import'), $product_data['name'] ?? $product_data['sku'] ?? 'Unknown'));
+            }
+            // If external_url is set, it's an External product
+            elseif (!empty($product_data['external_url'])) {
+                $product_type = 'external';
+                $this->log('info', sprintf(__('Auto-detected External product type for "%s" (has external_url field)', 'wc-xml-csv-import'), $product_data['name'] ?? $product_data['sku'] ?? 'Unknown'));
+            }
+            // Default to simple
+            else {
+                $product_type = 'simple';
+            }
+        }
+        
+        // Create appropriate product object based on type
+        switch ($product_type) {
+            case 'grouped':
+                // PRO feature check
+                if (!WC_XML_CSV_AI_Import_License::can('grouped_products')) {
+                    $this->log('warning', sprintf(__('Grouped products require PRO license. Importing "%s" as Simple product.', 'wc-xml-csv-import'), $product_data['name']));
+                    $product = new WC_Product_Simple();
+                    $product_type = 'simple';
+                } else {
+                    $product = new WC_Product_Grouped();
+                }
+                break;
+                
+            case 'external':
+            case 'affiliate':
+                // PRO feature check
+                if (!WC_XML_CSV_AI_Import_License::can('external_products')) {
+                    $this->log('warning', sprintf(__('External products require PRO license. Importing "%s" as Simple product.', 'wc-xml-csv-import'), $product_data['name']));
+                    $product = new WC_Product_Simple();
+                    $product_type = 'simple';
+                } else {
+                    $product = new WC_Product_External();
+                }
+                break;
+                
+            case 'variable':
+                $product = new WC_Product_Variable();
+                break;
+                
+            default:
+                $product = new WC_Product_Simple();
+                $product_type = 'simple';
+        }
 
         // Set basic properties
         $product->set_name($product_data['name']);
@@ -1630,6 +1686,16 @@ class WC_XML_CSV_AI_Import_Importer {
         }
         $product->set_status($status);
 
+        // Handle External product specific fields
+        if ($product_type === 'external' && $product instanceof WC_Product_External) {
+            if (!empty($product_data['external_url'])) {
+                $product->set_product_url($product_data['external_url']);
+            }
+            if (!empty($product_data['button_text'])) {
+                $product->set_button_text($product_data['button_text']);
+            }
+        }
+
         // Save product
         $product_id = $product->save();
 
@@ -1699,6 +1765,23 @@ class WC_XML_CSV_AI_Import_Importer {
 
         // Handle SEO meta fields
         $this->set_product_seo_meta($product_id, $product_data);
+
+        // Handle Grouped product children (store SKUs for later resolution)
+        if ($product_type === 'grouped' && $product instanceof WC_Product_Grouped) {
+            if (!empty($product_data['grouped_products'])) {
+                // Store the SKU list for phase 2 resolution (after all products are imported)
+                update_post_meta($product_id, '_pending_grouped_skus', $product_data['grouped_products']);
+                $this->log('info', sprintf(__('Grouped product "%s" - stored pending children SKUs: %s', 'wc-xml-csv-import'), $product_data['name'], $product_data['grouped_products']));
+            }
+        }
+
+        // Handle Upsells and Cross-sells (store SKUs for later resolution)
+        if (!empty($product_data['upsell_ids'])) {
+            update_post_meta($product_id, '_pending_upsell_skus', $product_data['upsell_ids']);
+        }
+        if (!empty($product_data['cross_sell_ids'])) {
+            update_post_meta($product_id, '_pending_crosssell_skus', $product_data['cross_sell_ids']);
+        }
 
         // Save import tracking meta
         update_post_meta($product_id, '_wc_import_id', $this->import_id);
@@ -4560,6 +4643,168 @@ class WC_XML_CSV_AI_Import_Importer {
             array('status' => $status),
             array('id' => $this->import_id)
         );
+    }
+
+    /**
+     * Phase 2: Resolve product relationships after all products are imported.
+     * Handles: Grouped product children, Upsells, Cross-sells
+     * This is called when import completes to link products by SKU.
+     *
+     * @since    1.0.0
+     */
+    private function resolve_product_relationships() {
+        global $wpdb;
+        
+        $this->log('info', __('Starting Phase 2: Resolving product relationships...', 'wc-xml-csv-import'));
+        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ RESOLVE_RELATIONSHIPS: Starting Phase 2'); }
+        
+        $resolved_count = 0;
+        $error_count = 0;
+        
+        // 1. Resolve Grouped Product Children
+        $grouped_products = $wpdb->get_results($wpdb->prepare(
+            "SELECT p.ID, pm.meta_value as pending_skus
+             FROM {$wpdb->posts} p
+             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+             INNER JOIN {$wpdb->postmeta} pm_import ON p.ID = pm_import.post_id
+             WHERE pm.meta_key = '_pending_grouped_skus'
+               AND pm_import.meta_key = '_wc_import_id'
+               AND pm_import.meta_value = %s
+               AND p.post_type = 'product'",
+            $this->import_id
+        ));
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ RESOLVE_RELATIONSHIPS: Found ' . count($grouped_products) . ' grouped products to resolve'); }
+        
+        foreach ($grouped_products as $grouped) {
+            try {
+                $product = wc_get_product($grouped->ID);
+                if (!$product || !$product instanceof WC_Product_Grouped) {
+                    continue;
+                }
+                
+                $sku_list = $grouped->pending_skus;
+                $child_ids = $this->resolve_skus_to_ids($sku_list);
+                
+                if (!empty($child_ids)) {
+                    $product->set_children($child_ids);
+                    $product->save();
+                    
+                    // Remove the pending meta
+                    delete_post_meta($grouped->ID, '_pending_grouped_skus');
+                    
+                    $this->log('info', sprintf(__('Resolved grouped product ID %d with %d children', 'wc-xml-csv-import'), $grouped->ID, count($child_ids)));
+                    if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ RESOLVE_RELATIONSHIPS: Grouped ID=' . $grouped->ID . ' linked to children: ' . implode(',', $child_ids)); }
+                    $resolved_count++;
+                } else {
+                    $this->log('warning', sprintf(__('Could not resolve children for grouped product ID %d (SKUs: %s)', 'wc-xml-csv-import'), $grouped->ID, $sku_list));
+                    $error_count++;
+                }
+            } catch (Exception $e) {
+                $this->log('error', sprintf(__('Error resolving grouped product ID %d: %s', 'wc-xml-csv-import'), $grouped->ID, $e->getMessage()));
+                $error_count++;
+            }
+        }
+        
+        // 2. Resolve Upsells
+        $upsell_products = $wpdb->get_results($wpdb->prepare(
+            "SELECT p.ID, pm.meta_value as pending_skus
+             FROM {$wpdb->posts} p
+             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+             INNER JOIN {$wpdb->postmeta} pm_import ON p.ID = pm_import.post_id
+             WHERE pm.meta_key = '_pending_upsell_skus'
+               AND pm_import.meta_key = '_wc_import_id'
+               AND pm_import.meta_value = %s
+               AND p.post_type = 'product'",
+            $this->import_id
+        ));
+        
+        foreach ($upsell_products as $item) {
+            try {
+                $product = wc_get_product($item->ID);
+                if (!$product) {
+                    continue;
+                }
+                
+                $upsell_ids = $this->resolve_skus_to_ids($item->pending_skus);
+                
+                if (!empty($upsell_ids)) {
+                    $product->set_upsell_ids($upsell_ids);
+                    $product->save();
+                    delete_post_meta($item->ID, '_pending_upsell_skus');
+                    $resolved_count++;
+                }
+            } catch (Exception $e) {
+                $error_count++;
+            }
+        }
+        
+        // 3. Resolve Cross-sells
+        $crosssell_products = $wpdb->get_results($wpdb->prepare(
+            "SELECT p.ID, pm.meta_value as pending_skus
+             FROM {$wpdb->posts} p
+             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+             INNER JOIN {$wpdb->postmeta} pm_import ON p.ID = pm_import.post_id
+             WHERE pm.meta_key = '_pending_crosssell_skus'
+               AND pm_import.meta_key = '_wc_import_id'
+               AND pm_import.meta_value = %s
+               AND p.post_type = 'product'",
+            $this->import_id
+        ));
+        
+        foreach ($crosssell_products as $item) {
+            try {
+                $product = wc_get_product($item->ID);
+                if (!$product) {
+                    continue;
+                }
+                
+                $crosssell_ids = $this->resolve_skus_to_ids($item->pending_skus);
+                
+                if (!empty($crosssell_ids)) {
+                    $product->set_cross_sell_ids($crosssell_ids);
+                    $product->save();
+                    delete_post_meta($item->ID, '_pending_crosssell_skus');
+                    $resolved_count++;
+                }
+            } catch (Exception $e) {
+                $error_count++;
+            }
+        }
+        
+        $this->log('info', sprintf(__('Phase 2 completed: %d relationships resolved, %d errors', 'wc-xml-csv-import'), $resolved_count, $error_count));
+        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ RESOLVE_RELATIONSHIPS: Completed - resolved=' . $resolved_count . ', errors=' . $error_count); }
+    }
+
+    /**
+     * Convert comma-separated SKU list to array of product IDs.
+     *
+     * @since    1.0.0
+     * @param    string $sku_list Comma-separated SKU list
+     * @return   array Array of product IDs
+     */
+    private function resolve_skus_to_ids($sku_list) {
+        if (empty($sku_list)) {
+            return array();
+        }
+        
+        $skus = array_map('trim', explode(',', $sku_list));
+        $ids = array();
+        
+        foreach ($skus as $sku) {
+            if (empty($sku)) {
+                continue;
+            }
+            
+            $product_id = wc_get_product_id_by_sku($sku);
+            if ($product_id) {
+                $ids[] = $product_id;
+            } else {
+                $this->log('warning', sprintf(__('Could not find product with SKU: %s', 'wc-xml-csv-import'), $sku));
+            }
+        }
+        
+        return $ids;
     }
 
     /**

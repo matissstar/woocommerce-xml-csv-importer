@@ -477,13 +477,71 @@ class WC_XML_CSV_AI_Import_XML_Parser {
                             'sample' => implode(', ', $sample_values) . (count($value) > 2 ? '...' : '')
                         );
                     } else {
-                        // Complex array (like specifications) - DON'T drill into [0].name etc
+                        // Complex array (like attributes, variations) - add parent and extract child field names
                         $structure[] = array(
                             'path' => $field_path,
                             'label' => $field_path . ' (' . count($value) . ' items)',
                             'type' => 'array',
                             'sample' => count($value) . ' nested items'
                         );
+                        
+                        // For complex arrays, also add the child element path (e.g., attributes.attribute)
+                        // Extract field names from first element to show available sub-fields
+                        if (isset($value[0]) && is_array($value[0])) {
+                            $first_item = $value[0];
+                            $child_key = array_key_first($first_item);
+                            
+                            // Check if it's a named element array like attributes.attribute
+                            if ($child_key && !is_numeric($child_key) && isset($first_item[$child_key])) {
+                                $child_elements = $first_item[$child_key];
+                                
+                                // If child_elements is an array of items, get first one
+                                if (isset($child_elements[0])) {
+                                    $child_elements = $child_elements[0];
+                                }
+                                
+                                $child_path = $field_path . '.' . $child_key;
+                                $structure[] = array(
+                                    'path' => $child_path,
+                                    'label' => $child_path,
+                                    'type' => 'array',
+                                    'sample' => 'Array of ' . $child_key . ' elements'
+                                );
+                                
+                                // Add child field names (name, value, visible, variation, etc.)
+                                if (is_array($child_elements)) {
+                                    foreach ($child_elements as $sub_key => $sub_value) {
+                                        if ($sub_key !== '@attributes' && $sub_key !== '#text' && !is_numeric($sub_key)) {
+                                            $sub_path = $child_path . '.' . $sub_key;
+                                            $structure[] = array(
+                                                'path' => $sub_path,
+                                                'label' => $sub_path,
+                                                'type' => 'text',
+                                                'sample' => is_string($sub_value) ? substr($sub_value, 0, 50) : (is_array($sub_value) ? 'nested' : (string)$sub_value)
+                                            );
+                                        }
+                                    }
+                                }
+                            } elseif (!is_numeric($child_key)) {
+                                // Direct child fields in the array element
+                                foreach ($first_item as $sub_key => $sub_value) {
+                                    if ($sub_key !== '@attributes' && $sub_key !== '#text') {
+                                        $sub_path = $field_path . '.' . $sub_key;
+                                        $sample_val = is_string($sub_value) ? substr($sub_value, 0, 50) : '';
+                                        if (is_array($sub_value)) {
+                                            $sample_val = $this->is_simple_text_element($sub_value);
+                                            if ($sample_val === false) $sample_val = 'nested';
+                                        }
+                                        $structure[] = array(
+                                            'path' => $sub_path,
+                                            'label' => $sub_path,
+                                            'type' => 'text',
+                                            'sample' => $sample_val
+                                        );
+                                    }
+                                }
+                            }
+                        }
                     }
                 } else {
                     // OBJECT (not array) - check if it's a simple object we should expand
@@ -518,13 +576,17 @@ class WC_XML_CSV_AI_Import_XML_Parser {
                             $sub_structure = $this->build_field_structure($value, $field_path);
                             $structure = array_merge($structure, $sub_structure);
                         } else {
-                            // Complex nested object - don't expand
+                            // Complex nested object (like attributes with nested arrays) - expand it anyway
                             $structure[] = array(
                                 'path' => $field_path,
                                 'label' => $field_path,
                                 'type' => 'object',
                                 'sample' => count($meaningful_keys) . ' sub-fields'
                             );
+                            
+                            // For objects containing arrays (like attributes.attribute), recurse to get child paths
+                            $sub_structure = $this->build_field_structure($value, $field_path);
+                            $structure = array_merge($structure, $sub_structure);
                         }
                     } else {
                         // Object with only metadata - treat as text

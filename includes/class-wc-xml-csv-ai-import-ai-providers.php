@@ -522,15 +522,21 @@ class WC_XML_CSV_AI_Import_AI_Providers {
         
         // WooCommerce target fields that can be mapped
         $wc_fields = array(
+            'id' => 'Product ID - WordPress post ID for updating existing products',
             'sku' => 'Product SKU/Code - unique identifier',
+            'slug' => 'Product URL slug/permalink',
             'name' => 'Product name/title',
             'description' => 'Full product description (HTML allowed)',
             'short_description' => 'Short product description/summary',
             'regular_price' => 'Regular/normal price (number)',
             'sale_price' => 'Discounted/sale price (number)',
+            'sale_price_dates_from' => 'Sale start date (YYYY-MM-DD format)',
+            'sale_price_dates_to' => 'Sale end date (YYYY-MM-DD format)',
             'stock_quantity' => 'Stock/inventory quantity (integer)',
             'stock_status' => 'Stock status: instock, outofstock, onbackorder',
             'manage_stock' => 'Whether to manage stock: yes/no, true/false, 1/0',
+            'backorders' => 'Allow backorders: no, notify, yes',
+            'sold_individually' => 'Sold individually (limit 1 per order): yes/no',
             'weight' => 'Product weight (number)',
             'length' => 'Product length (number)',
             'width' => 'Product width (number)', 
@@ -558,6 +564,13 @@ class WC_XML_CSV_AI_Import_AI_Providers {
             'menu_order' => 'Menu order (integer)',
             'external_url' => 'External/affiliate product URL',
             'button_text' => 'Add to cart button text',
+            'upsell_ids' => 'Upsell product SKUs (comma separated)',
+            'cross_sell_ids' => 'Cross-sell product SKUs (comma separated)',
+            'reviews_allowed' => 'Allow reviews: yes/no, true/false, 1/0',
+            'average_rating' => 'Average product rating (0-5)',
+            'rating_count' => 'Number of ratings/reviews (integer)',
+            'type' => 'Product type: simple, variable, grouped, external',
+            'grouped_products' => 'Grouped product child SKUs (comma separated)',
         );
         
         // Build the prompt
@@ -585,11 +598,17 @@ Consider multiple languages when matching field names:
 - Russian: Артикул, Название, Цена, Количество, Описание, Категория, Изображение
 
 Common field patterns:
-- Contains 'sku', 'code', 'article', 'artikul', 'id', 'product_code' → sku
+- Contains 'sku', 'code', 'article', 'artikul', 'product_code' → sku
+- Contains 'id', 'product_id', 'woo_id' (numeric ID) → id
+- Contains 'slug', 'url_key', 'permalink', 'handle' → slug
 - Contains 'name', 'title', 'nosaukums', 'bezeichnung', 'название' → name
 - Contains 'price', 'cena', 'preis', 'цена', 'regular' → regular_price
 - Contains 'sale', 'discount', 'atlaide' → sale_price
+- Contains 'sale_price_dates_from', 'sale_from', 'sale_start' → sale_price_dates_from
+- Contains 'sale_price_dates_to', 'sale_to', 'sale_end' → sale_price_dates_to
 - Contains 'stock', 'qty', 'quantity', 'daudzums', 'bestand', 'количество', 'inventory' → stock_quantity
+- Contains 'backorder' → backorders
+- Contains 'sold_individually', 'individual' → sold_individually
 - Contains 'description', 'apraksts', 'beschreibung', 'описание', 'desc' → description
 - Contains 'short_desc', 'summary', 'īss_apraksts' → short_description
 - Contains 'category', 'kategorija', 'kategorie', 'категория', 'cat' → categories
@@ -597,8 +616,18 @@ Common field patterns:
 - Contains 'image', 'picture', 'photo', 'attēls', 'bild', 'изображение', 'img', 'url' (with image context) → images
 - Contains 'brand', 'manufacturer', 'ražotājs', 'hersteller', 'производитель', 'zīmols' → brand
 - Contains 'weight', 'svars', 'gewicht', 'вес' → weight
+- Contains 'length', 'garums' → length
+- Contains 'width', 'platums' → width
+- Contains 'height', 'augstums' → height
 - Contains 'ean', 'barcode', 'svītrkods' → ean
 - Contains 'gtin' → gtin
+- Contains 'upsell' → upsell_ids
+- Contains 'cross_sell', 'crosssell' → cross_sell_ids
+- Contains 'reviews_allowed', 'allow_reviews' → reviews_allowed
+- Contains 'average_rating', 'rating' (numeric 0-5) → average_rating
+- Contains 'rating_count', 'review_count' → rating_count
+- Contains 'type', 'product_type' → type
+- Contains 'grouped_products', 'grouped', 'children' → grouped_products
 
 Return ONLY a valid JSON object with this exact structure - no explanations, no markdown, just the JSON:
 {
