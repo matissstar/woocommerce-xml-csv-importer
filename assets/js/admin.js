@@ -1861,50 +1861,68 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             var renderedFields = {};
             var expandableId = 0;
             
-            // Helper function to render nested object fields
-            function renderNestedObject(obj, parentKey, level) {
+            // Helper function to render nested object fields - NOW WITH DRAG & DROP SUPPORT
+            function renderNestedObject(obj, parentKey, level, parentPath) {
                 var nestedHtml = '';
                 var indent = (level || 1) * 15;
+                var basePath = parentPath || parentKey;
                 
                 if (Array.isArray(obj)) {
                     obj.forEach(function(item, idx) {
+                        var arrayItemPath = basePath + '[' + idx + ']';
                         if (typeof item === 'object' && item !== null) {
                             nestedHtml += '<div style="margin-left: ' + indent + 'px; margin-top: 5px; padding: 5px; background: #f8f9fa; border-radius: 3px; border-left: 2px solid #0073aa;">';
                             nestedHtml += '<div style="font-size: 11px; font-weight: 600; color: #0073aa; margin-bottom: 4px;">[' + idx + ']</div>';
                             for (var k in item) {
                                 if (item.hasOwnProperty(k)) {
                                     var val = item[k];
+                                    var childPath = arrayItemPath + '.' + k;
                                     if (typeof val === 'object' && val !== null) {
                                         nestedHtml += '<div style="margin-left: 10px;">';
                                         nestedHtml += '<span style="color: #666; font-size: 11px; font-weight: 500;">' + k + ':</span>';
-                                        nestedHtml += renderNestedObject(val, k, (level || 1) + 1);
+                                        nestedHtml += renderNestedObject(val, k, (level || 1) + 1, childPath);
                                         nestedHtml += '</div>';
                                     } else {
-                                        nestedHtml += '<div style="display: flex; gap: 8px; margin-left: 10px; padding: 2px 0;">';
-                                        nestedHtml += '<span style="min-width: 100px; color: #666; font-size: 11px;">' + k + '</span>';
-                                        nestedHtml += '<span style="color: #1e1e1e; font-size: 11px;">' + truncateText(String(val || '—'), 40) + '</span>';
+                                        // DRAGGABLE nested field inside array
+                                        nestedHtml += '<div class="draggable-field nested-draggable" draggable="true" data-field-path="' + childPath + '" style="display: flex; gap: 8px; margin-left: 10px; padding: 4px 6px; cursor: grab; border-radius: 3px; transition: background 0.15s;">';
+                                        nestedHtml += '<span style="min-width: 100px; color: #1e1e1e; font-size: 11px; font-weight: 500;">' + k + '</span>';
+                                        nestedHtml += '<span style="color: #50575e; font-size: 11px; flex: 1;">' + truncateText(String(val || '—'), 35) + '</span>';
+                                        nestedHtml += '<span style="font-size: 9px; color: #999;">⋮⋮</span>';
                                         nestedHtml += '</div>';
                                     }
                                 }
                             }
                             nestedHtml += '</div>';
                         } else {
-                            nestedHtml += '<div style="margin-left: ' + indent + 'px; font-size: 11px; color: #50575e;">[' + idx + '] ' + truncateText(String(item), 50) + '</div>';
+                            // Simple array item - draggable
+                            nestedHtml += '<div class="draggable-field nested-draggable" draggable="true" data-field-path="' + arrayItemPath + '" style="margin-left: ' + indent + 'px; padding: 4px 6px; font-size: 11px; color: #50575e; cursor: grab; border-radius: 3px; display: flex; align-items: center; gap: 8px;">';
+                            nestedHtml += '<span>[' + idx + ']</span>';
+                            nestedHtml += '<span style="flex: 1;">' + truncateText(String(item), 40) + '</span>';
+                            nestedHtml += '<span style="font-size: 9px; color: #999;">⋮⋮</span>';
+                            nestedHtml += '</div>';
                         }
                     });
+                    // Also add a "all items" draggable option
+                    nestedHtml += '<div class="draggable-field nested-draggable" draggable="true" data-field-path="' + basePath + '*" style="margin-left: ' + indent + 'px; margin-top: 4px; padding: 4px 8px; font-size: 10px; color: #0073aa; background: #e8f4fc; border-radius: 3px; cursor: grab; display: flex; align-items: center; gap: 6px; border: 1px dashed #0073aa;">';
+                    nestedHtml += '<span style="font-weight: 600;">⊕ All ' + obj.length + ' items</span>';
+                    nestedHtml += '<code style="font-size: 9px; background: #fff; padding: 1px 4px; border-radius: 2px;">{' + basePath + '*}</code>';
+                    nestedHtml += '</div>';
                 } else if (typeof obj === 'object' && obj !== null) {
                     for (var k in obj) {
                         if (obj.hasOwnProperty(k)) {
                             var val = obj[k];
+                            var childPath = basePath + '.' + k;
                             if (typeof val === 'object' && val !== null) {
                                 nestedHtml += '<div style="margin-left: ' + indent + 'px; margin-top: 3px;">';
                                 nestedHtml += '<span style="color: #666; font-size: 11px; font-weight: 500;">' + k + ':</span>';
-                                nestedHtml += renderNestedObject(val, k, (level || 1) + 1);
+                                nestedHtml += renderNestedObject(val, k, (level || 1) + 1, childPath);
                                 nestedHtml += '</div>';
                             } else {
-                                nestedHtml += '<div style="display: flex; gap: 8px; margin-left: ' + indent + 'px; padding: 2px 0;">';
-                                nestedHtml += '<span style="min-width: 100px; color: #666; font-size: 11px;">' + k + '</span>';
-                                nestedHtml += '<span style="color: #1e1e1e; font-size: 11px;">' + truncateText(String(val || '—'), 40) + '</span>';
+                                // DRAGGABLE nested field
+                                nestedHtml += '<div class="draggable-field nested-draggable" draggable="true" data-field-path="' + childPath + '" style="display: flex; gap: 8px; margin-left: ' + indent + 'px; padding: 4px 6px; cursor: grab; border-radius: 3px; transition: background 0.15s;">';
+                                nestedHtml += '<span style="min-width: 100px; color: #1e1e1e; font-size: 11px; font-weight: 500;">' + k + '</span>';
+                                nestedHtml += '<span style="color: #50575e; font-size: 11px; flex: 1;">' + truncateText(String(val || '—'), 35) + '</span>';
+                                nestedHtml += '<span style="font-size: 9px; color: #999;">⋮⋮</span>';
                                 nestedHtml += '</div>';
                             }
                         }
@@ -1937,10 +1955,16 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                     displayValue = truncateText(String(value), 60);
                 }
                 
-                var fieldHtml = '<div style="display: flex; flex-direction: column; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">' +
-                    '<div style="display: flex; gap: 10px;">' +
+                // Add draggable attribute and data-field-path for drag & drop
+                var draggableAttr = isExpandable ? '' : ' draggable="true" data-field-path="' + key + '"';
+                var draggableStyle = isExpandable ? '' : ' cursor: grab;';
+                var draggableClass = isExpandable ? '' : ' draggable-field';
+                
+                var fieldHtml = '<div class="field-row' + draggableClass + '" style="display: flex; flex-direction: column; padding: 4px 0; border-bottom: 1px solid #f0f0f0;' + draggableStyle + '"' + draggableAttr + '>' +
+                    '<div style="display: flex; gap: 10px; align-items: center;">' +
                     '<span style="min-width: 140px; flex-shrink: 0; color: #1e1e1e; font-weight: 500; font-size: 12px;">' + key + '</span>' +
                     '<span style="color: #50575e; font-size: 12px; word-break: break-word; flex: 1;">' + displayValue + '</span>' +
+                    (isExpandable ? '' : '<span style="font-size: 10px; color: #999; padding: 2px 5px; background: #f8f8f8; border-radius: 3px;">⋮⋮</span>') +
                     '</div>';
                 
                 if (isExpandable) {
@@ -2034,6 +2058,12 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             } else {
                 $content.slideDown(200);
                 $(this).html($(this).html().replace('▶', '▼'));
+                // Collect nested field paths when expanding (for autocomplete)
+                setTimeout(function() {
+                    if (typeof collectNestedFieldPaths === 'function') {
+                        collectNestedFieldPaths();
+                    }
+                }, 100);
             }
         });
         
@@ -2553,11 +2583,23 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 return; // Done with this field
             }
             
-            // THIRD: Handle regular source select fields
-            if ($sourceSelect.length > 0) {
-                // Set source
+            // THIRD: Handle regular source select fields OR textarea fields (new UI)
+            var $sourceSelect = $('select[name="field_mapping\\[' + fieldName + '\\]\\[source\\]"]');
+            var $sourceTextarea = $('textarea[name="field_mapping\\[' + fieldName + '\\]\\[source\\]"]').filter('.field-mapping-textarea');
+            
+            console.log('★ loadSavedMappings for', fieldName, '| select:', $sourceSelect.length, '| textarea:', $sourceTextarea.length, '| source:', fieldConfig.source);
+            
+            if ($sourceSelect.length > 0 || $sourceTextarea.length > 0) {
+                // Set source - works for both select and textarea
                 if (fieldConfig.source) {
-                    $sourceSelect.val(fieldConfig.source);
+                    if ($sourceSelect.length > 0) {
+                        $sourceSelect.val(fieldConfig.source);
+                    }
+                    if ($sourceTextarea.length > 0) {
+                        $sourceTextarea.val(fieldConfig.source);
+                        // Trigger input to update preview and state
+                        $sourceTextarea.trigger('input');
+                    }
                     console.log('Set source for', fieldName, 'to', fieldConfig.source);
                 }
                 
@@ -2602,12 +2644,13 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 
                 // IMPORTANT: Also check for SKU mode in fields WITH source select (like sku_with_generate)
                 if (fieldConfig.sku_mode) {
-                    var $skuModeRadio = $sourceSelect.closest('.field-mapping-row').find('.sku-mode-radio');
+                    var $fieldRow = $sourceSelect.length ? $sourceSelect.closest('.field-mapping-row') : $sourceTextarea.closest('.field-mapping-row');
+                    var $skuModeRadio = $fieldRow.find('.sku-mode-radio');
                     if ($skuModeRadio.length > 0) {
                         $skuModeRadio.filter('[value="' + fieldConfig.sku_mode + '"]').prop('checked', true).trigger('change');
                         
                         if (fieldConfig.sku_mode === 'generate' && fieldConfig.sku_pattern) {
-                            var $patternInput = $sourceSelect.closest('.field-mapping-row').find('.sku-pattern-input');
+                            var $patternInput = $fieldRow.find('.sku-pattern-input');
                             if ($patternInput.length) {
                                 $patternInput.val(fieldConfig.sku_pattern);
                             }
@@ -2832,7 +2875,8 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         
         var provider = $row.find('select[name$="[ai_provider]"]').val();
         var prompt = $row.find('textarea[name$="[ai_prompt]"]').val();
-        var sourceField = $row.find('.field-source-select').val();
+        // Support both old select and new textarea UI
+        var sourceField = $row.find('.field-source-select').val() || $row.find('.field-mapping-textarea').val();
 
         if (!provider || !prompt) {
             alert('Please select an AI provider and enter a prompt.');
@@ -2842,7 +2886,8 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         // Get test value - use sample data if available, otherwise prompt user
         var testValue = 'test value';
         if (window.currentSampleData && window.currentSampleData.length > 0 && sourceField) {
-            testValue = window.currentSampleData[0][sourceField] || 'test value';
+            // Parse template string with {placeholder} syntax
+            testValue = parseTemplateString(sourceField, window.currentSampleData[0]) || 'test value';
         } else {
             testValue = prompt('Enter a test value for AI processing:', 'Test product name');
             if (testValue === null) {
@@ -2925,7 +2970,8 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         var $row = $button.closest('.field-mapping-row');
         
         var formula = $row.find('textarea[name$="[php_formula]"]').val();
-        var sourceField = $row.find('.field-source-select').val();
+        // Support both old select and new textarea UI
+        var sourceField = $row.find('.field-source-select').val() || $row.find('.field-mapping-textarea').val();
 
         if (!formula) {
             alert('Please enter a PHP formula to test.');
@@ -2935,7 +2981,8 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         // Get test value - use sample data if available, otherwise prompt user
         var testValue = '100';
         if (window.currentSampleData && window.currentSampleData.length > 0 && sourceField) {
-            testValue = window.currentSampleData[0][sourceField] || '100';
+            // Parse template string with {placeholder} syntax
+            testValue = parseTemplateString(sourceField, window.currentSampleData[0]) || '100';
         } else {
             testValue = prompt('Enter a test value for the formula:', '100');
             if (testValue === null) {
@@ -3276,10 +3323,22 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             var $row = $(this);
             var fieldKey = $row.data('field');
             
-            // Try to get from select first, then textarea (for fields like images)
+            // Try to get from select first, then textarea (new UI uses .field-mapping-textarea)
             var sourceField = $row.find('.field-source-select').val();
+            var $textareaEl = $row.find('.field-mapping-textarea');
+            var textareaVal = $textareaEl.length ? $textareaEl.val() : null;
+            
+            if (!sourceField && textareaVal) {
+                sourceField = textareaVal;
+            }
             if (!sourceField) {
+                // Fallback: old textarea (.field-source-textarea)
                 sourceField = $row.find('.field-source-textarea').val();
+            }
+            
+            // Debug log for textarea fields
+            if ($textareaEl.length) {
+                console.log('📝 Field:', fieldKey, '| Textarea found:', $textareaEl.length, '| Value:', textareaVal);
             }
             
             var processingMode = $row.find('.processing-mode-select').val();
@@ -3693,6 +3752,49 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 $container.fadeOut();
             }, 5000);
         }
+    }
+
+    /**
+     * Parse template string with {placeholder} syntax.
+     * Replaces all {field.path} placeholders with actual values from data object.
+     * Example: "{price.#text} {price.@currency}" becomes "1299.99 USD"
+     *
+     * @param {string} template - The template string with placeholders
+     * @param {object} data - The data object to extract values from
+     * @return {string} The parsed string with placeholders replaced
+     */
+    function parseTemplateString(template, data) {
+        if (!template || !data) return template;
+        
+        // Check if template contains {placeholder} syntax
+        if (template.indexOf('{') === -1 || template.indexOf('}') === -1) {
+            // No placeholders - try direct key access
+            return data[template] !== undefined ? data[template] : template;
+        }
+        
+        // Replace all {placeholder} patterns
+        var result = template.replace(/\{([^}]+)\}/g, function(match, fieldPath) {
+            // Try direct key access first
+            if (data[fieldPath] !== undefined) {
+                return data[fieldPath];
+            }
+            
+            // Try nested path access (e.g., "price.#text" or "price.@attributes.currency")
+            var parts = fieldPath.split('.');
+            var value = data;
+            for (var i = 0; i < parts.length; i++) {
+                if (value && typeof value === 'object' && parts[i] in value) {
+                    value = value[parts[i]];
+                } else {
+                    // Path not found
+                    return '';
+                }
+            }
+            return value !== undefined && value !== null ? value : '';
+        });
+        
+        // Trim and clean up multiple spaces
+        return result.replace(/\s+/g, ' ').trim();
     }
 
     /**
@@ -4477,6 +4579,514 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
     // Initialize delete products functionality on page load
     $(document).ready(function() {
         initDeleteProductsWithProgress();
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TEXTAREA MAPPING UI - Drag & Drop, Autocomplete, Live Preview, Validation
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    /**
+     * Initialize Textarea Mapping Features
+     */
+    function initTextareaMappingUI() {
+        console.log('🎯 Initializing Textarea Mapping UI...');
+        
+        // Collect nested field paths from rendered HTML and add to autocomplete
+        collectNestedFieldPaths();
+        
+        // Initialize drag sources in sidebar
+        initDragSources();
+        
+        // Initialize drop targets (textareas)
+        initDropTargets();
+        
+        // Initialize autocomplete
+        initAutocomplete();
+        
+        // Initialize live preview
+        initLivePreview();
+        
+        // Initialize validation
+        initValidation();
+        
+        console.log('✅ Textarea Mapping UI initialized');
+    }
+    
+    /**
+     * Collect nested field paths from sidebar HTML and add to allKnownFields
+     */
+    window.collectNestedFieldPaths = function() {
+        $('.product-data-preview [data-field-path]').each(function() {
+            var path = $(this).data('field-path');
+            if (path && !window.allKnownFields[path]) {
+                window.allKnownFields[path] = {
+                    path: path,
+                    type: 'text',
+                    sample: $(this).text().trim().substring(0, 50)
+                };
+                window.allKnownFieldsOrder.push(path);
+            }
+        });
+        console.log('📊 Collected ' + window.allKnownFieldsOrder.length + ' total fields for autocomplete');
+    };
+    
+    // Local alias for use inside module
+    var collectNestedFieldPaths = window.collectNestedFieldPaths;
+    
+    /**
+     * Make sidebar field items draggable
+     */
+    function initDragSources() {
+        // Use event delegation for dynamically loaded content
+        $(document).on('mousedown', '.product-data-preview [data-field-path]', function(e) {
+            // Mark as drag source
+            $(this).attr('draggable', 'true');
+        });
+        
+        $(document).on('dragstart', '.product-data-preview [data-field-path]', function(e) {
+            var fieldPath = $(this).data('field-path');
+            e.originalEvent.dataTransfer.setData('text/plain', '{' + fieldPath + '}');
+            e.originalEvent.dataTransfer.effectAllowed = 'copy';
+            $(this).addClass('dragging');
+            console.log('🎯 Dragging field:', fieldPath);
+        });
+        
+        $(document).on('dragend', '.product-data-preview [data-field-path]', function(e) {
+            $(this).removeClass('dragging');
+        });
+    }
+    
+    /**
+     * Make textareas accept drops
+     */
+    function initDropTargets() {
+        // Dragover - allow drop
+        $(document).on('dragover', '.field-mapping-textarea', function(e) {
+            e.preventDefault();
+            e.originalEvent.dataTransfer.dropEffect = 'copy';
+            $(this).addClass('drag-over');
+        });
+        
+        // Dragleave - remove highlight
+        $(document).on('dragleave', '.field-mapping-textarea', function(e) {
+            $(this).removeClass('drag-over');
+        });
+        
+        // Drop - insert field placeholder
+        $(document).on('drop', '.field-mapping-textarea', function(e) {
+            e.preventDefault();
+            $(this).removeClass('drag-over');
+            
+            var droppedText = e.originalEvent.dataTransfer.getData('text/plain');
+            var $textarea = $(this);
+            
+            // Insert at cursor position or append
+            var cursorPos = $textarea[0].selectionStart || $textarea.val().length;
+            var currentVal = $textarea.val();
+            var newVal = currentVal.substring(0, cursorPos) + droppedText + currentVal.substring(cursorPos);
+            
+            $textarea.val(newVal);
+            $textarea.trigger('input'); // Trigger change for preview/validation
+            
+            // Update visual state
+            updateTextareaState($textarea);
+            
+            console.log('📥 Dropped:', droppedText, 'into', $textarea.attr('name'));
+        });
+    }
+    
+    /**
+     * Initialize autocomplete when typing {
+     */
+    function initAutocomplete() {
+        // Track if autocomplete is open
+        var activeAutocomplete = null;
+        var selectedIndex = -1;
+        
+        // Input handler - detect { trigger
+        $(document).on('input', '.field-mapping-textarea', function(e) {
+            var $textarea = $(this);
+            var val = $textarea.val();
+            var cursorPos = $textarea[0].selectionStart;
+            
+            // Find if we're inside or just after a { character
+            var textBeforeCursor = val.substring(0, cursorPos);
+            var lastOpenBrace = textBeforeCursor.lastIndexOf('{');
+            var lastCloseBrace = textBeforeCursor.lastIndexOf('}');
+            
+            // If { is after } (or no }), we might be typing a field name
+            if (lastOpenBrace > lastCloseBrace) {
+                var searchText = textBeforeCursor.substring(lastOpenBrace + 1).toLowerCase();
+                showAutocomplete($textarea, searchText, lastOpenBrace);
+            } else {
+                hideAutocomplete();
+            }
+            
+            // Update visual state
+            updateTextareaState($textarea);
+        });
+        
+        // Keydown handler for navigation
+        $(document).on('keydown', '.field-mapping-textarea', function(e) {
+            var $dropdown = $('.field-autocomplete-dropdown.visible');
+            if (!$dropdown.length) return;
+            
+            var $items = $dropdown.find('.field-autocomplete-item');
+            
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    selectedIndex = Math.min(selectedIndex + 1, $items.length - 1);
+                    updateAutocompleteSelection($items, selectedIndex);
+                    break;
+                    
+                case 'ArrowUp':
+                    e.preventDefault();
+                    selectedIndex = Math.max(selectedIndex - 1, 0);
+                    updateAutocompleteSelection($items, selectedIndex);
+                    break;
+                    
+                case 'Enter':
+                case 'Tab':
+                    if (selectedIndex >= 0) {
+                        e.preventDefault();
+                        $items.eq(selectedIndex).trigger('click');
+                    }
+                    break;
+                    
+                case 'Escape':
+                    e.preventDefault();
+                    hideAutocomplete();
+                    break;
+            }
+        });
+        
+        // Click outside to close
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.textarea-mapping-wrapper').length) {
+                hideAutocomplete();
+            }
+        });
+        
+        // Click on autocomplete item
+        $(document).on('click', '.field-autocomplete-item', function(e) {
+            e.preventDefault();
+            var $item = $(this);
+            var fieldPath = $item.data('field-path');
+            var $wrapper = $item.closest('.textarea-mapping-wrapper');
+            var $textarea = $wrapper.find('.field-mapping-textarea');
+            
+            // Get cursor position and find the { we're completing
+            var val = $textarea.val();
+            var cursorPos = $textarea[0].selectionStart;
+            var textBeforeCursor = val.substring(0, cursorPos);
+            var lastOpenBrace = textBeforeCursor.lastIndexOf('{');
+            
+            // Replace from { to cursor with the complete field
+            var newVal = val.substring(0, lastOpenBrace) + '{' + fieldPath + '}' + val.substring(cursorPos);
+            $textarea.val(newVal);
+            
+            // Set cursor after the closing brace
+            var newCursorPos = lastOpenBrace + fieldPath.length + 2;
+            $textarea[0].setSelectionRange(newCursorPos, newCursorPos);
+            $textarea.focus();
+            
+            // Update state
+            updateTextareaState($textarea);
+            hideAutocomplete();
+        });
+        
+        function showAutocomplete($textarea, searchText, bracePos) {
+            var $wrapper = $textarea.closest('.textarea-mapping-wrapper');
+            
+            // Remove any existing dropdown
+            $wrapper.find('.field-autocomplete-dropdown').remove();
+            
+            // Filter fields based on search
+            var matchingFields = [];
+            window.allKnownFieldsOrder.forEach(function(path) {
+                if (path.toLowerCase().indexOf(searchText) !== -1) {
+                    var field = window.allKnownFields[path];
+                    matchingFields.push({
+                        path: path,
+                        type: field ? field.type : 'text',
+                        sample: field ? field.sample : ''
+                    });
+                }
+            });
+            
+            if (matchingFields.length === 0) {
+                hideAutocomplete();
+                return;
+            }
+            
+            // Limit to first 15 matches
+            matchingFields = matchingFields.slice(0, 15);
+            
+            // Build dropdown HTML
+            var html = '<div class="field-autocomplete-dropdown visible">';
+            matchingFields.forEach(function(field, idx) {
+                var sampleDisplay = field.sample ? truncateText(String(field.sample), 30) : '';
+                html += '<div class="field-autocomplete-item' + (idx === 0 ? ' selected' : '') + '" data-field-path="' + field.path + '">';
+                html += '<span class="field-name">' + highlightMatch(field.path, searchText) + '</span>';
+                html += '<span class="field-type-badge">' + field.type + '</span>';
+                if (sampleDisplay) {
+                    html += '<span class="field-sample">' + escapeHtml(sampleDisplay) + '</span>';
+                }
+                html += '</div>';
+            });
+            html += '</div>';
+            
+            $wrapper.append(html);
+            selectedIndex = 0;
+            activeAutocomplete = $wrapper;
+        }
+        
+        function hideAutocomplete() {
+            $('.field-autocomplete-dropdown').remove();
+            selectedIndex = -1;
+            activeAutocomplete = null;
+        }
+        
+        function updateAutocompleteSelection($items, index) {
+            $items.removeClass('selected');
+            $items.eq(index).addClass('selected');
+            
+            // Scroll into view
+            var $selected = $items.eq(index);
+            var $dropdown = $selected.closest('.field-autocomplete-dropdown');
+            if ($selected.length && $dropdown.length) {
+                var dropdownScroll = $dropdown.scrollTop();
+                var dropdownHeight = $dropdown.height();
+                var itemTop = $selected.position().top;
+                var itemHeight = $selected.outerHeight();
+                
+                if (itemTop < 0) {
+                    $dropdown.scrollTop(dropdownScroll + itemTop);
+                } else if (itemTop + itemHeight > dropdownHeight) {
+                    $dropdown.scrollTop(dropdownScroll + itemTop + itemHeight - dropdownHeight);
+                }
+            }
+        }
+        
+        function highlightMatch(text, search) {
+            if (!search) return escapeHtml(text);
+            var regex = new RegExp('(' + escapeRegex(search) + ')', 'gi');
+            return escapeHtml(text).replace(regex, '<strong style="color: #0073aa;">$1</strong>');
+        }
+    }
+    
+    /**
+     * Initialize Live Preview
+     */
+    function initLivePreview() {
+        // Debounce preview updates
+        var previewTimeout = null;
+        
+        $(document).on('input blur', '.field-mapping-textarea', function() {
+            var $textarea = $(this);
+            
+            clearTimeout(previewTimeout);
+            previewTimeout = setTimeout(function() {
+                updateLivePreview($textarea);
+            }, 300);
+        });
+    }
+    
+    function updateLivePreview($textarea) {
+        var $wrapper = $textarea.closest('.textarea-mapping-wrapper');
+        var val = $textarea.val().trim();
+        
+        // Remove existing preview
+        $wrapper.find('.live-preview').remove();
+        
+        if (!val) return;
+        
+        // Get sample data
+        if (!window.currentSampleData || window.currentSampleData.length === 0) return;
+        
+        var sampleProduct = window.currentSampleData[0];
+        
+        // Process the template
+        var result = processTemplate(val, sampleProduct);
+        
+        // Create preview element
+        var $preview = $('<div class="live-preview visible">');
+        $preview.append('<span class="preview-label">Preview:</span>');
+        
+        if (result.error) {
+            $preview.append('<span class="preview-error">' + escapeHtml(result.error) + '</span>');
+        } else {
+            var displayVal = truncateText(String(result.value), 100);
+            $preview.append('<span class="preview-value">' + escapeHtml(displayVal) + '</span>');
+        }
+        
+        $wrapper.append($preview);
+    }
+    
+    /**
+     * Process template with placeholders
+     */
+    function processTemplate(template, data) {
+        var result = template;
+        var errors = [];
+        
+        // Find all {field} placeholders
+        var regex = /\{([^}]+)\}/g;
+        var match;
+        
+        while ((match = regex.exec(template)) !== null) {
+            var fieldPath = match[1];
+            var value = getNestedValue(data, fieldPath);
+            
+            if (value === undefined) {
+                errors.push('Unknown field: ' + fieldPath);
+                result = result.replace(match[0], '[?]');
+            } else if (typeof value === 'object') {
+                result = result.replace(match[0], Array.isArray(value) ? '[Array:' + value.length + ']' : '[Object]');
+            } else {
+                result = result.replace(match[0], String(value));
+            }
+        }
+        
+        return {
+            value: result,
+            error: errors.length > 0 ? errors.join(', ') : null
+        };
+    }
+    
+    /**
+     * Get nested value from object using dot notation
+     */
+    function getNestedValue(obj, path) {
+        if (!obj || !path) return undefined;
+        
+        var parts = path.split('.');
+        var current = obj;
+        
+        for (var i = 0; i < parts.length; i++) {
+            if (current === null || current === undefined) return undefined;
+            
+            // Handle array notation like field[0]
+            var arrayMatch = parts[i].match(/^(.+)\[(\d+)\]$/);
+            if (arrayMatch) {
+                current = current[arrayMatch[1]];
+                if (Array.isArray(current)) {
+                    current = current[parseInt(arrayMatch[2])];
+                } else {
+                    return undefined;
+                }
+            } else {
+                current = current[parts[i]];
+            }
+        }
+        
+        return current;
+    }
+    
+    /**
+     * Initialize Validation
+     */
+    function initValidation() {
+        // Validate on blur
+        $(document).on('blur', '.field-mapping-textarea', function() {
+            validateTextarea($(this));
+        });
+    }
+    
+    function validateTextarea($textarea) {
+        var $wrapper = $textarea.closest('.textarea-mapping-wrapper');
+        var val = $textarea.val().trim();
+        
+        // Remove existing warnings
+        $wrapper.find('.validation-warning').remove();
+        
+        if (!val) return;
+        
+        var warnings = [];
+        
+        // Check for unclosed braces
+        var openBraces = (val.match(/\{/g) || []).length;
+        var closeBraces = (val.match(/\}/g) || []).length;
+        if (openBraces !== closeBraces) {
+            warnings.push('Unclosed braces detected');
+        }
+        
+        // Check for unknown fields
+        var regex = /\{([^}]+)\}/g;
+        var match;
+        while ((match = regex.exec(val)) !== null) {
+            var fieldPath = match[1];
+            // Skip special patterns like field*, field[0]
+            var baseField = fieldPath.replace(/\*$/, '').replace(/\[\d+\]$/, '');
+            if (!window.allKnownFields[baseField] && !window.allKnownFields[fieldPath]) {
+                warnings.push('Unknown field: ' + fieldPath);
+            }
+        }
+        
+        // Show warnings if any
+        if (warnings.length > 0) {
+            var $warning = $('<div class="validation-warning visible">');
+            $warning.append('<span class="dashicons dashicons-warning"></span>');
+            $warning.append('<span>' + warnings.join('; ') + ' (import will still proceed)</span>');
+            $wrapper.append($warning);
+        }
+    }
+    
+    /**
+     * Update textarea visual state
+     */
+    function updateTextareaState($textarea) {
+        var val = $textarea.val().trim();
+        if (val) {
+            $textarea.addClass('has-content');
+        } else {
+            $textarea.removeClass('has-content');
+        }
+    }
+    
+    /**
+     * Helper: Escape HTML
+     */
+    function escapeHtml(text) {
+        if (!text) return '';
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    /**
+     * Helper: Escape regex special characters
+     */
+    function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    /**
+     * Helper: Truncate text
+     */
+    function truncateText(text, maxLen) {
+        if (!text) return '';
+        text = String(text);
+        return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
+    }
+    
+    // Initialize on document ready (for Step 2)
+    $(document).ready(function() {
+        if ($('.wc-ai-import-step-2').length) {
+            // Wait for file structure to load, then initialize
+            var checkInterval = setInterval(function() {
+                if (window.allKnownFieldsOrder && window.allKnownFieldsOrder.length > 0) {
+                    clearInterval(checkInterval);
+                    initTextareaMappingUI();
+                }
+            }, 500);
+            
+            // Timeout after 30 seconds
+            setTimeout(function() {
+                clearInterval(checkInterval);
+            }, 30000);
+        }
     });
 
 })(jQuery);/* Cache bust 1769150333 */

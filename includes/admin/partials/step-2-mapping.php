@@ -1421,11 +1421,23 @@ $ai_providers = array(
                                                         </div>
                                                     <?php break;
                                                     
-                                                    default: ?>
-                                                        <select name="field_mapping[<?php echo $field_key; ?>][source]" class="field-source-select">
-                                                            <option value=""><?php _e('-- Select Source Field --', 'wc-xml-csv-import'); ?></option>
-                                                            <!-- Options will be populated by JavaScript -->
-                                                        </select>
+                                                    default: 
+                                                        // Determine textarea size: large for description fields
+                                                        $is_large_textarea = in_array($field_key, array('description', 'short_description', 'purchase_note', 'meta_description'));
+                                                        $textarea_rows = $is_large_textarea ? 4 : 1;
+                                                        $textarea_class = $is_large_textarea ? 'field-mapping-textarea field-mapping-textarea-large' : 'field-mapping-textarea field-mapping-textarea-small';
+                                                        ?>
+                                                        <div class="textarea-mapping-wrapper" data-field="<?php echo esc_attr($field_key); ?>">
+                                                            <textarea name="field_mapping[<?php echo $field_key; ?>][source]" 
+                                                                      class="<?php echo $textarea_class; ?>" 
+                                                                      rows="<?php echo $textarea_rows; ?>"
+                                                                      data-field-name="<?php echo esc_attr($field_key); ?>"
+                                                                      placeholder="<?php echo esc_attr(sprintf(__('Type { to see fields or drag field here. E.g. {%s}', 'wc-xml-csv-import'), strtolower(str_replace('_', '', $field_key)))); ?>"
+                                                            ></textarea>
+                                                            <?php if (!empty($field['description'])): ?>
+                                                                <p class="description" style="margin-top: 4px; font-size: 11px;"><?php echo esc_html($field['description']); ?></p>
+                                                            <?php endif; ?>
+                                                        </div>
                                                 <?php endswitch; ?>
                                             </div>
                                             

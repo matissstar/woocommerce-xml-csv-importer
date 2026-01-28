@@ -377,20 +377,22 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                                     
                                     <div class="field-source">
                                         <?php
-                                        if (($field['type'] ?? '') === 'textarea') {
-                                            echo '<textarea name="field_mapping[' . esc_attr($field_key) . '][source]" class="field-source-textarea" rows="3" style="width:100%;" placeholder="' . esc_attr($field['description'] ?? '') . '">' . esc_textarea($current_source) . '</textarea>';
-                                            if (!empty($field['description'])) {
-                                                echo '<p class="description" style="margin-top: 5px; font-size: 11px;">' . esc_html($field['description']) . '</p>';
-                                            }
-                                        } else {
-                                            echo '<select name="field_mapping[' . esc_attr($field_key) . '][source]" class="field-source-select">';
-                                            echo '<option value="">' . __('-- Select Source Field --', 'wc-xml-csv-import') . '</option>';
-                                            foreach ($file_fields as $ff) {
-                                                echo '<option value="' . esc_attr($ff) . '"' . ($current_source === $ff ? ' selected="selected"' : '') . '>' . esc_html($ff) . '</option>';
-                                            }
-                                            echo '</select>';
-                                        }
+                                        // Use new textarea UI for all fields (with drag & drop support)
+                                        $is_large_textarea = in_array($field_key, array('description', 'short_description', 'purchase_note', 'meta_description'));
+                                        $textarea_rows = $is_large_textarea ? 4 : 1;
+                                        $textarea_class = $is_large_textarea ? 'field-mapping-textarea field-mapping-textarea-large' : 'field-mapping-textarea field-mapping-textarea-small';
                                         ?>
+                                        <div class="textarea-mapping-wrapper" data-field="<?php echo esc_attr($field_key); ?>">
+                                            <textarea name="field_mapping[<?php echo esc_attr($field_key); ?>][source]" 
+                                                      class="<?php echo $textarea_class; ?>" 
+                                                      rows="<?php echo $textarea_rows; ?>"
+                                                      data-field-name="<?php echo esc_attr($field_key); ?>"
+                                                      placeholder="<?php echo esc_attr(sprintf(__('Type { to see fields or drag field here. E.g. {%s}', 'wc-xml-csv-import'), strtolower(str_replace('_', '', $field_key)))); ?>"
+                                            ><?php echo esc_textarea($current_source); ?></textarea>
+                                            <?php if (!empty($field['description'])): ?>
+                                                <p class="description" style="margin-top: 4px; font-size: 11px;"><?php echo esc_html($field['description']); ?></p>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                     
                                     <div class="processing-mode">
@@ -1238,16 +1240,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 const row = this.closest('.field-mapping-row');
                 if (!row) return;
                 
+                // Support both old select and new textarea UI
                 const sourceSelect = row.querySelector('.field-source-select');
+                const sourceTextarea = row.querySelector('.field-mapping-textarea');
                 const modeSelect = row.querySelector('.processing-mode-select');
                 const configDiv = row.querySelector('.processing-config');
                 
                 if (sourceSelect) sourceSelect.value = '';
+                if (sourceTextarea) {
+                    sourceTextarea.value = '';
+                    sourceTextarea.dispatchEvent(new Event('input')); // Trigger input to update preview
+                }
                 if (modeSelect) modeSelect.value = 'direct';
                 if (configDiv) configDiv.style.display = 'none';
                 
                 // Clear all config inputs
-                row.querySelectorAll('textarea').forEach(ta => ta.value = '');
+                row.querySelectorAll('textarea:not(.field-mapping-textarea)').forEach(ta => ta.value = '');
             }
         });
     });

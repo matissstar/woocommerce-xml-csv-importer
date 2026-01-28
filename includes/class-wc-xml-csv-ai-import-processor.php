@@ -395,7 +395,12 @@ class WC_XML_CSV_AI_Import_Processor {
             extract($variables, EXTR_OVERWRITE);
             
             // Build use clause dynamically from all variable names PLUS $value
-            $var_names = array_merge(array('value'), array_keys($variables));
+            // IMPORTANT: Filter out invalid PHP variable names (e.g., @attributes, #text)
+            $var_names = array_filter(array_keys($variables), function($name) {
+                // PHP variable names must start with letter or underscore, then letters/numbers/underscores
+                return preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name);
+            });
+            $var_names = array_merge(array('value'), $var_names);
             $use_clause = empty($var_names) ? '' : 'use ($' . implode(', $', $var_names) . ')';
             
             // Smart formula normalization - fix common user mistakes
@@ -454,8 +459,12 @@ class WC_XML_CSV_AI_Import_Processor {
         $has_control = preg_match('/\b(if|else|elseif|switch|for|foreach|while|do)\b/i', $formula);
         
         if (!$has_control) {
-            // Simple expression - just add return
+            // Simple expression - just add return (if not already there)
             $formula = rtrim($formula, ';');
+            // Check if formula already starts with 'return'
+            if (preg_match('/^\s*return\b/i', $formula)) {
+                return $formula . ';';
+            }
             return 'return ' . $formula . ';';
         }
         

@@ -274,6 +274,12 @@ class WC_XML_CSV_AI_Import_Importer {
         if (isset($this->config['field_mapping']['name'])) {
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ LOAD_CONFIG: name field mapping=' . json_encode($this->config['field_mapping']['name'])); }
         }
+        // Debug sale_price mapping specifically
+        if (isset($this->config['field_mapping']['sale_price'])) {
+            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ LOAD_CONFIG: sale_price mapping=' . json_encode($this->config['field_mapping']['sale_price'])); }
+        } else {
+            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ LOAD_CONFIG: sale_price mapping NOT FOUND!'); }
+        }
         // Debug loaded config
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ LOAD_CONFIG: Loaded config with ' . count($this->config['import_filters']) . ' filters'); }
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ LOAD_CONFIG: Filter logic: ' . $this->config['filter_logic']); }
@@ -1367,12 +1373,19 @@ class WC_XML_CSV_AI_Import_Importer {
                 continue;
             }
 
-            // Extract value from source data
-            // Detect file type by available parser to avoid relying on config drift
-            if (!empty($this->xml_parser)) {
-                $value = $this->xml_parser->extract_field_value($product_data, $source_field);
+            // Check if source contains {placeholder} syntax (template string)
+            // This allows combining multiple fields like "{price.#text} {price.@currency}"
+            if (strpos($source_field, '{') !== false && strpos($source_field, '}') !== false) {
+                // Parse template string - replace all {field} with actual values
+                $value = $this->parse_template_string($source_field, $product_data);
             } else {
-                $value = $this->csv_parser->extract_field_value($product_data, $source_field);
+                // Simple field name - extract directly
+                // Detect file type by available parser to avoid relying on config drift
+                if (!empty($this->xml_parser)) {
+                    $value = $this->xml_parser->extract_field_value($product_data, $source_field);
+                } else {
+                    $value = $this->csv_parser->extract_field_value($product_data, $source_field);
+                }
             }
 
             if ($value !== null) {
@@ -1405,6 +1418,21 @@ class WC_XML_CSV_AI_Import_Importer {
         $field_mappings = $this->config['field_mapping'];
         $processed_data = array();
 
+        // Debug: Check if sale_price is in mapped_data
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log("★★★ MAPPED_DATA keys: " . implode(', ', array_keys($mapped_data)));
+            if (isset($mapped_data['sale_price'])) {
+                error_log("★★★ MAPPED_DATA[sale_price] = " . $mapped_data['sale_price']);
+            } else {
+                error_log("★★★ MAPPED_DATA[sale_price] NOT FOUND!");
+            }
+            if (isset($field_mappings['sale_price'])) {
+                error_log("★★★ FIELD_MAPPINGS[sale_price] = " . json_encode($field_mappings['sale_price']));
+            } else {
+                error_log("★★★ FIELD_MAPPINGS[sale_price] NOT FOUND!");
+            }
+        }
+
         // Process all fields with full raw XML data as context
         // This allows any field to use any XML data as variables in formulas
         foreach ($mapped_data as $field_key => $value) {
@@ -1416,6 +1444,12 @@ class WC_XML_CSV_AI_Import_Importer {
             
             if (isset($field_mappings[$field_key])) {
                 $config = $field_mappings[$field_key];
+                // Debug: log what we're about to process
+                if ($field_key === 'sale_price' || $field_key === 'regular_price') {
+                    if (defined('WP_DEBUG') && WP_DEBUG) { 
+                        error_log("★★★ PROCESSING {$field_key}: value={$value}, config=" . json_encode($config)); 
+                    }
+                }
                 // Pass full raw product_data as context so all XML fields are available as variables
                 $processed_data[$field_key] = $this->processor->process_field($value, $config, $product_data);
             } else {
@@ -1996,8 +2030,17 @@ class WC_XML_CSV_AI_Import_Importer {
             $product->set_regular_price($product_data['regular_price'] ?? '');
         }
 
+        // DEBUG: Log sale_price before setting
+        if (defined('WP_DEBUG') && WP_DEBUG) { 
+            file_put_contents($update_debug_file, "★★★ Sale price in product_data: " . ($product_data['sale_price'] ?? 'NOT SET') . "\n", FILE_APPEND); 
+            file_put_contents($update_debug_file, "★★★ Regular price in product_data: " . ($product_data['regular_price'] ?? 'NOT SET') . "\n", FILE_APPEND); 
+        }
+
         if ($this->should_update_field('sale_price', $product_data['sale_price'] ?? null, false)) {
             $product->set_sale_price($product_data['sale_price'] ?? '');
+            if (defined('WP_DEBUG') && WP_DEBUG) { 
+                file_put_contents($update_debug_file, "★★★ SETTING sale_price to: " . ($product_data['sale_price'] ?? '') . "\n", FILE_APPEND); 
+            }
         }
 
         // Sale price dates
@@ -2777,6 +2820,55 @@ class WC_XML_CSV_AI_Import_Importer {
 
         // Remove empty values and return
         return array_filter(array_map('trim', $result_urls));
+    }
+
+    /**
+     * Parse template string with {placeholder} syntax.
+     * Replaces all {field.path} placeholders with actual values from product data.
+     * Example: "{price.#text} {price.@attributes.currency}" becomes "1299.99 USD"
+     *
+     * @since    1.0.0
+     * @param    string $template The template string with placeholders
+     * @param    array  $product_data The product data array
+     * @return   string The parsed string with placeholders replaced
+     */
+    private function parse_template_string($template, $product_data) {
+        if (defined('WP_DEBUG') && WP_DEBUG) { error_log("TEMPLATE_PARSE: Input template: " . $template); }
+        
+        // Find all {placeholder} patterns - supports field.path, field.@attr, field.#text, etc.
+        $result = preg_replace_callback(
+            '/\{([^}]+)\}/',
+            function($matches) use ($product_data) {
+                $field_path = $matches[1];
+                
+                // Try to extract value using the appropriate parser
+                if (!empty($this->xml_parser)) {
+                    $value = $this->xml_parser->extract_field_value($product_data, $field_path);
+                } elseif (!empty($this->csv_parser)) {
+                    $value = $this->csv_parser->extract_field_value($product_data, $field_path);
+                } else {
+                    // Fallback: direct key access
+                    $value = isset($product_data[$field_path]) ? $product_data[$field_path] : '';
+                }
+                
+                // Handle array values
+                if (is_array($value)) {
+                    $value = $this->extract_text_value($value);
+                }
+                
+                if (defined('WP_DEBUG') && WP_DEBUG) { error_log("TEMPLATE_PARSE: Placeholder {" . $field_path . "} = " . print_r($value, true)); }
+                
+                return $value !== null ? $value : '';
+            },
+            $template
+        );
+        
+        // Trim and clean up multiple spaces
+        $result = trim(preg_replace('/\s+/', ' ', $result));
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) { error_log("TEMPLATE_PARSE: Output result: " . $result); }
+        
+        return $result;
     }
 
     /**
