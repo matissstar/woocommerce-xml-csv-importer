@@ -132,8 +132,8 @@ class WC_XML_CSV_AI_Import_Admin {
             return;
         }
         
+        // Only redirect OLD slugs to NEW ones (don't include same->same mappings!)
         $old_slugs = array(
-            'wc-xml-csv-import-logs' => 'wc-xml-csv-import-logs',
             'woo_xml_csv_ai_smart_import_logs' => 'wc-xml-csv-import-logs',
         );
         

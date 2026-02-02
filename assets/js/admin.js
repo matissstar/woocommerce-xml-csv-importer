@@ -480,6 +480,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
     
     /**
      * Apply AI-suggested mappings to form fields
+     * Supports both textarea (.field-mapping-textarea) and dropdown (.field-source-select) UI
      */
     function applyAiMappings(mappings, confidence) {
         console.log('★★★ applyAiMappings() called with:', mappings);
@@ -496,42 +497,57 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             var $row = $('.field-mapping-row[data-field="' + targetWcField + '"]');
             
             if ($row.length > 0) {
-                // Find the source field dropdown in this row
-                var $sourceSelect = $row.find('.field-source-select');
+                var mapped = false;
                 
-                if ($sourceSelect.length > 0) {
-                    // Check if the source field option exists
-                    var optionExists = $sourceSelect.find('option[value="' + sourceField + '"]').length > 0;
-                    
-                    if (optionExists) {
-                        // Set the value
-                        $sourceSelect.val(sourceField).trigger('change');
-                        
-                        // Track if SKU was mapped
-                        if (targetWcField === 'sku') {
-                            skuMapped = true;
+                // First try textarea (new UI) - wrap field in {field} template syntax
+                var $textarea = $row.find('.field-mapping-textarea');
+                if ($textarea.length > 0) {
+                    // Set the value with template syntax {field}
+                    var templateValue = '{' + sourceField + '}';
+                    $textarea.val(templateValue).trigger('change').trigger('input');
+                    mapped = true;
+                    console.log('★★★ Set textarea value:', templateValue);
+                }
+                
+                // Fallback to dropdown (old UI or special fields)
+                if (!mapped) {
+                    var $sourceSelect = $row.find('.field-source-select');
+                    if ($sourceSelect.length > 0) {
+                        // Check if the source field option exists
+                        var optionExists = $sourceSelect.find('option[value="' + sourceField + '"]').length > 0;
+                        if (optionExists) {
+                            $sourceSelect.val(sourceField).trigger('change');
+                            mapped = true;
+                            console.log('★★★ Set dropdown value:', sourceField);
+                        } else {
+                            console.log('★★★ Source field option not found in dropdown:', sourceField);
                         }
-                        
-                        // Track if Stock Quantity was mapped
-                        if (targetWcField === 'stock_quantity') {
-                            stockQuantityMapped = true;
-                        }
-                        
-                        // Highlight the row briefly
-                        $row.css({
-                            'background': '#e8f5e9',
-                            'transition': 'background 0.3s'
-                        });
-                        
-                        setTimeout(function() {
-                            $row.css('background', '');
-                        }, 2000);
-                        
-                        appliedCount++;
-                        console.log('★★★ Successfully mapped:', sourceField, '→', targetWcField);
-                    } else {
-                        console.log('★★★ Source field option not found in dropdown:', sourceField);
                     }
+                }
+                
+                if (mapped) {
+                    // Track if SKU was mapped
+                    if (targetWcField === 'sku') {
+                        skuMapped = true;
+                    }
+                    
+                    // Track if Stock Quantity was mapped
+                    if (targetWcField === 'stock_quantity') {
+                        stockQuantityMapped = true;
+                    }
+                    
+                    // Highlight the row briefly
+                    $row.css({
+                        'background': '#e8f5e9',
+                        'transition': 'background 0.3s'
+                    });
+                    
+                    setTimeout(function() {
+                        $row.css('background', '');
+                    }, 2000);
+                    
+                    appliedCount++;
+                    console.log('★★★ Successfully mapped:', sourceField, '→', targetWcField);
                 }
             } else {
                 console.log('★★★ WC field row not found:', targetWcField);
@@ -675,6 +691,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
     
     /**
      * Apply smart mappings to form fields
+     * Supports both textarea (.field-mapping-textarea) and dropdown (.field-source-select) UI
      */
     function applySmartMappings(mappings) {
         console.log('★★★ applySmartMappings() called with:', mappings);
@@ -686,30 +703,44 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             var $row = $('.field-mapping-row[data-field="' + targetWcField + '"]');
             
             if ($row.length > 0) {
-                var $sourceSelect = $row.find('.field-source-select');
+                var mapped = false;
                 
-                if ($sourceSelect.length > 0) {
-                    var optionExists = $sourceSelect.find('option[value="' + sourceField + '"]').length > 0;
-                    
-                    if (optionExists) {
-                        $sourceSelect.val(sourceField).trigger('change');
-                        
-                        // Track if SKU was mapped
-                        if (targetWcField === 'sku') {
-                            skuMapped = true;
+                // First try textarea (new UI) - wrap field in {field} template syntax
+                var $textarea = $row.find('.field-mapping-textarea');
+                if ($textarea.length > 0) {
+                    var templateValue = '{' + sourceField + '}';
+                    $textarea.val(templateValue).trigger('change').trigger('input');
+                    mapped = true;
+                }
+                
+                // Fallback to dropdown (old UI or special fields)
+                if (!mapped) {
+                    var $sourceSelect = $row.find('.field-source-select');
+                    if ($sourceSelect.length > 0) {
+                        var optionExists = $sourceSelect.find('option[value="' + sourceField + '"]').length > 0;
+                        if (optionExists) {
+                            $sourceSelect.val(sourceField).trigger('change');
+                            mapped = true;
                         }
-                        
-                        // Highlight
-                        $row.css({
-                            'background': '#e8f5e9',
-                            'transition': 'background 0.3s'
-                        });
-                        setTimeout(function() {
-                            $row.css('background', '');
-                        }, 2000);
-                        
-                        appliedCount++;
                     }
+                }
+                
+                if (mapped) {
+                    // Track if SKU was mapped
+                    if (targetWcField === 'sku') {
+                        skuMapped = true;
+                    }
+                    
+                    // Highlight
+                    $row.css({
+                        'background': '#e8f5e9',
+                        'transition': 'background 0.3s'
+                    });
+                    setTimeout(function() {
+                        $row.css('background', '');
+                    }, 2000);
+                    
+                    appliedCount++;
                 }
             }
         });
@@ -834,13 +865,16 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             var mode = $(this).val();
             console.log('★★★ Product mode changed to:', mode);
             
-            // Update card styling
+            // Update card styling - reset all cards to unselected state with proper colors
             $('.mode-card').each(function() {
                 $(this).css({
                     'background': '#f5f5f5',
                     'border-color': '#e0e0e0',
-                    'box-shadow': 'none'
-                }).find('strong, p').css('color', '');
+                    'box-shadow': 'none',
+                    'color': '#333'
+                });
+                $(this).find('strong').css('color', '#333');
+                $(this).find('p').css('color', '#666');
             });
             
             // Highlight selected card
@@ -878,9 +912,26 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             $('#variation_mode_hidden').val(mode);
         });
         
+        // Attribute input mode toggle (Standard vs Key-Value Pairs)
+        $('input[name="attr_input_mode"]').on('change', function() {
+            var mode = $(this).val();
+            if (mode === 'key_value') {
+                $('#attr-mode-standard').hide();
+                $('#attr-mode-key-value').show();
+            } else {
+                $('#attr-mode-standard').show();
+                $('#attr-mode-key-value').hide();
+            }
+        });
+        
         // Add attribute button (for Attributes panel)
         $('#btn-add-attribute').on('click', function() {
             addAttributeRow('attributes-list');
+        });
+        
+        // Add attribute pair button (for Key-Value mode)
+        $('#btn-add-attribute-pair').on('click', function() {
+            addAttributePairRow();
         });
         
         // Add variation attribute button
@@ -893,14 +944,34 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             addCsvVariationAttributeRow();
         });
         
-        // Add variation meta button
+        // Add variation meta button (XML)
         $('#btn-add-var-meta').on('click', function() {
             addVariationMetaRow();
         });
         
+        // Quick add preset meta fields for variations
+        $(document).on('click', '.var-meta-preset', function() {
+            var key = $(this).data('key');
+            var label = $(this).data('label');
+            addVariationMetaRowWithKey(key, label);
+        });
+        
+        // Add variation meta button (CSV)
+        $('#btn-add-csv-var-meta').on('click', function() {
+            addCsvVariationMetaRow();
+        });
+        
         // Remove attribute row
         $(document).on('click', '.remove-attr-row', function() {
-            $(this).closest('.attr-row').remove();
+            // Check if parent is .attr-row or .meta-row
+            var $attrRow = $(this).closest('.attr-row');
+            var $metaRow = $(this).closest('.meta-row');
+            
+            if ($attrRow.length) {
+                $attrRow.remove();
+            } else if ($metaRow.length) {
+                $metaRow.remove();
+            }
         });
         
         // Initialize with current selection
@@ -908,37 +979,61 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
     }
     
     /**
-     * Add attribute row (for display attributes)
+     * Add attribute row (for display attributes) - using textarea with autocomplete
      */
     function addAttributeRow(targetContainer) {
         var index = $('#' + targetContainer + ' .attr-row').length;
-        var fields = window.allKnownFieldsOrder || [];
-        
-        var options = '<option value="">-- Select Source Field --</option>';
-        fields.forEach(function(field) {
-            options += '<option value="' + field + '">' + field + '</option>';
-        });
         
         var html = '<div class="attr-row" style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 12px; align-items: center; padding: 12px; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 10px;">' +
             '<input type="text" name="attr[' + index + '][name]" placeholder="Attribute Name (e.g., Material)" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">' +
-            '<select name="attr[' + index + '][source]" class="field-source-select" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">' + options + '</select>' +
+            '<div class="textarea-mapping-wrapper">' +
+                '<textarea name="attr[' + index + '][source]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="Type { to see fields, e.g. {Material}" style="width: 100%;"></textarea>' +
+            '</div>' +
             '<button type="button" class="button remove-attr-row" style="color: #d63638; padding: 8px 12px;">✕</button>' +
             '</div>';
         
         $('#' + targetContainer).append(html);
+        // Autocomplete works via event delegation - no manual init needed
     }
     
     /**
-     * Add variation attribute row
+     * Add attribute pair row (for Key-Value mode - BigBuy format)
+     * This creates a row with two fields: one for attribute name source, one for value source
+     */
+    function addAttributePairRow() {
+        var index = $('#attribute-pairs-list .attr-pair-row').length;
+        
+        var html = '<div class="attr-pair-row" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: start; padding: 15px; background: linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%); border: 2px solid #ffcc80; border-radius: 8px; margin-bottom: 12px;">' +
+            '<div>' +
+                '<label style="font-size: 12px; font-weight: 600; color: #e65100; display: block; margin-bottom: 6px;">📝 Name Field (Attribute Name Source)</label>' +
+                '<div class="textarea-mapping-wrapper">' +
+                    '<textarea name="attr_pair[' + index + '][name_field]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="Type { e.g. {attribute1}" style="width: 100%;"></textarea>' +
+                '</div>' +
+                '<small style="color: #888; font-size: 11px; margin-top: 4px; display: block;">e.g., {attribute1} → "Colour"</small>' +
+            '</div>' +
+            '<div>' +
+                '<label style="font-size: 12px; font-weight: 600; color: #2e7d32; display: block; margin-bottom: 6px;">📦 Value Field (Attribute Value Source)</label>' +
+                '<div class="textarea-mapping-wrapper">' +
+                    '<textarea name="attr_pair[' + index + '][value_field]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="Type { e.g. {value1}" style="width: 100%;"></textarea>' +
+                '</div>' +
+                '<small style="color: #888; font-size: 11px; margin-top: 4px; display: block;">e.g., {value1} → "Blue"</small>' +
+            '</div>' +
+            '<button type="button" class="button remove-attr-pair-row" style="color: #d63638; padding: 8px 12px; margin-top: 22px; font-size: 16px;">✕</button>' +
+            '</div>';
+        
+        $('#attribute-pairs-list').append(html);
+    }
+    
+    // Remove attribute pair row
+    $(document).on('click', '.remove-attr-pair-row', function() {
+        $(this).closest('.attr-pair-row').remove();
+    });
+    
+    /**
+     * Add variation attribute row - using textarea with autocomplete
      */
     function addVariationAttributeRow() {
         var index = $('#variation-attributes-list .attr-row').length;
-        var fields = window.allKnownFieldsOrder || [];
-        
-        var options = '<option value="">-- Select Source Field --</option>';
-        fields.forEach(function(field) {
-            options += '<option value="' + field + '">' + field + '</option>';
-        });
         
         var html = '<div class="attr-row" style="display: grid; grid-template-columns: 140px 1fr 60px auto; gap: 10px; align-items: start; padding: 12px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; margin-bottom: 10px;">' +
             '<div>' +
@@ -947,7 +1042,9 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             '</div>' +
             '<div>' +
                 '<label style="font-size: 11px; color: #795548; display: block; margin-bottom: 4px;">Value Source (from XML)</label>' +
-                '<select name="var_attr[' + index + '][source]" class="field-source-select" style="width: 100%; padding: 8px; border: 1px solid #ffcc80; border-radius: 4px;">' + options + '</select>' +
+                '<div class="textarea-mapping-wrapper">' +
+                    '<textarea name="var_attr[' + index + '][source]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="Type { to see fields, e.g. {size}" style="width: 100%; padding: 8px; border: 1px solid #ffcc80; border-radius: 4px;"></textarea>' +
+                '</div>' +
                 '<div style="font-size: 10px; color: #999; margin-top: 4px;">Or use Array Index below if values are in array like attribute[0], attribute[1]</div>' +
             '</div>' +
             '<div>' +
@@ -958,19 +1055,14 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             '</div>';
         
         $('#variation-attributes-list').append(html);
+        // Autocomplete works via event delegation - no manual init needed
     }
     
     /**
-     * Add CSV variation attribute row
+     * Add CSV variation attribute row - using textarea with autocomplete
      */
     function addCsvVariationAttributeRow() {
         var index = $('#csv-variation-attributes-list .attr-row').length;
-        var fields = window.allKnownFieldsOrder || [];
-        
-        var options = '<option value="">-- Select Column --</option>';
-        fields.forEach(function(field) {
-            options += '<option value="' + field + '">' + field + '</option>';
-        });
         
         var html = '<div class="attr-row" style="display: grid; grid-template-columns: 140px 1fr auto; gap: 10px; align-items: center; padding: 12px; background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px; margin-bottom: 10px;">' +
             '<div>' +
@@ -979,33 +1071,68 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             '</div>' +
             '<div>' +
                 '<label style="font-size: 11px; color: #2e7d32; display: block; margin-bottom: 4px;">Source Column</label>' +
-                '<select name="csv_var_attr[' + index + '][source]" class="field-source-select" style="width: 100%; padding: 8px; border: 1px solid #81c784; border-radius: 4px;">' + options + '</select>' +
+                '<div class="textarea-mapping-wrapper">' +
+                    '<textarea name="csv_var_attr[' + index + '][source]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="Type { to see columns, e.g. {Size}" style="width: 100%; padding: 8px; border: 1px solid #81c784; border-radius: 4px;"></textarea>' +
+                '</div>' +
             '</div>' +
             '<button type="button" class="button remove-attr-row" style="color: #d63638; padding: 8px 12px; margin-top: 18px;">✕</button>' +
             '</div>';
         
         $('#csv-variation-attributes-list').append(html);
+        // Autocomplete works via event delegation - no manual init needed
     }
     
     /**
-     * Add variation meta field row
+     * Add variation meta field row - using textarea with autocomplete
      */
     function addVariationMetaRow() {
         var index = $('#variation-meta-list .meta-row').length;
-        var fields = window.allKnownFieldsOrder || [];
-        
-        var options = '<option value="">-- Select Source Field --</option>';
-        fields.forEach(function(field) {
-            options += '<option value="' + field + '">' + field + '</option>';
-        });
         
         var html = '<div class="meta-row" style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 12px; align-items: center; padding: 12px; background: #e8eaf6; border: 1px solid #c5cae9; border-radius: 6px; margin-bottom: 10px;">' +
             '<input type="text" name="var_meta[' + index + '][key]" placeholder="Meta key (e.g., _ean)" style="padding: 10px; border: 1px solid #9fa8da; border-radius: 4px; font-family: monospace;">' +
-            '<select name="var_meta[' + index + '][source]" class="field-source-select" style="padding: 10px; border: 1px solid #9fa8da; border-radius: 4px;">' + options + '</select>' +
+            '<div class="textarea-mapping-wrapper">' +
+                '<textarea name="var_meta[' + index + '][source]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="Type { to see fields, e.g. {ean}" style="width: 100%; padding: 10px; border: 1px solid #9fa8da; border-radius: 4px;"></textarea>' +
+            '</div>' +
             '<button type="button" class="button remove-attr-row" style="color: #d63638; padding: 8px 12px;">✕</button>' +
             '</div>';
         
         $('#variation-meta-list').append(html);
+        // Autocomplete works via event delegation - no manual init needed
+    }
+    
+    /**
+     * Add variation meta field row with preset key - for quick add buttons
+     */
+    function addVariationMetaRowWithKey(key, label) {
+        var index = $('#variation-meta-list .meta-row').length;
+        
+        var html = '<div class="meta-row" style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 12px; align-items: center; padding: 12px; background: #e8eaf6; border: 1px solid #c5cae9; border-radius: 6px; margin-bottom: 10px;">' +
+            '<input type="text" name="var_meta[' + index + '][key]" value="' + key + '" placeholder="Meta key" style="padding: 10px; border: 1px solid #9fa8da; border-radius: 4px; font-family: monospace;">' +
+            '<div class="textarea-mapping-wrapper">' +
+                '<textarea name="var_meta[' + index + '][source]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="Type { to map ' + label + ' source" style="width: 100%; padding: 10px; border: 1px solid #9fa8da; border-radius: 4px;"></textarea>' +
+            '</div>' +
+            '<button type="button" class="button remove-attr-row" style="color: #d63638; padding: 8px 12px;">✕</button>' +
+            '</div>';
+        
+        $('#variation-meta-list').append(html);
+    }
+    
+    /**
+     * Add CSV variation meta field row - using textarea with autocomplete
+     */
+    function addCsvVariationMetaRow() {
+        var index = $('#csv-variation-meta-list .meta-row').length;
+        
+        var html = '<div class="meta-row" style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 12px; align-items: center; padding: 12px; background: #e8eaf6; border: 1px solid #c5cae9; border-radius: 6px; margin-bottom: 10px;">' +
+            '<input type="text" name="csv_var_meta[' + index + '][key]" placeholder="Meta key (e.g., EAN)" style="padding: 10px; border: 1px solid #9fa8da; border-radius: 4px; font-family: monospace;">' +
+            '<div class="textarea-mapping-wrapper">' +
+                '<textarea name="csv_var_meta[' + index + '][source]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="Type { to see columns, e.g. {EAN}" style="width: 100%; padding: 10px; border: 1px solid #9fa8da; border-radius: 4px;"></textarea>' +
+            '</div>' +
+            '<button type="button" class="button remove-attr-row" style="color: #d63638; padding: 8px 12px;">✕</button>' +
+            '</div>';
+        
+        $('#csv-variation-meta-list').append(html);
+        // Autocomplete works via event delegation - no manual init needed
     }
     
     /**
@@ -1762,7 +1889,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                             // Restore CSV variation field mappings
                             if (csvConfig.fields) {
                                 Object.keys(csvConfig.fields).forEach(function(fieldKey) {
-                                    $('select[name="csv_var_field[' + fieldKey + ']"]').val(csvConfig.fields[fieldKey]);
+                                    $('textarea[name="csv_var_field[' + fieldKey + ']"]').val(csvConfig.fields[fieldKey]);  // Use textarea
                                 });
                             }
                             
@@ -1778,7 +1905,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                                             addCsvVariationAttributeRow();
                                             var $row = $('#csv-variation-attributes-list .attr-row').last();
                                             $row.find('input[name$="[name]"]').val(attr.name);
-                                            $row.find('select[name$="[source]"]').val(attr.source || '');
+                                            $row.find('textarea[name$="[source]"]').val(attr.source || '');  // Use textarea
                                         }
                                     });
                                 } else {
@@ -1786,7 +1913,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                                     csvConfig.attributes.forEach(function(attr, idx) {
                                         var $row = $('#csv-variation-attributes-list .attr-row').eq(idx);
                                         if ($row.length && attr.name) {
-                                            $row.find('select[name$="[source]"]').val(attr.source || '');
+                                            $row.find('textarea[name$="[source]"]').val(attr.source || '');  // Use textarea
                                         }
                                     });
                                 }
@@ -2282,9 +2409,20 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 var mapping = wcAiImportData.existing_mappings[fieldKey];
                 
                 if (mapping && mapping.source) {
+                    // Try select first
                     var $select = $row.find('.field-source-select');
-                    $select.val(mapping.source);
-                    console.log('Restored', fieldKey, '→', mapping.source);
+                    if ($select.length) {
+                        $select.val(mapping.source);
+                        console.log('Restored (select)', fieldKey, '→', mapping.source);
+                    }
+                    
+                    // Also try textarea (for images, description, etc.)
+                    // Support both .field-mapping-textarea (new UI) and .field-source-textarea (legacy textarea type)
+                    var $textarea = $row.find('.field-mapping-textarea, .field-source-textarea');
+                    if ($textarea.length) {
+                        $textarea.val(mapping.source);
+                        console.log('Restored (textarea)', fieldKey, '→', mapping.source);
+                    }
                 }
             });
             window._mappingsRestored = true;
@@ -2585,7 +2723,9 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             
             // THIRD: Handle regular source select fields OR textarea fields (new UI)
             var $sourceSelect = $('select[name="field_mapping\\[' + fieldName + '\\]\\[source\\]"]');
-            var $sourceTextarea = $('textarea[name="field_mapping\\[' + fieldName + '\\]\\[source\\]"]').filter('.field-mapping-textarea');
+            // Support both .field-mapping-textarea (new UI) and .field-source-textarea (legacy textarea type)
+            var $sourceTextarea = $('textarea[name="field_mapping\\[' + fieldName + '\\]\\[source\\]"]');
+            $sourceTextarea = $sourceTextarea.filter('.field-mapping-textarea, .field-source-textarea');
             
             console.log('★ loadSavedMappings for', fieldName, '| select:', $sourceSelect.length, '| textarea:', $sourceTextarea.length, '| source:', fieldConfig.source);
             
@@ -2683,26 +2823,50 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         $('input[name="product_mode"][value="' + productMode + '"]').prop('checked', true).trigger('change');
         console.log('★★★ Restored product_mode:', productMode);
         
-        // Load display attributes (for "attributes" mode)
-        if (config.display_attributes && config.display_attributes.length > 0) {
-            console.log('★★★ Loading display_attributes:', config.display_attributes.length);
+        // Check if we're using key-value pair mode for attributes
+        var attrInputMode = config.attr_input_mode || 'standard';
+        if (attrInputMode === 'key_value') {
+            $('input[name="attr_input_mode"][value="key_value"]').prop('checked', true).trigger('change');
+            console.log('★★★ Restored attr_input_mode: key_value');
             
-            config.display_attributes.forEach(function(dispAttr) {
-                if (dispAttr.name) {
-                    // Determine target container based on mode
-                    var targetContainer = productMode === 'attributes' ? 'attributes-list' : 'display-attributes-list';
-                    
-                    // Add row using the appropriate function
-                    addAttributeRow(targetContainer);
-                    
-                    // Get the last added row and populate
-                    var $row = $('#' + targetContainer + ' .attr-row').last();
-                    $row.find('input[name$="[name]"]').val(dispAttr.name);
-                    $row.find('select[name$="[source]"]').val(dispAttr.source || '');
-                    
-                    console.log('★★★ Restored display attribute:', dispAttr.name, '→', dispAttr.source);
-                }
-            });
+            // Load attribute pairs
+            if (config.attribute_pairs && config.attribute_pairs.length > 0) {
+                console.log('★★★ Loading attribute_pairs:', config.attribute_pairs.length);
+                
+                config.attribute_pairs.forEach(function(pair) {
+                    if (pair.name_field && pair.value_field) {
+                        addAttributePairRow();
+                        
+                        var $row = $('#attribute-pairs-list .attr-pair-row').last();
+                        $row.find('textarea[name$="[name_field]"]').val(pair.name_field);
+                        $row.find('textarea[name$="[value_field]"]').val(pair.value_field);
+                        
+                        console.log('★★★ Restored attribute pair:', pair.name_field, '→', pair.value_field);
+                    }
+                });
+            }
+        } else {
+            // Load display attributes (for "attributes" mode) - standard mode
+            if (config.display_attributes && config.display_attributes.length > 0) {
+                console.log('★★★ Loading display_attributes:', config.display_attributes.length);
+                
+                config.display_attributes.forEach(function(dispAttr) {
+                    if (dispAttr.name) {
+                        // Determine target container based on mode
+                        var targetContainer = productMode === 'attributes' ? 'attributes-list' : 'display-attributes-list';
+                        
+                        // Add row using the appropriate function
+                        addAttributeRow(targetContainer);
+                        
+                        // Get the last added row and populate
+                        var $row = $('#' + targetContainer + ' .attr-row').last();
+                        $row.find('input[name$="[name]"]').val(dispAttr.name);
+                        $row.find('textarea[name$="[source]"]').val(dispAttr.source || '');  // Use textarea
+                        
+                        console.log('★★★ Restored display attribute:', dispAttr.name, '→', dispAttr.source);
+                    }
+                });
+            }
         }
         
         // Load variation path
@@ -2721,7 +2885,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                     
                     var $row = $('#variation-attributes-list .attr-row').last();
                     $row.find('input[name$="[name]"]').val(varAttr.name);
-                    $row.find('select[name$="[source]"]').val(varAttr.source || '');
+                    $row.find('textarea[name$="[source]"]').val(varAttr.source || '');  // Use textarea
                     
                     // Restore array_index if present
                     if (varAttr.array_index !== null && varAttr.array_index !== undefined) {
@@ -2737,7 +2901,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         if (config.variation_fields) {
             Object.keys(config.variation_fields).forEach(function(fieldKey) {
                 var value = config.variation_fields[fieldKey];
-                $('select[name="var_field[' + fieldKey + ']"]').val(value);
+                $('textarea[name="var_field[' + fieldKey + ']"]').val(value);  // Use textarea
                 console.log('★★★ Restored var_field[' + fieldKey + ']:', value);
             });
         }
@@ -2750,7 +2914,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                     
                     var $row = $('#variation-meta-list .meta-row').last();
                     $row.find('input[name$="[key]"]').val(metaItem.key);
-                    $row.find('select[name$="[source]"]').val(metaItem.source || '');
+                    $row.find('textarea[name$="[source]"]').val(metaItem.source || '');  // Use textarea
                     
                     console.log('★★★ Restored variation meta:', metaItem.key, '→', metaItem.source);
                 }
@@ -2785,7 +2949,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                         
                         var $row = $('#csv-variation-attributes-list .attr-row').last();
                         $row.find('input[name$="[name]"]').val(attr.name);
-                        $row.find('select[name$="[source]"]').val(attr.source || '');
+                        $row.find('textarea[name$="[source]"]').val(attr.source || '');  // Use textarea
                         
                         console.log('★★★ Restored CSV var attribute:', attr.name, '→', attr.source);
                     }
@@ -2796,7 +2960,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             if (csvConfig.fields) {
                 Object.keys(csvConfig.fields).forEach(function(fieldKey) {
                     var value = csvConfig.fields[fieldKey];
-                    $('select[name="csv_var_field[' + fieldKey + ']"]').val(value);
+                    $('textarea[name="csv_var_field[' + fieldKey + ']"]').val(value);  // Use textarea
                     console.log('★★★ Restored csv_var_field[' + fieldKey + ']:', value);
                 });
             }
@@ -3500,19 +3664,41 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         
         // For "attributes" mode - collect display attributes
         if (productMode === 'attributes') {
-            $('#attributes-list .attr-row').each(function() {
-                var $row = $(this);
-                var name = $row.find('input[name$="[name]"]').val();
-                var source = $row.find('select[name$="[source]"]').val();
-                if (name) {
-                    attributesData.display_attributes.push({
-                        name: name,
-                        source: source || '',
-                        visible: 1,
-                        used_for_variations: 0
-                    });
-                }
-            });
+            // Check which input mode is active (standard or key_value)
+            var attrInputMode = $('input[name="attr_input_mode"]:checked').val() || 'standard';
+            attributesData.attr_input_mode = attrInputMode;
+            
+            if (attrInputMode === 'key_value') {
+                // Key-Value Pair mode (BigBuy format)
+                attributesData.attribute_pairs = [];
+                $('#attribute-pairs-list .attr-pair-row').each(function() {
+                    var $row = $(this);
+                    var nameField = $row.find('textarea[name$="[name_field]"]').val();
+                    var valueField = $row.find('textarea[name$="[value_field]"]').val();
+                    if (nameField && valueField) {
+                        attributesData.attribute_pairs.push({
+                            name_field: nameField,
+                            value_field: valueField
+                        });
+                    }
+                });
+                console.log('★★★ Key-Value Pairs:', attributesData.attribute_pairs);
+            } else {
+                // Standard mode - existing logic
+                $('#attributes-list .attr-row').each(function() {
+                    var $row = $(this);
+                    var name = $row.find('input[name$="[name]"]').val();
+                    var source = $row.find('textarea[name$="[source]"]').val();  // Use textarea
+                    if (name) {
+                        attributesData.display_attributes.push({
+                            name: name,
+                            source: source || '',
+                            visible: 1,
+                            used_for_variations: 0
+                        });
+                    }
+                });
+            }
         }
         
         // For "variable" mode - collect variation config
@@ -3529,7 +3715,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 $('#csv-variation-attributes-list .attr-row').each(function() {
                     var $row = $(this);
                     var name = $row.find('input[name$="[name]"]').val();
-                    var source = $row.find('select[name$="[source]"]').val();
+                    var source = $row.find('textarea[name$="[source]"]').val();  // Use textarea, not select
                     if (name) {
                         attributesData.csv_variation_config.attributes.push({
                             name: name,
@@ -3540,8 +3726,8 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                     }
                 });
                 
-                // CSV Variation field mappings
-                $('select[name^="csv_var_field["]').each(function() {
+                // CSV Variation field mappings (use textarea, not select)
+                $('textarea[name^="csv_var_field["]').each(function() {
                     var name = $(this).attr('name').match(/csv_var_field\[([^\]]+)\]/);
                     if (name && name[1]) {
                         attributesData.csv_variation_config.fields[name[1]] = $(this).val() || '';
@@ -3558,7 +3744,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 $('#variation-attributes-list .attr-row').each(function() {
                     var $row = $(this);
                     var name = $row.find('input[name$="[name]"]').val();
-                    var source = $row.find('select[name$="[source]"]').val();
+                    var source = $row.find('textarea[name$="[source]"]').val();  // Use textarea, not select
                     var arrayIndex = $row.find('input[name$="[array_index]"]').val();
                     if (name) {
                         attributesData.variation_attributes.push({
@@ -3571,8 +3757,8 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                     }
                 });
                 
-                // Variation field mappings
-                $('select[name^="var_field["]').each(function() {
+                // Variation field mappings (use textarea, not select)
+                $('textarea[name^="var_field["]').each(function() {
                     var name = $(this).attr('name').match(/var_field\[([^\]]+)\]/);
                     if (name && name[1]) {
                         attributesData.variation_fields[name[1]] = $(this).val() || '';
@@ -3583,7 +3769,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 $('#variation-meta-list .meta-row').each(function() {
                     var $row = $(this);
                     var key = $row.find('input[name$="[key]"]').val();
-                    var source = $row.find('select[name$="[source]"]').val();
+                    var source = $row.find('textarea[name$="[source]"]').val();  // Use textarea
                     if (key) {
                         attributesData.variation_meta.push({
                             key: key,
@@ -3601,7 +3787,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             if (name) {
                 attributesData.display_attributes.push({
                     name: name,
-                    source: $row.find('select[name$="[source]"]').val() || '',
+                    source: $row.find('textarea[name$="[source]"]').val() || '',  // Use textarea
                     visible: $row.find('input[name$="[visible]"]').is(':checked') ? 1 : 0,
                     used_for_variations: 0
                 });
@@ -4258,15 +4444,25 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 if (fieldData.source) {
                     var $select = $row.find('.field-source-select');
                     var $textarea = $row.find('.field-source-textarea');
+                    var $mappingTextarea = $row.find('.field-mapping-textarea');
                     
-                    if ($select.length) {
+                    // Normalize source value - remove {} brackets if present (for dropdown compatibility)
+                    var sourceValue = fieldData.source;
+                    var sourceValueNoBrackets = sourceValue.replace(/^\{([^}]+)\}$/, '$1');
+                    
+                    if ($mappingTextarea.length) {
+                        // New UI: textarea with template syntax - keep original value with brackets
+                        $mappingTextarea.val(sourceValue);
+                    } else if ($select.length) {
+                        // Old UI: dropdown - use value without brackets
                         // Check if option exists, if not, try to add it
-                        if ($select.find('option[value="' + fieldData.source + '"]').length === 0) {
-                            $select.append($('<option>', { value: fieldData.source, text: fieldData.source }));
+                        if ($select.find('option[value="' + sourceValueNoBrackets + '"]').length === 0) {
+                            $select.append($('<option>', { value: sourceValueNoBrackets, text: sourceValueNoBrackets }));
                         }
-                        $select.val(fieldData.source).trigger('change');
+                        $select.val(sourceValueNoBrackets).trigger('change');
                     } else if ($textarea.length) {
-                        $textarea.val(fieldData.source);
+                        // Legacy textarea - keep original value
+                        $textarea.val(sourceValue);
                     }
                 }
                 
@@ -4341,6 +4537,32 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         }
         if (data.draft_non_matching !== undefined) {
             $('#draft-non-matching-checkbox').prop('checked', data.draft_non_matching === 1);
+        }
+        
+        // Apply attributes_variations (including variation_fields)
+        if (data.field_mapping && data.field_mapping.attributes_variations) {
+            var attrData = data.field_mapping.attributes_variations;
+            
+            // Apply variation_fields
+            if (attrData.variation_fields) {
+                console.log('Applying variation_fields:', attrData.variation_fields);
+                $.each(attrData.variation_fields, function(fieldKey, value) {
+                    if (value) {
+                        $('textarea[name="var_field[' + fieldKey + ']"]').val(value);
+                        console.log('Set var_field[' + fieldKey + ']:', value);
+                    }
+                });
+            }
+            
+            // Apply variation_path
+            if (attrData.variation_path) {
+                $('textarea[name="variation_path"]').val(attrData.variation_path);
+            }
+            
+            // Apply product_mode
+            if (attrData.product_mode) {
+                $('input[name="product_mode"][value="' + attrData.product_mode + '"]').prop('checked', true).trigger('change');
+            }
         }
         
         // Update mapped counts
@@ -4802,17 +5024,91 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             // Remove any existing dropdown
             $wrapper.find('.field-autocomplete-dropdown').remove();
             
+            // Check if this is a variation field textarea
+            var textareaName = $textarea.attr('name') || '';
+            var isVariationField = /^(var_field|csv_var_field|var_attr|csv_var_attr|var_meta|csv_var_meta)\[/.test(textareaName);
+            
+            // Get the variation path prefix to strip from paths
+            var variationPathPrefix = '';
+            if (isVariationField) {
+                var $variationPath = $('#variation_path');
+                if ($variationPath.length && $variationPath.val()) {
+                    // e.g., "variations.variation" -> we'll strip "variations.variation[0]." or "variations.variation."
+                    variationPathPrefix = $variationPath.val();
+                } else {
+                    // Default common prefixes to try
+                    variationPathPrefix = 'variations.variation';
+                }
+            }
+            
             // Filter fields based on search
             var matchingFields = [];
             window.allKnownFieldsOrder.forEach(function(path) {
-                if (path.toLowerCase().indexOf(searchText) !== -1) {
+                var displayPath = path;
+                var storedPath = path; // The path to insert when selected
+                
+                // For variation fields, convert absolute paths to relative
+                if (isVariationField && variationPathPrefix) {
+                    // Match patterns like: variations.variation[0].sku, variations.variation.sku
+                    var prefixPatterns = [
+                        variationPathPrefix + '[0].',
+                        variationPathPrefix + '[1].',
+                        variationPathPrefix + '[2].',
+                        variationPathPrefix + '.'
+                    ];
+                    
+                    for (var i = 0; i < prefixPatterns.length; i++) {
+                        if (path.indexOf(prefixPatterns[i]) === 0) {
+                            // Extract relative path
+                            displayPath = path.substring(prefixPatterns[i].length);
+                            storedPath = displayPath; // Use relative path
+                            break;
+                        }
+                    }
+                    
+                    // Skip paths that don't belong to variations
+                    if (displayPath === path && path.indexOf(variationPathPrefix) === -1) {
+                        // This path is not under the variation container, 
+                        // but still show it if it doesn't look like a product-level field
+                        // Actually, for variation fields we want to show variation-relative paths
+                        return; // Skip this field
+                    }
+                }
+                
+                if (displayPath.toLowerCase().indexOf(searchText) !== -1) {
                     var field = window.allKnownFields[path];
                     matchingFields.push({
-                        path: path,
+                        path: storedPath,
+                        displayPath: displayPath,
                         type: field ? field.type : 'text',
                         sample: field ? field.sample : ''
                     });
                 }
+            });
+            
+            // For variation fields, also add common variation field suggestions if no matches
+            if (isVariationField && matchingFields.length === 0 && searchText.length > 0) {
+                var commonVariationFields = ['sku', 'gtin', 'ean', 'upc', 'description', 'regular_price', 'sale_price', 
+                    'stock_quantity', 'stock_status', 'manage_stock', 'weight', 'length', 'width', 'height',
+                    'image', 'virtual', 'downloadable', 'enabled', 'shipping_class', 'attributes'];
+                commonVariationFields.forEach(function(f) {
+                    if (f.indexOf(searchText) !== -1) {
+                        matchingFields.push({
+                            path: f,
+                            displayPath: f,
+                            type: 'text',
+                            sample: '(variation field)'
+                        });
+                    }
+                });
+            }
+            
+            // Remove duplicates by path
+            var seenPaths = {};
+            matchingFields = matchingFields.filter(function(f) {
+                if (seenPaths[f.path]) return false;
+                seenPaths[f.path] = true;
+                return true;
             });
             
             if (matchingFields.length === 0) {
@@ -4828,7 +5124,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             matchingFields.forEach(function(field, idx) {
                 var sampleDisplay = field.sample ? truncateText(String(field.sample), 30) : '';
                 html += '<div class="field-autocomplete-item' + (idx === 0 ? ' selected' : '') + '" data-field-path="' + field.path + '">';
-                html += '<span class="field-name">' + highlightMatch(field.path, searchText) + '</span>';
+                html += '<span class="field-name">' + highlightMatch(field.displayPath || field.path, searchText) + '</span>';
                 html += '<span class="field-type-badge">' + field.type + '</span>';
                 if (sampleDisplay) {
                     html += '<span class="field-sample">' + escapeHtml(sampleDisplay) + '</span>';
@@ -4907,12 +5203,41 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         
         var sampleProduct = window.currentSampleData[0];
         
-        // Process the template
-        var result = processTemplate(val, sampleProduct);
+        // Check if this is a variation field - use variation data for preview
+        var textareaName = $textarea.attr('name') || '';
+        var isVariationField = /^(var_field|csv_var_field|var_attr|csv_var_attr|var_meta|csv_var_meta)\[/.test(textareaName);
+        
+        var dataForPreview = sampleProduct;
+        var previewLabel = 'Preview:';
+        
+        if (isVariationField) {
+            // Try to get first variation from sample data
+            var variationPath = $('#variation_path').val() || 'variations.variation';
+            var variations = getNestedValue(sampleProduct, variationPath);
+            
+            if (variations && Array.isArray(variations) && variations.length > 0) {
+                dataForPreview = variations[0];
+                previewLabel = 'Preview (from 1st variation):';
+            } else if (variations && typeof variations === 'object' && !Array.isArray(variations)) {
+                // Single variation object
+                dataForPreview = variations;
+                previewLabel = 'Preview (from variation):';
+            } else {
+                // Can't find variations - show helpful message
+                var $preview = $('<div class="live-preview visible">');
+                $preview.append('<span class="preview-label">Preview:</span>');
+                $preview.append('<span class="preview-value" style="color: #666; font-style: italic;">Relative path for variations</span>');
+                $wrapper.append($preview);
+                return;
+            }
+        }
+        
+        // Process the template (pass isVariationField for context)
+        var result = processTemplate(val, dataForPreview, isVariationField);
         
         // Create preview element
         var $preview = $('<div class="live-preview visible">');
-        $preview.append('<span class="preview-label">Preview:</span>');
+        $preview.append('<span class="preview-label">' + previewLabel + '</span>');
         
         if (result.error) {
             $preview.append('<span class="preview-error">' + escapeHtml(result.error) + '</span>');
@@ -4926,10 +5251,16 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
     
     /**
      * Process template with placeholders
+     * @param {string} template - Template string with {field} placeholders
+     * @param {object} data - Data object to get values from
+     * @param {boolean} isVariationContext - If true, convert absolute paths to relative
      */
-    function processTemplate(template, data) {
+    function processTemplate(template, data, isVariationContext) {
         var result = template;
         var errors = [];
+        
+        // Get variation path prefix for stripping absolute paths
+        var variationPathPrefix = $('#variation_path').val() || 'variations.variation';
         
         // Find all {field} placeholders
         var regex = /\{([^}]+)\}/g;
@@ -4937,6 +5268,26 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         
         while ((match = regex.exec(template)) !== null) {
             var fieldPath = match[1];
+            
+            // If in variation context, try to convert absolute path to relative
+            if (isVariationContext) {
+                var prefixPatterns = [
+                    variationPathPrefix + '[0].',
+                    variationPathPrefix + '[1].',
+                    variationPathPrefix + '[2].',
+                    variationPathPrefix + '.',
+                    'variations.variation[0].',
+                    'variations.variation.',
+                ];
+                
+                for (var i = 0; i < prefixPatterns.length; i++) {
+                    if (fieldPath.indexOf(prefixPatterns[i]) === 0) {
+                        fieldPath = fieldPath.substring(prefixPatterns[i].length);
+                        break;
+                    }
+                }
+            }
+            
             var value = getNestedValue(data, fieldPath);
             
             if (value === undefined) {
@@ -5003,6 +5354,10 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         
         if (!val) return;
         
+        // Check if this is a variation field textarea - skip unknown field validation for these
+        var textareaName = $textarea.attr('name') || '';
+        var isVariationField = /^(var_field|csv_var_field|var_attr|csv_var_attr|var_meta|csv_var_meta)\[/.test(textareaName);
+        
         var warnings = [];
         
         // Check for unclosed braces
@@ -5012,15 +5367,17 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             warnings.push('Unclosed braces detected');
         }
         
-        // Check for unknown fields
-        var regex = /\{([^}]+)\}/g;
-        var match;
-        while ((match = regex.exec(val)) !== null) {
-            var fieldPath = match[1];
-            // Skip special patterns like field*, field[0]
-            var baseField = fieldPath.replace(/\*$/, '').replace(/\[\d+\]$/, '');
-            if (!window.allKnownFields[baseField] && !window.allKnownFields[fieldPath]) {
-                warnings.push('Unknown field: ' + fieldPath);
+        // Check for unknown fields (skip for variation fields - they use relative paths)
+        if (!isVariationField) {
+            var regex = /\{([^}]+)\}/g;
+            var match;
+            while ((match = regex.exec(val)) !== null) {
+                var fieldPath = match[1];
+                // Skip special patterns like field*, field[0]
+                var baseField = fieldPath.replace(/\*$/, '').replace(/\[\d+\]$/, '');
+                if (!window.allKnownFields[baseField] && !window.allKnownFields[fieldPath]) {
+                    warnings.push('Unknown field: ' + fieldPath);
+                }
             }
         }
         

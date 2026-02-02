@@ -272,18 +272,20 @@ class WC_XML_CSV_AI_Import_Processor {
             // Whitelist of allowed functions
             $allowed_functions = array(
                 // Math functions
-                'abs', 'ceil', 'floor', 'round', 'max', 'min', 'number_format',
+                'abs', 'ceil', 'floor', 'round', 'max', 'min', 'number_format', 'pow', 'sqrt', 'log', 'exp', 'fmod',
                 // String functions
                 'trim', 'strlen', 'substr', 'strtolower', 'strtoupper', 'ucwords', 'ucfirst',
-                'str_replace', 'str_ireplace', 'preg_replace', 'htmlspecialchars', 'strip_tags',
+                'str_replace', 'str_ireplace', 'preg_replace', 'htmlspecialchars', 'strip_tags', 'nl2br', 'wordwrap',
+                'ltrim', 'rtrim', 'str_pad', 'str_repeat', 'strrev', 'chunk_split',
                 // Multibyte string functions (UTF-8 support)
                 'mb_strtolower', 'mb_strtoupper', 'mb_strlen', 'mb_substr', 'mb_convert_case',
                 // Array functions
                 'count', 'array_merge', 'implode', 'explode', 'in_array', 'array_key_exists', 'array_map', 'array_slice',
+                'array_filter', 'array_values', 'array_keys', 'array_unique', 'array_reverse', 'array_pop', 'array_shift',
                 // Type functions
-                'is_numeric', 'is_string', 'is_array', 'empty', 'isset',
+                'is_numeric', 'is_string', 'is_array', 'empty', 'isset', 'intval', 'floatval', 'strval', 'boolval',
                 // Other safe functions
-                'date', 'time', 'strtotime', 'sprintf',
+                'date', 'time', 'strtotime', 'sprintf', 'json_encode', 'json_decode', 'preg_match', 'preg_match_all',
                 // Control structures (not functions, but caught by regex)
                 'if', 'else', 'elseif', 'switch', 'case', 'for', 'foreach', 'while', 'do', 'return'
             );

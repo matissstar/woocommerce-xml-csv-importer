@@ -606,6 +606,11 @@ class WC_XML_CSV_AI_Import_Importer {
                 // Phase 2: Resolve product relationships (grouped children, upsells, cross-sells)
                 $this->resolve_product_relationships();
                 
+                // Phase 3: Final stock status sync for all variable products
+                // This must happen LAST to avoid any WooCommerce hooks overriding our stock status
+                // Schedule it on shutdown to ensure all WooCommerce hooks have completed
+                add_action('shutdown', array($this, 'sync_variable_products_stock_status'), 999);
+                
                 $this->update_import_status('completed');
                 $this->log('info', sprintf(__('Import completed successfully. Processed %d products.', 'wc-xml-csv-import'), $import->processed_products));
             } else {
@@ -783,8 +788,92 @@ class WC_XML_CSV_AI_Import_Importer {
 
             // Process attributes & variations
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ ABOUT TO CALL process_product_attributes for product: ' . $product_id); }
+            
+            // DEBUG: Log if product_data has variations
+            $attr_debug_file = WP_CONTENT_DIR . '/product_data_debug.log';
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                $product_name = $processed_data['name'] ?? 'Unknown';
+                file_put_contents($attr_debug_file, "\n" . date('Y-m-d H:i:s') . " === PRODUCT: $product_name (ID: $product_id) ===\n", FILE_APPEND);
+                file_put_contents($attr_debug_file, "product_data TOP LEVEL KEYS: " . implode(', ', array_keys($product_data)) . "\n", FILE_APPEND);
+                
+                if (isset($product_data['variations'])) {
+                    file_put_contents($attr_debug_file, "✓ Has 'variations' key - type: " . gettype($product_data['variations']) . "\n", FILE_APPEND);
+                    if (is_array($product_data['variations'])) {
+                        file_put_contents($attr_debug_file, "  variations keys: " . implode(', ', array_keys($product_data['variations'])) . "\n", FILE_APPEND);
+                        if (isset($product_data['variations']['variation'])) {
+                            file_put_contents($attr_debug_file, "  ✓ Has 'variations.variation' key\n", FILE_APPEND);
+                            if (is_array($product_data['variations']['variation'])) {
+                                $varCount = isset($product_data['variations']['variation'][0]) ? count($product_data['variations']['variation']) : 1;
+                                file_put_contents($attr_debug_file, "  Variation count: $varCount\n", FILE_APPEND);
+                            }
+                        } else {
+                            file_put_contents($attr_debug_file, "  ✗ Missing 'variation' key inside 'variations'\n", FILE_APPEND);
+                        }
+                    }
+                } else {
+                    file_put_contents($attr_debug_file, "✗ No 'variations' key in product_data\n", FILE_APPEND);
+                }
+            }
+            
             $this->process_product_attributes($product_id, $product_data);
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ FINISHED process_product_attributes'); }
+
+            // CRITICAL SAFETY CHECK: Ensure variable products without variations are converted to simple
+            // This catches cases where type=variable is set but no variations exist in source data
+            // IMPORTANT: Clear cache first so we get fresh data after variations were created
+            // Note: Do NOT use wc_delete_product_transients() here as it can trigger hooks that reset stock status
+            wp_cache_delete($product_id, 'post_meta');
+            clean_post_cache($product_id);
+            $final_product = wc_get_product($product_id);
+            if (defined('WP_DEBUG') && WP_DEBUG) { error_log("★★★ SAFETY CHECK: Product $product_id, type=" . ($final_product ? $final_product->get_type() : 'null') . ", is_variable=" . ($final_product && $final_product->is_type('variable') ? 'YES' : 'NO')); }
+            if ($final_product && $final_product->is_type('variable')) {
+                // Use direct database query instead of get_children() which can be cached
+                $variation_count = (int) $GLOBALS['wpdb']->get_var($GLOBALS['wpdb']->prepare(
+                    "SELECT COUNT(*) FROM {$GLOBALS['wpdb']->posts} WHERE post_parent = %d AND post_type = 'product_variation' AND post_status = 'publish'",
+                    $product_id
+                ));
+                if (defined('WP_DEBUG') && WP_DEBUG) { error_log("★★★ SAFETY CHECK: Product $product_id has $variation_count variations (direct DB query)"); }
+                if ($variation_count === 0) {
+                    if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ SAFETY CHECK: Product ' . $product_id . ' is variable with 0 variations - converting to simple'); }
+                    wp_set_object_terms($product_id, 'simple', 'product_type');
+                    // Ensure stock status is set correctly
+                    $stock_status = get_post_meta($product_id, '_stock_status', true);
+                    if (empty($stock_status) || $stock_status === 'outofstock') {
+                        update_post_meta($product_id, '_stock_status', 'instock');
+                    }
+                    // Clear WooCommerce product cache to reflect the change
+                    wc_delete_product_transients($product_id);
+                } else {
+                    // FINAL STOCK STATUS FIX: Variable product with variations - ensure stock status is synced
+                    // WooCommerce sync can sometimes override our stock status, so we force it one final time
+                    // Use direct DB query to avoid caching issues with get_posts()
+                    global $wpdb;
+                    $children = $wpdb->get_col($wpdb->prepare(
+                        "SELECT ID FROM {$wpdb->posts} WHERE post_parent = %d AND post_type = 'product_variation'",
+                        $product_id
+                    ));
+                    $has_stock = false;
+                    if (!empty($children)) {
+                        // Check if any variation has instock status via direct DB query
+                        $instock_count = (int) $wpdb->get_var($wpdb->prepare(
+                            "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE post_id IN (" . implode(',', array_map('intval', $children)) . ") AND meta_key = '_stock_status' AND meta_value = 'instock'"
+                        ));
+                        $has_stock = ($instock_count > 0);
+                    }
+                    $final_stock_status = $has_stock ? 'instock' : 'outofstock';
+                    
+                    // Use direct DB update to bypass any WooCommerce hooks
+                    $wpdb->update(
+                        $wpdb->postmeta,
+                        array('meta_value' => $final_stock_status),
+                        array('post_id' => $product_id, 'meta_key' => '_stock_status'),
+                        array('%s'),
+                        array('%d', '%s')
+                    );
+                    // Also update object cache
+                    wp_cache_delete($product_id, 'post_meta');
+                }
+            }
 
             return $product_id;
 
@@ -1365,11 +1454,11 @@ class WC_XML_CSV_AI_Import_Importer {
 
             $source_field = $mapping_config['source'];
 
-            // Special handling for 'images' field - keep as template string for later placeholder parsing
-            if ($wc_field === 'images') {
-                $mapped_data[$wc_field] = $source_field; // Keep the template string like "{image*}"
+            // Special handling for 'images' and 'featured_image' fields - keep as template string for later placeholder parsing
+            if ($wc_field === 'images' || $wc_field === 'featured_image') {
+                $mapped_data[$wc_field] = $source_field; // Keep the template string like "{image*}" or "{image2}"
                 $log_file = WP_CONTENT_DIR . '/import_debug.log';
-                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "MAP: Keeping images as template: " . $source_field . "\n", FILE_APPEND); }
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "MAP: Keeping $wc_field as template: " . $source_field . "\n", FILE_APPEND); }
                 continue;
             }
 
@@ -1436,8 +1525,8 @@ class WC_XML_CSV_AI_Import_Importer {
         // Process all fields with full raw XML data as context
         // This allows any field to use any XML data as variables in formulas
         foreach ($mapped_data as $field_key => $value) {
-            // Special handling for 'images' field - keep template string unchanged
-            if ($field_key === 'images') {
+            // Special handling for 'images' and 'featured_image' fields - keep template string unchanged
+            if ($field_key === 'images' || $field_key === 'featured_image') {
                 $processed_data[$field_key] = $value; // Keep as-is for placeholder parsing later
                 continue;
             }
@@ -1735,6 +1824,14 @@ class WC_XML_CSV_AI_Import_Importer {
 
         if (!$product_id) {
             throw new Exception(__('Failed to create product.', 'wc-xml-csv-import'));
+        }
+        
+        // SYNC _price meta - WooCommerce needs this for frontend display
+        $regular_price = $product->get_regular_price();
+        $sale_price = $product->get_sale_price();
+        $price = ('' !== $sale_price && $sale_price !== null) ? $sale_price : $regular_price;
+        if ('' !== $price && $price !== null) {
+            update_post_meta($product_id, '_price', $price);
         }
         
         // FORCE stock_status after save - WooCommerce may have overridden it based on stock_quantity
@@ -2178,6 +2275,14 @@ class WC_XML_CSV_AI_Import_Importer {
         }
 
         $product->save();
+        
+        // SYNC _price meta - WooCommerce needs this for frontend display
+        $regular_price = $product->get_regular_price();
+        $sale_price = $product->get_sale_price();
+        $price = ('' !== $sale_price && $sale_price !== null) ? $sale_price : $regular_price;
+        if ('' !== $price && $price !== null) {
+            update_post_meta($product_id, '_price', $price);
+        }
         
         // FORCE stock_status after save - WooCommerce may have overridden it based on stock_quantity
         if ($force_stock_status) {
@@ -2783,37 +2888,106 @@ class WC_XML_CSV_AI_Import_Importer {
 
         $result_urls = array();
         
-        // Split by comma to support multiple entries
-        $entries = array_map('trim', explode(',', $template));
+        // DEBUG: Log all image-related keys in product_data
+        $image_related_keys = array_filter(array_keys($product_data), function($k) { 
+            return stripos($k, 'image') !== false || stripos($k, 'bilde') !== false || stripos($k, 'attels') !== false;
+        });
+        $this->log('info', "PARSE_IMAGE_PLACEHOLDERS: All image-related keys: " . implode(', ', $image_related_keys));
+        
+        // Split by comma, space, or both to support multiple entries like "{image1} {image2},{image3}"
+        $entries = array_filter(array_map('trim', preg_split('/[\s,]+/', $template)));
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) { error_log("PARSE_IMAGE_PLACEHOLDERS: Template='$template', entries=" . json_encode($entries)); }
+        if (defined('WP_DEBUG') && WP_DEBUG) { error_log("PARSE_IMAGE_PLACEHOLDERS: product_data keys sample: " . implode(', ', array_slice(array_keys($product_data), 0, 30))); }
         
         foreach ($entries as $entry) {
-            // field_name* or {field_name*} - all values from field_name.0, field_name.1, etc.
-            if (preg_match('/^([a-zA-Z0-9_]+)\*$/', $entry, $matches) || preg_match('/\{([a-zA-Z0-9_]+)\*\}/', $entry, $matches)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) { error_log("PARSE_IMAGE_PLACEHOLDERS: Processing entry='$entry'"); }
+            
+            // field_name* or {field_name*} - all values from field_nameN (e.g., image1, image2, image3...)
+            // Also checks for field_name.0, field_name.1 and field_name array
+            if (preg_match('/^([a-zA-Z0-9_]+)\*$/', $entry, $matches) || preg_match('/^\{([a-zA-Z0-9_]+)\*\}$/', $entry, $matches)) {
                 $field_base = $matches[1];
-                $field_values = $this->get_all_field_values($field_base, $product_data);
-                $result_urls = array_merge($result_urls, $field_values);
+                $this->log('debug', "WILDCARD: Matched field_base='$field_base'");
+                if (defined('WP_DEBUG') && WP_DEBUG) { error_log("PARSE_IMAGE_PLACEHOLDERS: Wildcard match for '$field_base*'"); }
+                
+                // FIRST: Check for numbered fields like image1, image2, image3... (common XML format)
+                $numbered_values = array();
+                $consecutive_empty = 0;
+                for ($i = 1; $i <= 100; $i++) {
+                    $numbered_key = $field_base . $i;
+                    if (isset($product_data[$numbered_key])) {
+                        $val = $this->extract_text_value($product_data[$numbered_key]);
+                        if (!empty($val)) {
+                            $numbered_values[] = $val;
+                            $consecutive_empty = 0; // Reset empty counter
+                            $this->log('debug', "WILDCARD: Found $numbered_key = " . substr($val, 0, 60));
+                            if (defined('WP_DEBUG') && WP_DEBUG) { error_log("PARSE_IMAGE_PLACEHOLDERS: Found $numbered_key = " . substr($val, 0, 50)); }
+                        } else {
+                            // Field exists but is empty (like image5, image6 with no URL)
+                            $consecutive_empty++;
+                            $this->log('debug', "WILDCARD: $numbered_key is EMPTY (consecutive=$consecutive_empty)");
+                            if ($consecutive_empty > 3) {
+                                // Stop after 3 consecutive empty fields
+                                break;
+                            }
+                        }
+                    } else {
+                        // Field doesn't exist at all - stop
+                        $this->log('debug', "WILDCARD: $numbered_key NOT SET - stopping loop");
+                        break;
+                    }
+                }
+                
+                $this->log('debug', "WILDCARD: Total numbered_values found: " . count($numbered_values));
+                
+                if (!empty($numbered_values)) {
+                    $result_urls = array_merge($result_urls, $numbered_values);
+                } else {
+                    // FALLBACK: Try old format (field.0, field.1 or field array)
+                    $field_values = $this->get_all_field_values($field_base, $product_data);
+                    $result_urls = array_merge($result_urls, $field_values);
+                }
             }
             // field_name[N] or {field_name[N]} - specific value by index (1-based)
-            elseif (preg_match('/^([a-zA-Z0-9_]+)\[(\d+)\]$/', $entry, $matches) || preg_match('/\{([a-zA-Z0-9_]+)\[(\d+)\]\}/', $entry, $matches)) {
+            elseif (preg_match('/^([a-zA-Z0-9_]+)\[(\d+)\]$/', $entry, $matches) || preg_match('/^\{([a-zA-Z0-9_]+)\[(\d+)\]\}$/', $entry, $matches)) {
                 $field_base = $matches[1];
-                $index = intval($matches[2]) - 1; // Convert to 0-based
-                $field_key = $field_base . '.' . $index;
-                if (isset($product_data[$field_key])) {
-                    $result_urls[] = $product_data[$field_key];
+                $index = intval($matches[2]);
+                
+                // First try numbered key (image1, image2...)
+                $numbered_key = $field_base . $index;
+                if (isset($product_data[$numbered_key]) && !empty($product_data[$numbered_key])) {
+                    $val = $this->extract_text_value($product_data[$numbered_key]);
+                    if (!empty($val)) {
+                        $result_urls[] = $val;
+                    }
+                } else {
+                    // Fallback to dot notation (0-based)
+                    $field_key = $field_base . '.' . ($index - 1);
+                    if (isset($product_data[$field_key])) {
+                        $result_urls[] = $product_data[$field_key];
+                    }
                 }
             }
-            // field_name or {field_name} - first value (same as field_name[1])
-            elseif (preg_match('/^([a-zA-Z0-9_]+)$/', $entry, $matches) || preg_match('/\{([a-zA-Z0-9_]+)\}/', $entry, $matches)) {
-                $field_base = $matches[1];
-                // Try field_name.0 first, then field_name
-                if (isset($product_data[$field_base . '.0'])) {
-                    $result_urls[] = $product_data[$field_base . '.0'];
-                } elseif (isset($product_data[$field_base])) {
-                    $result_urls[] = $product_data[$field_base];
+            // field_name or {field_name} - direct field access (e.g., {image1} gets product_data['image1'])
+            elseif (preg_match('/^([a-zA-Z0-9_]+)$/', $entry, $matches) || preg_match('/^\{([a-zA-Z0-9_]+)\}$/', $entry, $matches)) {
+                $field_name = $matches[1];
+                if (defined('WP_DEBUG') && WP_DEBUG) { error_log("PARSE_IMAGE_PLACEHOLDERS: Direct field match for '$field_name'"); }
+                
+                // Try exact field name first (e.g., 'image1')
+                if (isset($product_data[$field_name]) && !empty($product_data[$field_name])) {
+                    $val = $this->extract_text_value($product_data[$field_name]);
+                    if (!empty($val)) {
+                        $result_urls[] = $val;
+                        if (defined('WP_DEBUG') && WP_DEBUG) { error_log("PARSE_IMAGE_PLACEHOLDERS: Found $field_name = " . substr($val, 0, 50)); }
+                    }
+                }
+                // Try field_name.0 (old format)
+                elseif (isset($product_data[$field_name . '.0'])) {
+                    $result_urls[] = $product_data[$field_name . '.0'];
                 }
             }
-            // Plain URL (no placeholder)
-            else {
+            // Plain URL (no placeholder - starts with http)
+            elseif (preg_match('/^https?:\/\//', $entry)) {
                 $result_urls[] = $entry;
             }
         }
@@ -2869,6 +3043,97 @@ class WC_XML_CSV_AI_Import_Importer {
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log("TEMPLATE_PARSE: Output result: " . $result); }
         
         return $result;
+    }
+
+    /**
+     * Parse field placeholders in a template string for variation data.
+     * Supports {field.path} syntax and direct field access.
+     * Used for custom meta fields in variations where we work with simple arrays.
+     *
+     * @since    1.0.0
+     * @param    string $template The template string with placeholders like {field_name}
+     * @param    array  $var_data The variation data array
+     * @return   string|null The parsed value or null if not found
+     */
+    private function parse_field_placeholders($template, $var_data) {
+        if (empty($template) || !is_string($template)) {
+            return null;
+        }
+        
+        // Check if it's a placeholder template {field}
+        if (preg_match('/^\{([^}]+)\}$/', trim($template), $matches)) {
+            // Single placeholder - extract the field name
+            $field_path = $matches[1];
+            
+            // Try direct access first
+            if (isset($var_data[$field_path])) {
+                $value = $var_data[$field_path];
+                return is_array($value) ? $this->extract_text_value($value) : (string)$value;
+            }
+            
+            // Try nested path with dots (e.g., "meta.supplier_id")
+            if (strpos($field_path, '.') !== false) {
+                $parts = explode('.', $field_path);
+                $current = $var_data;
+                
+                foreach ($parts as $part) {
+                    if (is_array($current) && isset($current[$part])) {
+                        $current = $current[$part];
+                    } else {
+                        return null;
+                    }
+                }
+                
+                return is_array($current) ? $this->extract_text_value($current) : (string)$current;
+            }
+            
+            return null;
+        }
+        
+        // Multiple placeholders in template string
+        if (strpos($template, '{') !== false) {
+            $result = preg_replace_callback(
+                '/\{([^}]+)\}/',
+                function($matches) use ($var_data) {
+                    $field_path = $matches[1];
+                    
+                    // Try direct access
+                    if (isset($var_data[$field_path])) {
+                        $value = $var_data[$field_path];
+                        return is_array($value) ? $this->extract_text_value($value) : (string)$value;
+                    }
+                    
+                    // Try nested path
+                    if (strpos($field_path, '.') !== false) {
+                        $parts = explode('.', $field_path);
+                        $current = $var_data;
+                        
+                        foreach ($parts as $part) {
+                            if (is_array($current) && isset($current[$part])) {
+                                $current = $current[$part];
+                            } else {
+                                return '';
+                            }
+                        }
+                        
+                        return is_array($current) ? $this->extract_text_value($current) : (string)$current;
+                    }
+                    
+                    return '';
+                },
+                $template
+            );
+            
+            return trim($result);
+        }
+        
+        // No placeholders - treat as direct field name
+        if (isset($var_data[$template])) {
+            $value = $var_data[$template];
+            return is_array($value) ? $this->extract_text_value($value) : (string)$value;
+        }
+        
+        return null;
     }
 
     /**
@@ -3074,9 +3339,18 @@ class WC_XML_CSV_AI_Import_Importer {
             $this->log('info', 'Processing images field...');
             if (is_string($product_data['images'])) {
                 $this->log('info', 'Images is string: ' . $product_data['images']);
+                // DEBUG: Log current_raw_product_data image keys
+                $raw_image_keys = array_filter(array_keys($this->current_raw_product_data), function($k) { return strpos($k, 'image') !== false; });
+                $this->log('info', 'current_raw_product_data image keys: ' . implode(', ', $raw_image_keys));
+                $this->log('info', 'image1 value: ' . ($this->current_raw_product_data['image1'] ?? 'NOT SET'));
+                $this->log('info', 'image2 value: ' . ($this->current_raw_product_data['image2'] ?? 'NOT SET'));
+                $this->log('info', 'image3 value: ' . ($this->current_raw_product_data['image3'] ?? 'NOT SET'));
                 // Parse placeholders like image*, image[1] against RAW product data
                 $parsed_images = $this->parse_image_placeholders($product_data['images'], $this->current_raw_product_data);
                 $this->log('info', 'Parsed ' . count($parsed_images) . ' images');
+                if (!empty($parsed_images)) {
+                    $this->log('info', 'Parsed image URLs: ' . implode(', ', array_map(function($u) { return substr($u, 0, 60); }, $parsed_images)));
+                }
                 $image_urls = array_merge($image_urls, $parsed_images);
             } else {
                 $this->log('info', 'Images is array');
@@ -3087,11 +3361,25 @@ class WC_XML_CSV_AI_Import_Importer {
             $this->log('warning', 'Images field is EMPTY!');
         }
 
-        // Process 'featured_image' field (direct mapping)
+        // Process 'featured_image' field with placeholder support
         if (!empty($product_data['featured_image'])) {
             $this->log('info', 'Featured image present: ' . $product_data['featured_image']);
-            // If featured_image is specified, it takes priority as first image
-            array_unshift($image_urls, $product_data['featured_image']);
+            
+            // Check if it's a placeholder template like {image2}
+            if (is_string($product_data['featured_image']) && strpos($product_data['featured_image'], '{') !== false) {
+                $this->log('info', 'Featured image is placeholder template, parsing...');
+                $parsed_featured = $this->parse_image_placeholders($product_data['featured_image'], $this->current_raw_product_data);
+                if (!empty($parsed_featured)) {
+                    $this->log('info', 'Parsed featured image URL: ' . $parsed_featured[0]);
+                    // If featured_image is specified, it takes priority as first image
+                    array_unshift($image_urls, $parsed_featured[0]);
+                } else {
+                    $this->log('warning', 'Failed to parse featured_image placeholder!');
+                }
+            } else {
+                // Direct URL - use as-is
+                array_unshift($image_urls, $product_data['featured_image']);
+            }
         } else {
             $this->log('warning', 'Featured image field is EMPTY!');
         }
@@ -3451,12 +3739,42 @@ class WC_XML_CSV_AI_Import_Importer {
             if (!empty($attributes_config['variation_fields']) && is_array($attributes_config['variation_fields'])) {
                 $vf = $attributes_config['variation_fields'];
                 $attributes_config['map_config']['sku_source'] = $vf['sku'] ?? '';
+                $attributes_config['map_config']['parent_sku_source'] = $vf['parent_sku'] ?? '';
                 $attributes_config['map_config']['price_source'] = $vf['regular_price'] ?? '';
                 $attributes_config['map_config']['sale_price_source'] = $vf['sale_price'] ?? '';
+                $attributes_config['map_config']['sale_price_dates_from_source'] = $vf['sale_price_dates_from'] ?? '';
+                $attributes_config['map_config']['sale_price_dates_to_source'] = $vf['sale_price_dates_to'] ?? '';
                 $attributes_config['map_config']['stock_source'] = $vf['stock_quantity'] ?? '';
+                $attributes_config['map_config']['stock_status_source'] = $vf['stock_status'] ?? '';
+                $attributes_config['map_config']['manage_stock_source'] = $vf['manage_stock'] ?? '';
+                $attributes_config['map_config']['low_stock_amount_source'] = $vf['low_stock_amount'] ?? '';
+                $attributes_config['map_config']['backorders_source'] = $vf['backorders'] ?? '';
+                $attributes_config['map_config']['backorders_default'] = $vf['backorders_default'] ?? '';
                 $attributes_config['map_config']['weight_source'] = $vf['weight'] ?? '';
-                $attributes_config['map_config']['image_source'] = $vf['image'] ?? '';
+                $attributes_config['map_config']['weight_inherit'] = !empty($vf['weight_inherit']);
+                $attributes_config['map_config']['length_source'] = $vf['length'] ?? '';
+                $attributes_config['map_config']['width_source'] = $vf['width'] ?? '';
+                $attributes_config['map_config']['height_source'] = $vf['height'] ?? '';
+                $attributes_config['map_config']['dimensions_inherit'] = !empty($vf['dimensions_inherit']);
                 $attributes_config['map_config']['description_source'] = $vf['description'] ?? '';
+                $attributes_config['map_config']['shipping_class_source'] = $vf['shipping_class'] ?? '';
+                $attributes_config['map_config']['image_source'] = $vf['image'] ?? '';
+                $attributes_config['map_config']['virtual_source'] = $vf['virtual'] ?? '';
+                $attributes_config['map_config']['downloadable_source'] = $vf['downloadable'] ?? '';
+                $attributes_config['map_config']['download_limit_source'] = $vf['download_limit'] ?? '';
+                $attributes_config['map_config']['download_expiry_source'] = $vf['download_expiry'] ?? '';
+                $attributes_config['map_config']['downloads_source'] = $vf['downloads'] ?? '';
+                // Product identifiers
+                $attributes_config['map_config']['ean_source'] = $vf['ean'] ?? '';
+                $attributes_config['map_config']['upc_source'] = $vf['upc'] ?? '';
+                $attributes_config['map_config']['gtin_source'] = $vf['gtin'] ?? '';
+                $attributes_config['map_config']['isbn_source'] = $vf['isbn'] ?? '';
+                $attributes_config['map_config']['mpn_source'] = $vf['mpn'] ?? '';
+            }
+            // Pass custom meta fields for variations (can come as 'var_meta' or 'variation_meta' from JS)
+            $var_meta = $attributes_config['var_meta'] ?? $attributes_config['variation_meta'] ?? array();
+            if (!empty($var_meta) && is_array($var_meta)) {
+                $attributes_config['map_config']['var_meta'] = $var_meta;
             }
             // Convert new variation_attributes to old attributes format
             if (!empty($attributes_config['variation_attributes']) && is_array($attributes_config['variation_attributes'])) {
@@ -3488,22 +3806,25 @@ class WC_XML_CSV_AI_Import_Importer {
         if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "is_array=" . (is_array($attributes_config['attributes'] ?? null) ? 'YES' : 'NO') . "\n", FILE_APPEND); }
         if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "empty=" . (empty($attributes_config['attributes']) ? 'YES' : 'NO') . "\n", FILE_APPEND); }
         
-        // Also check for display_attributes
+        // Also check for display_attributes and attribute_pairs (key-value mode)
         $has_variation_attributes_config = !empty($attributes_config['attributes']) && is_array($attributes_config['attributes']);
         $has_display_attributes_config = !empty($attributes_config['display_attributes']) && is_array($attributes_config['display_attributes']);
+        $has_attribute_pairs_config = !empty($attributes_config['attribute_pairs']) && is_array($attributes_config['attribute_pairs']);
         
         if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "Has variation attributes config: " . ($has_variation_attributes_config ? 'YES' : 'NO') . "\n", FILE_APPEND); }
         if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "Has display attributes config: " . ($has_display_attributes_config ? 'YES' : 'NO') . "\n", FILE_APPEND); }
+        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "Has attribute pairs config (key-value): " . ($has_attribute_pairs_config ? 'YES' : 'NO') . "\n", FILE_APPEND); }
         
-        // Only return if BOTH are empty (and not variable product mode)
-        if (!$has_variation_attributes_config && !$has_display_attributes_config && $product_mode !== 'variable') {
-            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "ERROR: No attributes or display_attributes in config!\n", FILE_APPEND); }
-            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ No attributes or display_attributes in config'); }
+        // Only return if ALL are empty (and not variable product mode)
+        if (!$has_variation_attributes_config && !$has_display_attributes_config && !$has_attribute_pairs_config && $product_mode !== 'variable') {
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "ERROR: No attributes, display_attributes or attribute_pairs in config!\n", FILE_APPEND); }
+            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ No attributes, display_attributes or attribute_pairs in config'); }
             return;
         }
 
         if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "Attributes array OK! Count: " . count($attributes_config['attributes'] ?? []) . "\n", FILE_APPEND); }
         if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "Display attributes array OK! Count: " . count($attributes_config['display_attributes'] ?? []) . "\n", FILE_APPEND); }
+        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "Attribute pairs array OK! Count: " . count($attributes_config['attribute_pairs'] ?? []) . "\n", FILE_APPEND); }
 
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ PROCESSING ATTRIBUTES for product ID: ' . $product_id); }
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ Attributes config: ' . print_r($attributes_config, true)); }
@@ -3533,13 +3854,37 @@ class WC_XML_CSV_AI_Import_Importer {
                 
                 if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "🔍 MAP MODE: Auto-detecting attributes from " . count($variations_data) . " variations\n", FILE_APPEND); }
                 
-                // Check if we need to auto-detect attributes (no valid attributes configured)
+                // Check if we need to auto-detect attributes:
+                // 1. No valid attributes configured, OR
+                // 2. Configured attributes don't exist in THIS product's variations
                 $need_auto_detect = true;
+                $first_variation = $variations_data[0];
+                $first_var_attrs = $this->get_nested_value($first_variation, 'attributes');
+                
                 foreach ($attributes_config['attributes'] as $attr) {
-                    if (!empty($attr['name']) && (!empty($attr['xml_attribute_key']) || !empty($attr['values_source']))) {
-                        $need_auto_detect = false;
-                        break;
+                    if (!empty($attr['name'])) {
+                        // Check if this attribute name (lowercase) exists in the variation's attributes
+                        $attr_key = strtolower(str_replace(' ', '_', $attr['name']));
+                        
+                        if (!empty($first_var_attrs) && is_array($first_var_attrs)) {
+                            // Check for attribute in various formats
+                            $found = false;
+                            foreach (array_keys($first_var_attrs) as $key) {
+                                if (strtolower($key) === $attr_key) {
+                                    $found = true;
+                                    break;
+                                }
+                            }
+                            if ($found) {
+                                $need_auto_detect = false;
+                                break;
+                            }
+                        }
                     }
+                }
+                
+                if ($need_auto_detect && defined('WP_DEBUG') && WP_DEBUG) { 
+                    file_put_contents($log_file, "  - Configured attributes not found in this product's variations, auto-detecting...\n", FILE_APPEND); 
                 }
                 
                 if ($need_auto_detect) {
@@ -3597,7 +3942,7 @@ class WC_XML_CSV_AI_Import_Importer {
         }
         
         // CRITICAL: Check if any attributes are marked as "used for variations"
-        // If yes, convert product to Variable type BEFORE setting attributes
+        // AND if actual variation data exists in XML/CSV
         $has_variation_attributes = false;
         foreach ($attributes_config['attributes'] as $attr_config) {
             if (isset($attr_config['used_for_variations']) && $attr_config['used_for_variations'] == 1) {
@@ -3606,8 +3951,38 @@ class WC_XML_CSV_AI_Import_Importer {
             }
         }
         
+        // Check if actual variation data exists in product_data
+        // This prevents creating empty variable products when XML has no <variations> block
+        $has_actual_variations = false;
+        if ($has_variation_attributes && $variation_mode === 'map') {
+            $map_config = $attributes_config['map_config'] ?? array();
+            $variation_paths = array('variations.variation', 'variations', 'variants.variant', 'variants', 'variation', 'variant');
+            
+            // Check configured container_xpath first
+            if (!empty($map_config['container_xpath'])) {
+                $custom_path = trim($map_config['container_xpath'], '/');
+                $custom_path = str_replace('//', '.', $custom_path);
+                array_unshift($variation_paths, $custom_path);
+            }
+            
+            foreach ($variation_paths as $path) {
+                $variations_data = $this->get_nested_value($product_data, $path);
+                if (!empty($variations_data) && is_array($variations_data)) {
+                    $has_actual_variations = true;
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "✓ Found actual variations at path: $path\n", FILE_APPEND); }
+                    break;
+                }
+            }
+            
+            if (!$has_actual_variations) {
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "⚠️ No actual variation data found in XML - keeping as simple product\n", FILE_APPEND); }
+                // Reset to simple product mode - don't create variations
+                $has_variation_attributes = false;
+            }
+        }
+        
         if ($has_variation_attributes) {
-            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "🔄 CONVERTING PRODUCT TO VARIABLE TYPE (found variation attributes)\n", FILE_APPEND); }
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "🔄 CONVERTING PRODUCT TO VARIABLE TYPE (found variation attributes AND actual variation data)\n", FILE_APPEND); }
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ Converting product ID ' . $product_id . ' to variable type'); }
             
             // Change product type to variable
@@ -3618,7 +3993,7 @@ class WC_XML_CSV_AI_Import_Importer {
             
             if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "✓ Product converted to variable type\n", FILE_APPEND); }
         } else {
-            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "ℹ️ No variation attributes - keeping as simple product\n", FILE_APPEND); }
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "ℹ️ No variation attributes or no actual variations - keeping as simple product\n", FILE_APPEND); }
         }
         
         if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "Starting foreach loop...\n", FILE_APPEND); }
@@ -3818,12 +4193,20 @@ class WC_XML_CSV_AI_Import_Importer {
                 
                 // Extract value from XML/CSV
                 try {
-                    if ($this->config['file_type'] === 'xml') {
-                        $raw_value = $this->xml_parser->extract_field_value($product_data, $values_source);
+                    // Check if source contains {placeholder} syntax (like other fields use)
+                    if (strpos($values_source, '{') !== false && strpos($values_source, '}') !== false) {
+                        // Parse template string - replace all {field} with actual values
+                        $raw_value = $this->parse_template_string($values_source, $product_data);
+                        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  - Parsed from template: " . print_r($raw_value, true) . "\n", FILE_APPEND); }
                     } else {
-                        $raw_value = $this->csv_parser->extract_field_value($product_data, $values_source);
+                        // Simple field name - extract directly
+                        if ($this->config['file_type'] === 'xml') {
+                            $raw_value = $this->xml_parser->extract_field_value($product_data, $values_source);
+                        } else {
+                            $raw_value = $this->csv_parser->extract_field_value($product_data, $values_source);
+                        }
+                        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  - Extracted: " . print_r($raw_value, true) . "\n", FILE_APPEND); }
                     }
-                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  - Extracted: " . print_r($raw_value, true) . "\n", FILE_APPEND); }
                 } catch (Exception $e) {
                     if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  - EXCEPTION: " . $e->getMessage() . "\n", FILE_APPEND); }
                     continue;
@@ -3918,6 +4301,115 @@ class WC_XML_CSV_AI_Import_Importer {
         } // End of if (!empty($attributes_config['attributes']))
 
         // =====================================================
+        // PROCESS KEY-VALUE ATTRIBUTE PAIRS (BigBuy format)
+        // e.g., {attribute1} → "Colour", {value1} → "Blue"
+        // =====================================================
+        $attribute_pairs = $attributes_config['attribute_pairs'] ?? array();
+        $attr_input_mode = $attributes_config['attr_input_mode'] ?? 'standard';
+        
+        if ($attr_input_mode === 'key_value' && !empty($attribute_pairs) && is_array($attribute_pairs)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "\n=== PROCESSING KEY-VALUE ATTRIBUTE PAIRS ===\n", FILE_APPEND); }
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "Found " . count($attribute_pairs) . " attribute pairs to process\n", FILE_APPEND); }
+            
+            $attr_position = count($product_attributes);
+            
+            foreach ($attribute_pairs as $pair) {
+                $name_field = $pair['name_field'] ?? '';
+                $value_field = $pair['value_field'] ?? '';
+                
+                if (empty($name_field) || empty($value_field)) {
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  - Skipping: empty name_field or value_field\n", FILE_APPEND); }
+                    continue;
+                }
+                
+                // Parse attribute name from template (e.g., {attribute1} → "Colour")
+                $attr_name_value = $this->parse_template_string($name_field, $product_data);
+                if (empty($attr_name_value)) {
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  - Skipping: parsed name is empty for '$name_field'\n", FILE_APPEND); }
+                    continue;
+                }
+                
+                // Parse attribute value from template (e.g., {value1} → "Blue")
+                $attr_value = $this->parse_template_string($value_field, $product_data);
+                if (empty($attr_value)) {
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  - Skipping: parsed value is empty for '$value_field'\n", FILE_APPEND); }
+                    continue;
+                }
+                
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  - Processing pair: $name_field='$attr_name_value' → $value_field='$attr_value'\n", FILE_APPEND); }
+                
+                // Prepare taxonomy name from the dynamic attribute name
+                $original_name = trim($attr_name_value);
+                if (strpos($original_name, 'pa_') !== 0) {
+                    $attr_name = 'pa_' . sanitize_title($original_name);
+                    $attr_label = $original_name;
+                } else {
+                    $attr_name = sanitize_title($original_name);
+                    $attr_label = str_replace('pa_', '', $original_name);
+                }
+                
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    - Taxonomy: $attr_name (Label: $attr_label)\n", FILE_APPEND); }
+                
+                // Parse values (handle array or string with comma/pipe separators)
+                $values = array();
+                if (is_array($attr_value)) {
+                    $values = $attr_value;
+                } else if (is_string($attr_value)) {
+                    if (preg_match('/[,|]/', $attr_value)) {
+                        $values = array_map('trim', preg_split('/[,|]/', $attr_value));
+                    } else {
+                        $values = array(trim($attr_value));
+                    }
+                }
+                
+                $values = array_filter($values, function($v) {
+                    return !empty($v);
+                });
+                
+                if (empty($values)) {
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    - Skipping: no values after filtering\n", FILE_APPEND); }
+                    continue;
+                }
+                
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    - Values: " . implode(', ', $values) . "\n", FILE_APPEND); }
+                
+                // Register attribute taxonomy
+                $this->register_attribute_taxonomy($attr_name, $attr_label);
+                
+                // Create/get terms
+                $term_ids = array();
+                foreach ($values as $value) {
+                    $term_result = $this->get_or_create_attribute_term($value, $attr_name);
+                    if ($term_result && isset($term_result->term_id)) {
+                        $term_ids[] = $term_result->term_id;
+                        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "      - Term created: $value (ID: " . $term_result->term_id . ")\n", FILE_APPEND); }
+                    }
+                }
+                
+                if (empty($term_ids)) {
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    - ERROR: No terms created!\n", FILE_APPEND); }
+                    continue;
+                }
+                
+                // Add to product attributes
+                $product_attributes[$attr_name] = array(
+                    'name' => $attr_name,
+                    'value' => '',
+                    'position' => $attr_position++,
+                    'is_visible' => 1,
+                    'is_variation' => 0,
+                    'is_taxonomy' => 1
+                );
+                
+                // Set terms to product
+                wp_set_object_terms($product_id, $term_ids, $attr_name);
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    - ✓ Key-Value pair attribute complete!\n", FILE_APPEND); }
+            }
+            
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "=== KEY-VALUE PAIRS PROCESSING COMPLETE ===\n\n", FILE_APPEND); }
+        }
+
+        // =====================================================
         // PROCESS DISPLAY ATTRIBUTES (non-variation attributes)
         // =====================================================
         $display_attributes = $attributes_config['display_attributes'] ?? array();
@@ -3941,14 +4433,21 @@ class WC_XML_CSV_AI_Import_Importer {
                 // Get value from source field in product_data
                 $raw_value = null;
                 if (!empty($source_field)) {
-                    // Try to get value from product_data
-                    if (isset($product_data[$source_field])) {
-                        $raw_value = $product_data[$source_field];
+                    // Check if source contains {placeholder} syntax (like other fields use)
+                    if (strpos($source_field, '{') !== false && strpos($source_field, '}') !== false) {
+                        // Parse template string - replace all {field} with actual values
+                        $raw_value = $this->parse_template_string($source_field, $product_data);
+                        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    - Parsed from template: " . print_r($raw_value, true) . "\n", FILE_APPEND); }
                     } else {
-                        // Try nested path extraction
-                        $raw_value = $this->get_nested_value($product_data, $source_field);
+                        // Simple field name - try direct access or nested path
+                        if (isset($product_data[$source_field])) {
+                            $raw_value = $product_data[$source_field];
+                        } else {
+                            // Try nested path extraction
+                            $raw_value = $this->get_nested_value($product_data, $source_field);
+                        }
+                        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    - Extracted value: " . print_r($raw_value, true) . "\n", FILE_APPEND); }
                     }
-                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    - Extracted value: " . print_r($raw_value, true) . "\n", FILE_APPEND); }
                 }
                 
                 if (empty($raw_value)) {
@@ -4045,6 +4544,23 @@ class WC_XML_CSV_AI_Import_Importer {
         } else {
             if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "\nERROR: No attributes to save!\n", FILE_APPEND); }
         }
+        
+        // CRITICAL: Check if product is variable type but has no variations
+        // This can happen when type=variable is set but no variation data exists in XML
+        $final_product = wc_get_product($product_id);
+        if ($final_product && $final_product->is_type('variable')) {
+            $variation_count = count($final_product->get_children());
+            if ($variation_count === 0) {
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "⚠️ Product is variable type but has 0 variations - converting to SIMPLE\n", FILE_APPEND); }
+                wp_set_object_terms($product_id, 'simple', 'product_type');
+                // Ensure stock status is set correctly
+                $stock_status = get_post_meta($product_id, '_stock_status', true);
+                if (empty($stock_status)) {
+                    update_post_meta($product_id, '_stock_status', 'instock');
+                }
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  ✓ Converted to simple product\n", FILE_APPEND); }
+            }
+        }
     }
     
     /**
@@ -4078,9 +4594,27 @@ class WC_XML_CSV_AI_Import_Importer {
                 $attributes_config['map_config']['sku_source'] = $vf['sku'] ?? '';
                 $attributes_config['map_config']['price_source'] = $vf['regular_price'] ?? '';
                 $attributes_config['map_config']['sale_price_source'] = $vf['sale_price'] ?? '';
+                $attributes_config['map_config']['sale_price_dates_from_source'] = $vf['sale_price_dates_from'] ?? '';
+                $attributes_config['map_config']['sale_price_dates_to_source'] = $vf['sale_price_dates_to'] ?? '';
                 $attributes_config['map_config']['stock_source'] = $vf['stock_quantity'] ?? '';
+                $attributes_config['map_config']['stock_status_source'] = $vf['stock_status'] ?? '';
+                $attributes_config['map_config']['manage_stock_source'] = $vf['manage_stock'] ?? '';
+                $attributes_config['map_config']['low_stock_amount_source'] = $vf['low_stock_amount'] ?? '';
                 $attributes_config['map_config']['weight_source'] = $vf['weight'] ?? '';
+                $attributes_config['map_config']['length_source'] = $vf['length'] ?? '';
+                $attributes_config['map_config']['width_source'] = $vf['width'] ?? '';
+                $attributes_config['map_config']['height_source'] = $vf['height'] ?? '';
+                $attributes_config['map_config']['description_source'] = $vf['description'] ?? '';
+                $attributes_config['map_config']['shipping_class_source'] = $vf['shipping_class'] ?? '';
                 $attributes_config['map_config']['image_source'] = $vf['image'] ?? '';
+                $attributes_config['map_config']['virtual_source'] = $vf['virtual'] ?? '';
+                $attributes_config['map_config']['downloadable_source'] = $vf['downloadable'] ?? '';
+                // Product identifiers
+                $attributes_config['map_config']['ean_source'] = $vf['ean'] ?? '';
+                $attributes_config['map_config']['upc_source'] = $vf['upc'] ?? '';
+                $attributes_config['map_config']['gtin_source'] = $vf['gtin'] ?? '';
+                $attributes_config['map_config']['isbn_source'] = $vf['isbn'] ?? '';
+                $attributes_config['map_config']['mpn_source'] = $vf['mpn'] ?? '';
             }
         } elseif ($product_mode === 'simple' || $product_mode === 'attributes') {
             if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "Product mode is $product_mode - skipping variation generation\n", FILE_APPEND); }
@@ -4120,11 +4654,79 @@ class WC_XML_CSV_AI_Import_Importer {
         if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "✓✓✓ GENERATED $variation_count VARIATIONS! ✓✓✓\n", FILE_APPEND); }
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ Generated ' . $variation_count . ' variations for product ' . $product_id); }
         
+        // CRITICAL: If no variations were created, convert back to simple product
+        // This prevents "out of stock" issue for variable products without variations
+        if ($variation_count === 0) {
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "⚠️ No variations created - converting product back to SIMPLE type\n", FILE_APPEND); }
+            wp_set_object_terms($product_id, 'simple', 'product_type');
+            
+            // Reload product to get correct type
+            $parent_product = wc_get_product($product_id);
+            if ($parent_product) {
+                // Ensure stock status is set correctly for simple product
+                $current_stock_status = get_post_meta($product_id, '_stock_status', true);
+                if (empty($current_stock_status) || $current_stock_status === 'outofstock') {
+                    // Check if we have stock quantity
+                    $stock_qty = get_post_meta($product_id, '_stock', true);
+                    if (!empty($stock_qty) && intval($stock_qty) > 0) {
+                        update_post_meta($product_id, '_stock_status', 'instock');
+                        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  ✓ Set stock status to 'instock' (qty: $stock_qty)\n", FILE_APPEND); }
+                    }
+                }
+            }
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  ✓ Product converted to simple type\n", FILE_APPEND); }
+            return; // Skip sync since it's no longer variable
+        }
+        
         // Sync variation data with parent
         if (function_exists('WC_Product_Variable::sync')) {
             WC_Product_Variable::sync($product_id);
             if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "✓ Synced variations with parent product\n", FILE_APPEND); }
         }
+        
+        // Force sync stock status - WooCommerce sometimes doesn't do this correctly
+        $children = get_posts(array(
+            'post_type' => 'product_variation',
+            'post_parent' => $product_id,
+            'posts_per_page' => -1,
+            'fields' => 'ids'
+        ));
+        
+        $has_stock = false;
+        foreach ($children as $child_id) {
+            $child_stock_status = get_post_meta($child_id, '_stock_status', true);
+            if ($child_stock_status === 'instock') {
+                $has_stock = true;
+                break;
+            }
+        }
+        
+        // Update parent stock status directly
+        $new_stock_status = $has_stock ? 'instock' : 'outofstock';
+        update_post_meta($product_id, '_stock_status', $new_stock_status);
+        
+        // Sync the variable product to update prices and other aggregated data
+        WC_Product_Variable::sync($product_id);
+        
+        // IMPORTANT: Re-set stock status AFTER sync because sync can reset it
+        // Use direct DB query to bypass any WooCommerce hooks
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->postmeta,
+            array('meta_value' => $new_stock_status),
+            array('post_id' => $product_id, 'meta_key' => '_stock_status'),
+            array('%s'),
+            array('%d', '%s')
+        );
+        
+        // Clear ALL WooCommerce product caches to ensure stock status is reflected
+        // Note: We use direct cache deletion instead of wc_delete_product_transients()
+        // to avoid triggering hooks that might reset stock status
+        wp_cache_delete('product-' . $product_id, 'products');
+        wp_cache_delete($product_id, 'post_meta');
+        clean_post_cache($product_id);
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "Set parent product $product_id stock_status to: $new_stock_status\n", FILE_APPEND); }
     }
     
     /**
@@ -4141,6 +4743,20 @@ class WC_XML_CSV_AI_Import_Importer {
     private function create_mapped_variations($product_id, $product_attributes, $attributes_config, $product_data, $parent_product) {
         $log_file = WP_CONTENT_DIR . '/variations_debug.log';
         $variation_count = 0;
+        
+        // DEBUG: Log what product_data contains
+        if (defined('WP_DEBUG') && WP_DEBUG) { 
+            file_put_contents($log_file, "\n=== CREATE_MAPPED_VARIATIONS for product $product_id ===\n", FILE_APPEND); 
+            file_put_contents($log_file, "  product_data keys: " . implode(', ', array_keys($product_data)) . "\n", FILE_APPEND);
+            if (isset($product_data['variations'])) {
+                file_put_contents($log_file, "  variations key EXISTS, type: " . gettype($product_data['variations']) . "\n", FILE_APPEND);
+                if (is_array($product_data['variations'])) {
+                    file_put_contents($log_file, "  variations sub-keys: " . implode(', ', array_keys($product_data['variations'])) . "\n", FILE_APPEND);
+                }
+            } else {
+                file_put_contents($log_file, "  variations key NOT FOUND!\n", FILE_APPEND);
+            }
+        }
         
         // Get map configuration
         $map_config = $attributes_config['map_config'] ?? array();
@@ -4387,20 +5003,200 @@ class WC_XML_CSV_AI_Import_Importer {
             
             // Set Stock
             $var_stock = $this->get_variation_field($var_data, $map_config, 'stock', array('stock', 'stock_quantity', 'qty', 'quantity'));
-            if ($var_stock !== null) {
+            $var_stock_status = $this->get_variation_field($var_data, $map_config, 'stock_status', array('stock_status'));
+            $var_manage_stock = $this->get_variation_field($var_data, $map_config, 'manage_stock', array('manage_stock'));
+            
+            if ($var_stock !== null && $var_stock !== '') {
+                // Stock quantity is provided - enable stock management
                 $variation->set_manage_stock(true);
                 $variation->set_stock_quantity((int)$var_stock);
                 $variation->set_stock_status((int)$var_stock > 0 ? 'instock' : 'outofstock');
-                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set stock: $var_stock\n", FILE_APPEND); }
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set stock: $var_stock (managed)\n", FILE_APPEND); }
+            } elseif ($var_manage_stock !== null) {
+                // Manage stock field is explicitly set
+                $should_manage = in_array(strtolower($var_manage_stock), array('yes', '1', 'true', 'on'));
+                $variation->set_manage_stock($should_manage);
+                if (!$should_manage) {
+                    // Not managing stock - set status from mapping or default to instock
+                    $status = 'instock';
+                    if ($var_stock_status !== null && !empty($var_stock_status)) {
+                        $status = strtolower($var_stock_status) === 'outofstock' ? 'outofstock' : 'instock';
+                    }
+                    $variation->set_stock_status($status);
+                }
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set manage_stock: " . ($should_manage ? 'yes' : 'no') . "\n", FILE_APPEND); }
             } else {
-                $variation->set_stock_status('instock');
+                // No stock info provided - don't manage stock, set as in stock
+                $variation->set_manage_stock(false);
+                // Check if stock_status is explicitly set
+                if ($var_stock_status !== null && !empty($var_stock_status)) {
+                    $status = strtolower($var_stock_status) === 'outofstock' ? 'outofstock' : 'instock';
+                    $variation->set_stock_status($status);
+                } else {
+                    $variation->set_stock_status('instock');
+                }
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    No stock provided - set to instock (unmanaged)\n", FILE_APPEND); }
             }
             
-            // Set Weight
+            // Set Backorders
+            $var_backorders = $this->get_variation_field($var_data, $map_config, 'backorders', array('backorders'));
+            $backorders_default = $map_config['backorders_default'] ?? '';
+            if ($var_backorders !== null && !empty($var_backorders)) {
+                // Map from source value
+                $backorders_value = strtolower($var_backorders);
+                if (in_array($backorders_value, array('no', 'notify', 'yes'))) {
+                    $variation->set_backorders($backorders_value);
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set backorders: $backorders_value\n", FILE_APPEND); }
+                }
+            } elseif (!empty($backorders_default)) {
+                // Use default value from dropdown
+                $variation->set_backorders($backorders_default);
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set backorders (default): $backorders_default\n", FILE_APPEND); }
+            }
+            
+            // Check for weight/dimensions inheritance from parent
+            $weight_inherit = !empty($map_config['weight_inherit']);
+            $dimensions_inherit = !empty($map_config['dimensions_inherit']);
+            
+            // Set Weight (with inheritance option)
             $var_weight = $this->get_variation_field($var_data, $map_config, 'weight', array('weight', 'Weight'));
-            if ($var_weight !== null) {
+            if ($weight_inherit && ($var_weight === null || $var_weight === '')) {
+                // Inherit from parent
+                $parent_weight = $parent_product->get_weight();
+                if ($parent_weight) {
+                    $variation->set_weight(floatval($parent_weight));
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Inherited weight from parent: $parent_weight\n", FILE_APPEND); }
+                }
+            } elseif ($var_weight !== null && $var_weight !== '') {
                 $variation->set_weight(floatval($var_weight));
                 if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set weight: $var_weight\n", FILE_APPEND); }
+            }
+            
+            // Set Dimensions (with inheritance option)
+            $var_length = $this->get_variation_field($var_data, $map_config, 'length', array('length', 'Length'));
+            $var_width = $this->get_variation_field($var_data, $map_config, 'width', array('width', 'Width'));
+            $var_height = $this->get_variation_field($var_data, $map_config, 'height', array('height', 'Height'));
+            
+            if ($dimensions_inherit && ($var_length === null || $var_length === '') && ($var_width === null || $var_width === '') && ($var_height === null || $var_height === '')) {
+                // Inherit all dimensions from parent
+                $parent_length = $parent_product->get_length();
+                $parent_width = $parent_product->get_width();
+                $parent_height = $parent_product->get_height();
+                if ($parent_length) { $variation->set_length(floatval($parent_length)); }
+                if ($parent_width) { $variation->set_width(floatval($parent_width)); }
+                if ($parent_height) { $variation->set_height(floatval($parent_height)); }
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Inherited dimensions from parent: {$parent_length}x{$parent_width}x{$parent_height}\n", FILE_APPEND); }
+            } else {
+                // Use variation-specific dimensions
+                if ($var_length !== null && $var_length !== '') {
+                    $variation->set_length(floatval($var_length));
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set length: $var_length\n", FILE_APPEND); }
+                }
+                if ($var_width !== null && $var_width !== '') {
+                    $variation->set_width(floatval($var_width));
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set width: $var_width\n", FILE_APPEND); }
+                }
+                if ($var_height !== null && $var_height !== '') {
+                    $variation->set_height(floatval($var_height));
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set height: $var_height\n", FILE_APPEND); }
+                }
+            }
+            
+            // Set Description
+            $var_description = $this->get_variation_field($var_data, $map_config, 'description', array('description', 'Description'));
+            if ($var_description !== null) {
+                $variation->set_description($var_description);
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set description\n", FILE_APPEND); }
+            }
+            
+            // Set Shipping Class
+            $var_shipping_class = $this->get_variation_field($var_data, $map_config, 'shipping_class', array('shipping_class'));
+            if ($var_shipping_class !== null && !empty($var_shipping_class)) {
+                $shipping_class_id = $this->get_shipping_class_id($var_shipping_class);
+                if ($shipping_class_id) {
+                    $variation->set_shipping_class_id($shipping_class_id);
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set shipping class: $var_shipping_class\n", FILE_APPEND); }
+                }
+            }
+            
+            // Set Low Stock Amount
+            $var_low_stock = $this->get_variation_field($var_data, $map_config, 'low_stock_amount', array('low_stock_amount', 'low_stock_threshold'));
+            if ($var_low_stock !== null) {
+                $variation->set_low_stock_amount((int)$var_low_stock);
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set low stock amount: $var_low_stock\n", FILE_APPEND); }
+            }
+            
+            // Set Sale Price Dates
+            $var_sale_from = $this->get_variation_field($var_data, $map_config, 'sale_price_dates_from', array('sale_price_dates_from', 'sale_date_from'));
+            if ($var_sale_from !== null && !empty($var_sale_from)) {
+                $date_from = strtotime($var_sale_from);
+                if ($date_from) {
+                    $variation->set_date_on_sale_from($date_from);
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set sale date from: $var_sale_from\n", FILE_APPEND); }
+                }
+            }
+            
+            $var_sale_to = $this->get_variation_field($var_data, $map_config, 'sale_price_dates_to', array('sale_price_dates_to', 'sale_date_to'));
+            if ($var_sale_to !== null && !empty($var_sale_to)) {
+                $date_to = strtotime($var_sale_to);
+                if ($date_to) {
+                    $variation->set_date_on_sale_to($date_to);
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set sale date to: $var_sale_to\n", FILE_APPEND); }
+                }
+            }
+            
+            // Set Virtual - variation value overrides parent, otherwise inherit from parent
+            $var_virtual = $this->get_variation_field($var_data, $map_config, 'virtual', array('virtual'));
+            if ($var_virtual !== null && $var_virtual !== '') {
+                // Variation has explicit virtual setting - use it
+                $is_virtual = in_array(strtolower($var_virtual), array('yes', '1', 'true', 'on'));
+                $variation->set_virtual($is_virtual);
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set virtual from variation: " . ($is_virtual ? 'yes' : 'no') . "\n", FILE_APPEND); }
+            } else {
+                // Inherit from parent product
+                $parent_virtual = $parent_product->get_virtual();
+                $variation->set_virtual($parent_virtual);
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Inherited virtual from parent: " . ($parent_virtual ? 'yes' : 'no') . "\n", FILE_APPEND); }
+            }
+            
+            // Set Downloadable - variation value overrides parent, otherwise inherit from parent
+            $var_downloadable = $this->get_variation_field($var_data, $map_config, 'downloadable', array('downloadable'));
+            if ($var_downloadable !== null && $var_downloadable !== '') {
+                // Variation has explicit downloadable setting - use it
+                $is_downloadable = in_array(strtolower($var_downloadable), array('yes', '1', 'true', 'on'));
+                $variation->set_downloadable($is_downloadable);
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set downloadable from variation: " . ($is_downloadable ? 'yes' : 'no') . "\n", FILE_APPEND); }
+            } else {
+                // Inherit from parent product
+                $parent_downloadable = $parent_product->get_downloadable();
+                $variation->set_downloadable($parent_downloadable);
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Inherited downloadable from parent: " . ($parent_downloadable ? 'yes' : 'no') . "\n", FILE_APPEND); }
+            }
+            
+            // Set Download Limit
+            $var_download_limit = $this->get_variation_field($var_data, $map_config, 'download_limit', array('download_limit'));
+            if ($var_download_limit !== null && $var_download_limit !== '') {
+                $variation->set_download_limit((int)$var_download_limit);
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set download limit: $var_download_limit\n", FILE_APPEND); }
+            }
+            
+            // Set Download Expiry
+            $var_download_expiry = $this->get_variation_field($var_data, $map_config, 'download_expiry', array('download_expiry'));
+            if ($var_download_expiry !== null && $var_download_expiry !== '') {
+                $variation->set_download_expiry((int)$var_download_expiry);
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set download expiry: $var_download_expiry\n", FILE_APPEND); }
+            }
+            
+            // Set Downloads (downloadable files)
+            $var_downloads = $this->get_variation_field($var_data, $map_config, 'downloads', array('downloads', 'downloadable_files', 'download_files'));
+            if ($var_downloads !== null && !empty($var_downloads)) {
+                $downloads = $this->parse_downloadable_files($var_downloads);
+                if (!empty($downloads)) {
+                    $variation->set_downloads($downloads);
+                    // Auto-enable downloadable if files are set
+                    $variation->set_downloadable(true);
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set " . count($downloads) . " download files\n", FILE_APPEND); }
+                }
             }
             
             // Set Image (skip example.com URLs and use try-catch)
@@ -4410,7 +5206,7 @@ class WC_XML_CSV_AI_Import_Importer {
                 if (strpos($var_image, 'example.com') === false && strpos($var_image, 'placeholder') === false) {
                     try {
                         if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Importing image: $var_image\n", FILE_APPEND); }
-                        $image_id = $this->import_image($var_image, $product_id);
+                        $image_id = $this->download_and_attach_image($var_image, $product_id);
                         if ($image_id) {
                             $variation->set_image_id($image_id);
                             if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set image ID: $image_id\n", FILE_APPEND); }
@@ -4432,6 +5228,58 @@ class WC_XML_CSV_AI_Import_Importer {
                     $variation_count++;
                     if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    ✓ Created variation ID: $variation_id\n", FILE_APPEND); }
                     if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ Created mapped variation ID: ' . $variation_id); }
+                    
+                    // CRITICAL: Force stock status after save to prevent WooCommerce from overriding
+                    // WooCommerce sometimes resets stock_status during save() process
+                    $saved_stock_status = get_post_meta($variation_id, '_stock_status', true);
+                    if (empty($saved_stock_status) || $saved_stock_status === 'outofstock') {
+                        // Check if we intentionally set it to outofstock
+                        $intended_status = ($var_stock !== null && (int)$var_stock <= 0) ? 'outofstock' : 'instock';
+                        if ($saved_stock_status !== $intended_status) {
+                            update_post_meta($variation_id, '_stock_status', $intended_status);
+                            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Fixed stock_status to: $intended_status\n", FILE_APPEND); }
+                        }
+                    }
+                    
+                    // Ensure manage_stock is set correctly
+                    $saved_manage_stock = get_post_meta($variation_id, '_manage_stock', true);
+                    if ($var_stock === null && $saved_manage_stock !== 'no') {
+                        update_post_meta($variation_id, '_manage_stock', 'no');
+                        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Fixed manage_stock to: no\n", FILE_APPEND); }
+                    }
+                    
+                    // Set Product Identifiers (EAN, UPC, GTIN, ISBN, MPN) - must be after save
+                    $identifier_fields = array('ean', 'upc', 'gtin', 'isbn', 'mpn');
+                    foreach ($identifier_fields as $id_field) {
+                        $var_id_value = $this->get_variation_field($var_data, $map_config, $id_field, array($id_field, strtoupper($id_field)));
+                        if ($var_id_value !== null && !empty($var_id_value)) {
+                            update_post_meta($variation_id, '_' . $id_field, sanitize_text_field($var_id_value));
+                            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set $id_field: $var_id_value\n", FILE_APPEND); }
+                        }
+                    }
+                    
+                    // Set Custom Meta Fields for variations (var_meta from mapping)
+                    $var_meta_fields = $map_config['var_meta'] ?? array();
+                    if (!empty($var_meta_fields) && is_array($var_meta_fields)) {
+                        foreach ($var_meta_fields as $meta_item) {
+                            $meta_key = $meta_item['key'] ?? '';
+                            $meta_source = $meta_item['source'] ?? '';
+                            
+                            if (empty($meta_key) || empty($meta_source)) {
+                                continue;
+                            }
+                            
+                            // Parse the source value from variation data
+                            $meta_value = $this->parse_field_placeholders($meta_source, $var_data);
+                            
+                            if ($meta_value !== null && $meta_value !== '') {
+                                // Ensure meta key starts with underscore if it's meant to be hidden
+                                $clean_key = sanitize_key($meta_key);
+                                update_post_meta($variation_id, $clean_key, sanitize_text_field($meta_value));
+                                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Set custom meta $clean_key: $meta_value\n", FILE_APPEND); }
+                            }
+                        }
+                    }
                 } else {
                     if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    ✗ Failed to save variation (returned 0)\n", FILE_APPEND); }
                 }
@@ -4456,7 +5304,34 @@ class WC_XML_CSV_AI_Import_Importer {
         // First try mapped field
         $mapped_source = $map_config[$field_name . '_source'] ?? '';
         if (!empty($mapped_source)) {
-            $value = $this->get_nested_value($var_data, $mapped_source);
+            // Clean the source path - remove {curly braces} wrapper
+            $clean_source = trim($mapped_source);
+            if (preg_match('/^\{(.+)\}$/', $clean_source, $matches)) {
+                $clean_source = $matches[1];
+            }
+            
+            // Convert absolute variation path to relative path
+            // E.g., "variations.variation[0].sku" → "sku"
+            // E.g., "variations.variation.sku" → "sku"
+            $container_xpath = $map_config['container_xpath'] ?? 'variations.variation';
+            $prefix_patterns = array(
+                $container_xpath . '[0].',
+                $container_xpath . '[1].',
+                $container_xpath . '[2].',
+                $container_xpath . '.',
+                // Also try common defaults
+                'variations.variation[0].',
+                'variations.variation.',
+            );
+            
+            foreach ($prefix_patterns as $prefix) {
+                if (strpos($clean_source, $prefix) === 0) {
+                    $clean_source = substr($clean_source, strlen($prefix));
+                    break;
+                }
+            }
+            
+            $value = $this->get_nested_value($var_data, $clean_source);
             if ($value !== null && $value !== '') {
                 return $value;
             }
@@ -4471,6 +5346,128 @@ class WC_XML_CSV_AI_Import_Importer {
         }
         
         return null;
+    }
+    
+    /**
+     * Parse downloadable files from string or array.
+     * 
+     * Formats supported:
+     * - Single URL: https://example.com/file.pdf
+     * - Name|URL: File Name|https://example.com/file.pdf
+     * - Multiple comma-separated: Name1|URL1,Name2|URL2
+     * - Multiple URLs concatenated: URL1URL2 (split by http/https)
+     *
+     * @param string|array $downloads Downloads data
+     * @return array Array of WC_Product_Download objects
+     */
+    private function parse_downloadable_files($downloads) {
+        $download_objects = array();
+        
+        // Handle array input (e.g., from XML)
+        if (is_array($downloads)) {
+            $downloads = implode(',', array_filter($downloads));
+        }
+        
+        $downloads = trim($downloads);
+        if (empty($downloads)) {
+            return array();
+        }
+        
+        // Check if URLs are concatenated without separator (URL1URL2)
+        // Split by http:// or https:// keeping the protocol
+        if (preg_match('/https?:\/\/.*https?:\/\//', $downloads) && strpos($downloads, ',') === false && strpos($downloads, '|') === false) {
+            // Split by http(s):// but keep the protocol in result
+            $parts = preg_split('/(https?:\/\/)/', $downloads, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+            $urls = array();
+            for ($i = 0; $i < count($parts); $i++) {
+                if (preg_match('/^https?:$/', $parts[$i] . ':')) {
+                    // This is a protocol, combine with next part
+                    if (isset($parts[$i + 1])) {
+                        $urls[] = $parts[$i] . $parts[$i + 1];
+                        $i++;
+                    }
+                }
+            }
+            if (!empty($urls)) {
+                $downloads = implode(',', $urls);
+            }
+        }
+        
+        // Split by comma for multiple files
+        $files = array_map('trim', explode(',', $downloads));
+        
+        foreach ($files as $index => $file) {
+            if (empty($file)) {
+                continue;
+            }
+            
+            $name = '';
+            $url = '';
+            
+            // Check if format is Name|URL
+            if (strpos($file, '|') !== false) {
+                $parts = explode('|', $file, 2);
+                $name = trim($parts[0]);
+                $url = trim($parts[1]);
+            } else {
+                // Just URL
+                $url = $file;
+                // Generate name from filename
+                $path_parts = parse_url($url, PHP_URL_PATH);
+                if ($path_parts) {
+                    $name = basename($path_parts);
+                } else {
+                    $name = 'Download ' . ($index + 1);
+                }
+            }
+            
+            // Validate URL
+            if (!filter_var($url, FILTER_VALIDATE_URL)) {
+                continue;
+            }
+            
+            // Create WC_Product_Download object
+            $download = new WC_Product_Download();
+            $download->set_id(md5($url)); // Generate unique ID from URL
+            $download->set_name($name);
+            $download->set_file($url);
+            
+            $download_objects[] = $download;
+        }
+        
+        return $download_objects;
+    }
+    
+    /**
+     * Get shipping class ID by name or slug.
+     *
+     * @param string $shipping_class_name Shipping class name or slug
+     * @return int|false Shipping class term ID or false
+     */
+    private function get_shipping_class_id($shipping_class_name) {
+        if (empty($shipping_class_name)) {
+            return false;
+        }
+        
+        // First try to find by slug
+        $term = get_term_by('slug', sanitize_title($shipping_class_name), 'product_shipping_class');
+        if ($term) {
+            return $term->term_id;
+        }
+        
+        // Try to find by name
+        $term = get_term_by('name', $shipping_class_name, 'product_shipping_class');
+        if ($term) {
+            return $term->term_id;
+        }
+        
+        // Create if doesn't exist
+        $result = wp_insert_term($shipping_class_name, 'product_shipping_class');
+        if (!is_wp_error($result)) {
+            return $result['term_id'];
+        }
+        
+        return false;
     }
     
     /**
@@ -4594,6 +5591,13 @@ class WC_XML_CSV_AI_Import_Importer {
                 $variation->set_stock_status('instock');
             }
             
+            // Inherit Virtual/Downloadable from parent product (auto-generated variations)
+            $variation->set_virtual($parent_product->get_virtual());
+            $variation->set_downloadable($parent_product->get_downloadable());
+            if (defined('WP_DEBUG') && WP_DEBUG) { 
+                file_put_contents($log_file, "    Inherited virtual: " . ($parent_product->get_virtual() ? 'yes' : 'no') . ", downloadable: " . ($parent_product->get_downloadable() ? 'yes' : 'no') . " from parent\n", FILE_APPEND); 
+            }
+            
             $variation_id = $variation->save();
             
             if ($variation_id) {
@@ -4644,9 +5648,10 @@ class WC_XML_CSV_AI_Import_Importer {
         global $wpdb;
 
         // Check if attribute already exists in WooCommerce
+        $attribute_slug = str_replace('pa_', '', $attr_name);
         $attribute_id = $wpdb->get_var($wpdb->prepare(
             "SELECT attribute_id FROM {$wpdb->prefix}woocommerce_attribute_taxonomies WHERE attribute_name = %s",
-            str_replace('pa_', '', $attr_name)
+            $attribute_slug
         ));
 
         if (!$attribute_id) {
@@ -4654,7 +5659,7 @@ class WC_XML_CSV_AI_Import_Importer {
             $wpdb->insert(
                 $wpdb->prefix . 'woocommerce_attribute_taxonomies',
                 array(
-                    'attribute_name' => str_replace('pa_', '', $attr_name),
+                    'attribute_name' => $attribute_slug,
                     'attribute_label' => $attr_label,
                     'attribute_type' => 'select',
                     'attribute_orderby' => 'menu_order',
@@ -4666,6 +5671,26 @@ class WC_XML_CSV_AI_Import_Importer {
             delete_transient('wc_attribute_taxonomies');
             
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ Created new attribute taxonomy: ' . $attr_name); }
+        } else {
+            // Update label if it's incorrect (e.g., contains "pa_" prefix)
+            $current_label = $wpdb->get_var($wpdb->prepare(
+                "SELECT attribute_label FROM {$wpdb->prefix}woocommerce_attribute_taxonomies WHERE attribute_id = %d",
+                $attribute_id
+            ));
+            
+            // Fix label if it starts with pa_ or is different from expected
+            if ($current_label && (strpos($current_label, 'pa_') === 0 || $current_label !== $attr_label)) {
+                $wpdb->update(
+                    $wpdb->prefix . 'woocommerce_attribute_taxonomies',
+                    array('attribute_label' => $attr_label),
+                    array('attribute_id' => $attribute_id)
+                );
+                
+                // Clear WooCommerce attribute cache
+                delete_transient('wc_attribute_taxonomies');
+                
+                if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ Updated attribute label: ' . $attr_name . ' → ' . $attr_label); }
+            }
         }
 
         // Register taxonomy for this request
@@ -4866,6 +5891,68 @@ class WC_XML_CSV_AI_Import_Importer {
         
         $this->log('info', sprintf(__('Phase 2 completed: %d relationships resolved, %d errors', 'wc-xml-csv-import'), $resolved_count, $error_count));
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ RESOLVE_RELATIONSHIPS: Completed - resolved=' . $resolved_count . ', errors=' . $error_count); }
+    }
+
+    /**
+     * Phase 3: Sync stock status for all variable products.
+     * This must run LAST to ensure WooCommerce hooks don't override our stock status.
+     * Uses direct DB queries to bypass all WooCommerce hooks.
+     * Public because it's called from shutdown hook.
+     *
+     * @since    1.0.0
+     */
+    public function sync_variable_products_stock_status() {
+        global $wpdb;
+        
+        $this->log('info', __('Starting Phase 3: Syncing variable products stock status...', 'wc-xml-csv-import'));
+        
+        // Get all variable products (no prepare needed - no user input)
+        $variable_products = $wpdb->get_col(
+            "SELECT DISTINCT p.ID
+             FROM {$wpdb->posts} p
+             INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+             INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+             INNER JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+             WHERE p.post_type = 'product'
+               AND tt.taxonomy = 'product_type'
+               AND t.slug = 'variable'
+               AND p.post_status = 'publish'"
+        );
+        
+        $synced_count = 0;
+        
+        foreach ($variable_products as $product_id) {
+            // Get all variations for this product
+            $children = $wpdb->get_col($wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts} WHERE post_parent = %d AND post_type = 'product_variation'",
+                $product_id
+            ));
+            
+            if (empty($children)) {
+                continue;
+            }
+            
+            // Check if any variation has instock status
+            $instock_count = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$wpdb->postmeta} 
+                 WHERE post_id IN (" . implode(',', array_map('intval', $children)) . ") 
+                 AND meta_key = '_stock_status' 
+                 AND meta_value = 'instock'"
+            );
+            
+            $new_stock_status = ($instock_count > 0) ? 'instock' : 'outofstock';
+            
+            // Direct SQL update - bypass all hooks
+            $wpdb->query($wpdb->prepare(
+                "UPDATE {$wpdb->postmeta} SET meta_value = %s WHERE post_id = %d AND meta_key = '_stock_status'",
+                $new_stock_status,
+                $product_id
+            ));
+            
+            $synced_count++;
+        }
+        
+        $this->log('info', sprintf(__('Phase 3 completed: %d variable products stock status synced', 'wc-xml-csv-import'), $synced_count));
     }
 
     /**

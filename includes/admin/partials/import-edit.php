@@ -204,6 +204,7 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
             update_existing: '<?php echo esc_js($import['update_existing']); ?>',
             batch_size: <?php echo intval($import['batch_size'] ?? 50); ?>,
             existing_mappings: <?php echo json_encode($existing_mappings); ?>,
+            saved_mappings: <?php echo json_encode($existing_mappings); ?>,  // For loadSavedMappings() compatibility
             ajax_url: wc_xml_csv_ai_import_ajax.ajax_url,
             nonce: wc_xml_csv_ai_import_ajax.nonce
         };

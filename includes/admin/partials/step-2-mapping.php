@@ -714,19 +714,70 @@ $ai_providers = array(
                                                         </div>
                                                     </div>
                                                     
-                                                    <!-- Attributes List -->
-                                                    <div id="attributes-list" style="margin-bottom: 15px;"></div>
+                                                    <!-- Attribute Mode Selection -->
+                                                    <div style="margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+                                                        <label style="font-weight: 600; display: block; margin-bottom: 12px; color: #333;">
+                                                            <?php _e('Attribute Input Mode:', 'wc-xml-csv-import'); ?>
+                                                        </label>
+                                                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                                                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px 15px; background: #fff; border: 2px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;">
+                                                                <input type="radio" name="attr_input_mode" value="standard" checked style="margin: 0;">
+                                                                <span>
+                                                                    <strong><?php _e('Standard', 'wc-xml-csv-import'); ?></strong>
+                                                                    <small style="display: block; color: #666; font-size: 11px;"><?php _e('Fixed name + dynamic value', 'wc-xml-csv-import'); ?></small>
+                                                                </span>
+                                                            </label>
+                                                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px 15px; background: #fff; border: 2px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;">
+                                                                <input type="radio" name="attr_input_mode" value="key_value" style="margin: 0;">
+                                                                <span>
+                                                                    <strong><?php _e('Key-Value Pairs', 'wc-xml-csv-import'); ?></strong>
+                                                                    <small style="display: block; color: #666; font-size: 11px;"><?php _e('BigBuy format: {attribute1}→{value1}', 'wc-xml-csv-import'); ?></small>
+                                                                </span>
+                                                            </label>
+                                                        </div>
+                                                    </div>
                                                     
-                                                    <button type="button" class="button button-primary" id="btn-add-attribute" style="display: flex; align-items: center; gap: 5px;">
-                                                        <span class="dashicons dashicons-plus-alt2" style="margin-top: 3px;"></span>
-                                                        <?php _e('Add Attribute', 'wc-xml-csv-import'); ?>
-                                                    </button>
+                                                    <!-- Standard Mode: Attributes List -->
+                                                    <div id="attr-mode-standard">
+                                                        <div id="attributes-list" style="margin-bottom: 15px;"></div>
+                                                        
+                                                        <button type="button" class="button button-primary" id="btn-add-attribute" style="display: flex; align-items: center; gap: 5px;">
+                                                            <span class="dashicons dashicons-plus-alt2" style="margin-top: 3px;"></span>
+                                                            <?php _e('Add Attribute', 'wc-xml-csv-import'); ?>
+                                                        </button>
+                                                        
+                                                        <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 6px; border-left: 4px solid #2196f3;">
+                                                            <strong style="color: #1565c0;">💡 <?php _e('Example:', 'wc-xml-csv-import'); ?></strong>
+                                                            <p style="margin: 8px 0 0 0; color: #555;">
+                                                                <?php _e('Attribute Name: "Material" → Source: select the XML/CSV field containing material values', 'wc-xml-csv-import'); ?>
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                     
-                                                    <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 6px; border-left: 4px solid #2196f3;">
-                                                        <strong style="color: #1565c0;">💡 <?php _e('Example:', 'wc-xml-csv-import'); ?></strong>
-                                                        <p style="margin: 8px 0 0 0; color: #555;">
-                                                            <?php _e('Attribute Name: "Material" → Source: select the XML/CSV field containing material values', 'wc-xml-csv-import'); ?>
-                                                        </p>
+                                                    <!-- Key-Value Mode: Attribute Pairs List -->
+                                                    <div id="attr-mode-key-value" style="display: none;">
+                                                        <div style="margin-bottom: 15px; padding: 12px; background: #fff3e0; border-radius: 6px; border-left: 4px solid #ff9800;">
+                                                            <strong style="color: #e65100;">📋 <?php _e('Key-Value Pair Mode', 'wc-xml-csv-import'); ?></strong>
+                                                            <p style="margin: 8px 0 0 0; color: #555; font-size: 13px;">
+                                                                <?php _e('For XML files where attribute name and value are in separate fields (e.g., BigBuy format with attribute1/value1, attribute2/value2).', 'wc-xml-csv-import'); ?>
+                                                            </p>
+                                                        </div>
+                                                        
+                                                        <div id="attribute-pairs-list" style="margin-bottom: 15px;"></div>
+                                                        
+                                                        <button type="button" class="button button-primary" id="btn-add-attribute-pair" style="display: flex; align-items: center; gap: 5px;">
+                                                            <span class="dashicons dashicons-plus-alt2" style="margin-top: 3px;"></span>
+                                                            <?php _e('Add Key-Value Pair', 'wc-xml-csv-import'); ?>
+                                                        </button>
+                                                        
+                                                        <div style="margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 6px; border-left: 4px solid #4caf50;">
+                                                            <strong style="color: #2e7d32;">💡 <?php _e('Example for BigBuy XML:', 'wc-xml-csv-import'); ?></strong>
+                                                            <div style="margin-top: 8px; font-size: 13px; color: #555;">
+                                                                <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">&lt;attribute1&gt;Colour&lt;/attribute1&gt; &lt;value1&gt;Blue&lt;/value1&gt;</code><br><br>
+                                                                <?php _e('Name Field:', 'wc-xml-csv-import'); ?> <code>{attribute1}</code> → <?php _e('Value Field:', 'wc-xml-csv-import'); ?> <code>{value1}</code><br>
+                                                                <?php _e('Result: Attribute "Colour" with value "Blue"', 'wc-xml-csv-import'); ?>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -828,69 +879,85 @@ $ai_providers = array(
                                                                 
                                                                 <!-- Variation SKU -->
                                                                 <label style="font-weight: 500;"><?php _e('Variation SKU:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[sku]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[sku]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                                
+                                                                <!-- GTIN/EAN/UPC/ISBN -->
+                                                                <label style="font-weight: 500;"><?php _e('GTIN/EAN/UPC/ISBN:', 'wc-xml-csv-import'); ?></label>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[gtin]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Regular Price -->
                                                                 <label style="font-weight: 500;"><?php _e('Regular Price:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[regular_price]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[regular_price]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Sale Price -->
                                                                 <label style="font-weight: 500;"><?php _e('Sale Price:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[sale_price]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[sale_price]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                                
+                                                                <!-- Sale Price Dates From -->
+                                                                <label style="font-weight: 500;"><?php _e('Sale Date From:', 'wc-xml-csv-import'); ?></label>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[sale_price_dates_from]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                                
+                                                                <!-- Sale Price Dates To -->
+                                                                <label style="font-weight: 500;"><?php _e('Sale Date To:', 'wc-xml-csv-import'); ?></label>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[sale_price_dates_to]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Stock Quantity -->
                                                                 <label style="font-weight: 500;"><?php _e('Stock Quantity:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[stock_quantity]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[stock_quantity]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Stock Status -->
                                                                 <label style="font-weight: 500;"><?php _e('Stock Status:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[stock_status]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[stock_status]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Manage Stock -->
                                                                 <label style="font-weight: 500;"><?php _e('Manage Stock:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[manage_stock]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[manage_stock]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                                
+                                                                <!-- Low Stock Amount -->
+                                                                <label style="font-weight: 500;"><?php _e('Low Stock Threshold:', 'wc-xml-csv-import'); ?></label>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[low_stock_amount]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Weight -->
                                                                 <label style="font-weight: 500;"><?php _e('Weight:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[weight]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[weight]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Dimensions -->
                                                                 <label style="font-weight: 500;"><?php _e('Length:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[length]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[length]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <label style="font-weight: 500;"><?php _e('Width:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[width]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[width]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <label style="font-weight: 500;"><?php _e('Height:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[height]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[height]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Image -->
                                                                 <label style="font-weight: 500;"><?php _e('Image URL:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[image]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[image]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Description -->
                                                                 <label style="font-weight: 500;"><?php _e('Description:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[description]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[description]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Virtual -->
                                                                 <label style="font-weight: 500;"><?php _e('Virtual:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[virtual]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[virtual]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Downloadable -->
                                                                 <label style="font-weight: 500;"><?php _e('Downloadable:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[downloadable]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[downloadable]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Shipping Class -->
                                                                 <label style="font-weight: 500;"><?php _e('Shipping Class:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[shipping_class]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[shipping_class]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Status -->
                                                                 <label style="font-weight: 500;"><?php _e('Status:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[status]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[status]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                                 <!-- Menu Order -->
                                                                 <label style="font-weight: 500;"><?php _e('Menu Order:', 'wc-xml-csv-import'); ?></label>
-                                                                <select name="csv_var_field[menu_order]" class="field-source-select" style="max-width: 320px;"></select>
+                                                                <div class="textarea-mapping-wrapper"><textarea name="csv_var_field[menu_order]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see columns', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                                 
                                                             </div>
                                                             
@@ -974,75 +1041,145 @@ $ai_providers = array(
                                                         
                                                         <div style="display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: center;">
                                                             
+                                                            <!-- Parent SKU (for linking variations to parent) -->
+                                                            <label style="font-weight: 500;"><?php _e('Parent SKU:', 'wc-xml-csv-import'); ?></label>
+                                                            <div class="textarea-mapping-wrapper">
+                                                                <textarea name="var_field[parent_sku]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea>
+                                                                <p class="description" style="font-size: 10px; margin-top: 2px; color: #666;">
+                                                                    <?php _e('Optional: Link variation to parent by SKU', 'wc-xml-csv-import'); ?>
+                                                                </p>
+                                                            </div>
+                                                            
                                                             <!-- SKU -->
                                                             <label style="font-weight: 500;"><?php _e('Variation SKU:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[sku]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[sku]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                            
+                                                            <!-- GTIN/EAN/UPC/ISBN -->
+                                                            <label style="font-weight: 500;"><?php _e('GTIN/EAN/UPC/ISBN:', 'wc-xml-csv-import'); ?></label>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[gtin]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Regular Price -->
                                                             <label style="font-weight: 500;"><?php _e('Regular Price:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[regular_price]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[regular_price]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Sale Price -->
                                                             <label style="font-weight: 500;"><?php _e('Sale Price:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[sale_price]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[sale_price]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                            
+                                                            <!-- Sale Price Dates From -->
+                                                            <label style="font-weight: 500;"><?php _e('Sale Date From:', 'wc-xml-csv-import'); ?></label>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[sale_price_dates_from]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                            
+                                                            <!-- Sale Price Dates To -->
+                                                            <label style="font-weight: 500;"><?php _e('Sale Date To:', 'wc-xml-csv-import'); ?></label>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[sale_price_dates_to]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Stock Quantity -->
                                                             <label style="font-weight: 500;"><?php _e('Stock Quantity:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[stock_quantity]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[stock_quantity]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Stock Status -->
                                                             <label style="font-weight: 500;"><?php _e('Stock Status:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[stock_status]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[stock_status]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Manage Stock -->
                                                             <label style="font-weight: 500;"><?php _e('Manage Stock:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[manage_stock]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[manage_stock]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
-                                                            <!-- Weight -->
+                                                            <!-- Low Stock Amount -->
+                                                            <label style="font-weight: 500;"><?php _e('Low Stock Threshold:', 'wc-xml-csv-import'); ?></label>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[low_stock_amount]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                            
+                                                            <!-- Backorders -->
+                                                            <label style="font-weight: 500;"><?php _e('Backorders:', 'wc-xml-csv-import'); ?></label>
+                                                            <div style="display: flex; gap: 10px; align-items: center;">
+                                                                <textarea name="var_field[backorders]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 200px;"></textarea>
+                                                                <select name="var_field[backorders_default]" style="max-width: 120px;">
+                                                                    <option value=""><?php _e('From source', 'wc-xml-csv-import'); ?></option>
+                                                                    <option value="no"><?php _e('No', 'wc-xml-csv-import'); ?></option>
+                                                                    <option value="notify"><?php _e('Allow, notify', 'wc-xml-csv-import'); ?></option>
+                                                                    <option value="yes"><?php _e('Allow', 'wc-xml-csv-import'); ?></option>
+                                                                </select>
+                                                            </div>
+                                                            
+                                                            <!-- Weight with inheritance option -->
                                                             <label style="font-weight: 500;"><?php _e('Weight:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[weight]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div style="display: flex; gap: 10px; align-items: center;">
+                                                                <textarea name="var_field[weight]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 200px;"></textarea>
+                                                                <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+                                                                    <input type="checkbox" name="var_field[weight_inherit]" value="1">
+                                                                    <?php _e('Inherit from parent', 'wc-xml-csv-import'); ?>
+                                                                </label>
+                                                            </div>
                                                             
-                                                            <!-- Dimensions -->
+                                                            <!-- Dimensions with inheritance option -->
                                                             <label style="font-weight: 500;"><?php _e('Length:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[length]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div style="display: flex; gap: 10px; align-items: center;">
+                                                                <textarea name="var_field[length]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 200px;"></textarea>
+                                                                <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+                                                                    <input type="checkbox" name="var_field[dimensions_inherit]" value="1">
+                                                                    <?php _e('Inherit L/W/H from parent', 'wc-xml-csv-import'); ?>
+                                                                </label>
+                                                            </div>
                                                             
                                                             <label style="font-weight: 500;"><?php _e('Width:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[width]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[width]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <label style="font-weight: 500;"><?php _e('Height:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[height]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[height]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Image -->
                                                             <label style="font-weight: 500;"><?php _e('Image URL:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[image]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[image]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Description -->
                                                             <label style="font-weight: 500;"><?php _e('Description:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[description]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[description]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Virtual -->
                                                             <label style="font-weight: 500;"><?php _e('Virtual:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[virtual]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[virtual]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Downloadable -->
                                                             <label style="font-weight: 500;"><?php _e('Downloadable:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[downloadable]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[downloadable]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                            
+                                                            <!-- Download Limit -->
+                                                            <label style="font-weight: 500;"><?php _e('Download Limit:', 'wc-xml-csv-import'); ?></label>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[download_limit]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                            
+                                                            <!-- Download Expiry -->
+                                                            <label style="font-weight: 500;"><?php _e('Download Expiry (days):', 'wc-xml-csv-import'); ?></label>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[download_expiry]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
+                                                            
+                                                            <!-- Downloads (file URLs) -->
+                                                            <label style="font-weight: 500;"><?php _e('Download Files:', 'wc-xml-csv-import'); ?></label>
+                                                            <div class="textarea-mapping-wrapper">
+                                                                <textarea name="var_field[downloads]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea>
+                                                                <p class="description" style="font-size: 11px; margin-top: 4px;">
+                                                                    <?php _e('Format: Name|URL or just URL. Multiple: Name1|URL1,Name2|URL2', 'wc-xml-csv-import'); ?>
+                                                                </p>
+                                                            </div>
+                                                            
+                                                            <!-- Tax Class -->
+                                                            <label style="font-weight: 500;"><?php _e('Tax Class:', 'wc-xml-csv-import'); ?></label>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[tax_class]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Shipping Class -->
                                                             <label style="font-weight: 500;"><?php _e('Shipping Class:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[shipping_class]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[shipping_class]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Status -->
                                                             <label style="font-weight: 500;"><?php _e('Status:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[status]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[status]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                             <!-- Menu Order -->
                                                             <label style="font-weight: 500;"><?php _e('Menu Order:', 'wc-xml-csv-import'); ?></label>
-                                                            <select name="var_field[menu_order]" class="field-source-select" style="max-width: 320px;"></select>
+                                                            <div class="textarea-mapping-wrapper"><textarea name="var_field[menu_order]" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('Type { to see fields', 'wc-xml-csv-import'); ?>" style="max-width: 320px;"></textarea></div>
                                                             
                                                         </div>
                                                         
-                                                        <!-- Custom Meta Fields -->
+                                                        <!-- Custom Meta Fields for Variations -->
                                                         <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
                                                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                                                 <label style="font-weight: 600; color: #555;">
@@ -1053,6 +1190,21 @@ $ai_providers = array(
                                                                     <?php _e('Add Meta Field', 'wc-xml-csv-import'); ?>
                                                                 </button>
                                                             </div>
+                                                            
+                                                            <!-- Common meta field presets -->
+                                                            <div style="margin-bottom: 15px; padding: 10px; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;">
+                                                                <label style="font-size: 11px; font-weight: 600; color: #666; display: block; margin-bottom: 8px;">
+                                                                    <?php _e('Quick Add Common Fields:', 'wc-xml-csv-import'); ?>
+                                                                </label>
+                                                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                                                    <button type="button" class="button button-small var-meta-preset" data-key="_supplier_id" data-label="Supplier ID">Supplier ID</button>
+                                                                    <button type="button" class="button button-small var-meta-preset" data-key="_warehouse_code" data-label="Warehouse">Warehouse</button>
+                                                                    <button type="button" class="button button-small var-meta-preset" data-key="_lead_time_days" data-label="Lead Time">Lead Time</button>
+                                                                    <button type="button" class="button button-small var-meta-preset" data-key="_cost_price" data-label="Cost Price">Cost Price</button>
+                                                                    <button type="button" class="button button-small var-meta-preset" data-key="_barcode" data-label="Barcode">Barcode</button>
+                                                                </div>
+                                                            </div>
+                                                            
                                                             <div id="variation-meta-list"></div>
                                                         </div>
                                                     </div>
@@ -1355,12 +1507,14 @@ $ai_providers = array(
                                                         </div>
                                                     <?php break;
                                                     
-                                                    case 'textarea': ?>
+                                                    case 'textarea': 
+                                                        $saved_textarea_value = isset($saved_mappings[$field_key]['source']) ? $saved_mappings[$field_key]['source'] : '';
+                                                        ?>
                                                         <textarea name="field_mapping[<?php echo $field_key; ?>][source]" 
                                                                   class="field-source-textarea" 
                                                                   rows="3" 
                                                                   style="width:100%;" 
-                                                                  placeholder="<?php echo esc_attr($field['description'] ?? ''); ?>"></textarea>
+                                                                  placeholder="<?php echo esc_attr($field['description'] ?? ''); ?>"><?php echo esc_textarea($saved_textarea_value); ?></textarea>
                                                         <?php if (!empty($field['description'])): ?>
                                                             <p class="description" style="margin-top: 5px; font-size: 11px;"><?php echo esc_html($field['description']); ?></p>
                                                         <?php endif; ?>
