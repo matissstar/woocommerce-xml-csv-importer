@@ -36,9 +36,42 @@ The **Pro** version adds automation, selective updates, and optional AI-assisted
 - Advanced rules/conditions
 - Import templates
 - Detailed logs and error reporting
+- **Pricing Engine PRO** - conditional pricing rules
 - Optional **AI-assisted mapping, transformation and translation**
   - Requires user-provided API keys
   - No data is sent unless explicitly enabled by the user
+
+---
+
+## Pricing Engine
+
+The **Pricing Engine** allows automatic price calculation during import:
+
+### How it works
+1. Select the **base price field** from your XML/CSV
+2. Define **pricing rules** with conditions
+3. Each rule can have: markup %, fixed amount, rounding, min/max limits
+4. Rules are evaluated **top to bottom** - first matching rule applies
+5. **Default Rule** is the fallback if no conditional rules match
+
+### Rule Conditions (PRO)
+- **Price Range**: Apply different markup for different price tiers
+- **Category**: Different markup per product category
+- **Brand**: Brand-specific pricing
+- **Supplier**: Supplier-based markup
+- **XML Field**: Any XML field with operators (=, ≠, contains, >, <, etc.)
+- **SKU Pattern**: Match SKU prefixes, suffixes or patterns
+
+### Condition Logic
+- **ALL conditions match** (AND) - all conditions must be true
+- **ANY condition matches** (OR) - at least one condition must be true
+
+### ⚠️ Avoiding Conflicts
+Rules are evaluated **top to bottom**. To avoid unexpected behavior:
+- Place more specific rules **above** general rules
+- Avoid overlapping conditions between rules
+- Use the **Live Preview** to test each rule
+- The **Default Rule** always applies as fallback
 
 ---
 

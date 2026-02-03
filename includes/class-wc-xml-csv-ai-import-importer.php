@@ -724,6 +724,11 @@ class WC_XML_CSV_AI_Import_Importer {
             $processed_data = $this->process_product_fields($mapped_data, $product_data);
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('[IMPORT_PROCESS] Processed data keys: ' . json_encode(array_keys($processed_data))); }
             
+            // Apply Pricing Engine rules to calculate final price
+            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('[IMPORT_PROCESS] About to apply Pricing Engine'); }
+            $processed_data = $this->apply_pricing_engine($processed_data, $product_data);
+            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('[IMPORT_PROCESS] After Pricing Engine - regular_price: ' . ($processed_data['regular_price'] ?? 'NOT SET')); }
+            
             // Force status based on filter result (when draft_non_matching is enabled)
             if ($force_status !== null) {
                 $processed_data['status'] = $force_status;
@@ -917,6 +922,9 @@ class WC_XML_CSV_AI_Import_Importer {
         $mapped_data = $this->map_product_fields($parent_data);
         $processed_data = $this->process_product_fields($mapped_data, $parent_data);
         
+        // Apply Pricing Engine rules to calculate final price
+        $processed_data = $this->apply_pricing_engine($processed_data, $parent_data);
+        
         // For CSV variable products: if SKU is empty, use Parent SKU as the product SKU
         $parent_sku_column = $csv_var_config['parent_sku_column'] ?? 'Parent SKU';
         if (empty($processed_data['sku']) && !empty($parent_data[$parent_sku_column])) {
@@ -1093,6 +1101,8 @@ class WC_XML_CSV_AI_Import_Importer {
             
             $var_price = $var_data[$csv_fields['regular_price'] ?? 'Price'] ?? '';
             if (!empty($var_price) && is_numeric($var_price)) {
+                // Apply Pricing Engine to variation price
+                $var_price = $this->apply_pricing_engine_to_price(floatval($var_price), $var_data);
                 $variation->set_regular_price($var_price);
             }
             
@@ -1101,14 +1111,35 @@ class WC_XML_CSV_AI_Import_Importer {
                 $variation->set_sale_price($var_sale_price);
             }
             
+            // Handle stock management properly
             $var_stock_qty = $var_data[$csv_fields['stock_quantity'] ?? 'Stock Quantity'] ?? '';
+            $var_stock_status = $var_data[$csv_fields['stock_status'] ?? 'Stock Status'] ?? '';
+            $var_manage_stock = $var_data[$csv_fields['manage_stock'] ?? 'Manage Stock'] ?? '';
+            
+            // Normalize manage_stock value
+            $should_manage_stock = in_array(strtolower(trim($var_manage_stock)), array('yes', '1', 'true', 'on'), true);
+            
             if (!empty($var_stock_qty) && is_numeric($var_stock_qty)) {
+                // Stock quantity provided - enable stock management
                 $variation->set_manage_stock(true);
                 $variation->set_stock_quantity(intval($var_stock_qty));
+                $variation->set_stock_status(intval($var_stock_qty) > 0 ? 'instock' : 'outofstock');
+            } elseif ($var_manage_stock !== '') {
+                // manage_stock field is explicitly set
+                $variation->set_manage_stock($should_manage_stock);
+                if (!$should_manage_stock) {
+                    // Not managing stock - use stock_status from mapping or default to instock
+                    $status = !empty($var_stock_status) ? strtolower(trim($var_stock_status)) : 'instock';
+                    $status = ($status === 'outofstock') ? 'outofstock' : 'instock';
+                    $variation->set_stock_status($status);
+                }
+            } else {
+                // No stock info - don't manage stock, set status from mapping or default instock
+                $variation->set_manage_stock(false);
+                $status = !empty($var_stock_status) ? strtolower(trim($var_stock_status)) : 'instock';
+                $status = ($status === 'outofstock') ? 'outofstock' : 'instock';
+                $variation->set_stock_status($status);
             }
-            
-            $var_stock_status = $var_data[$csv_fields['stock_status'] ?? 'Stock Status'] ?? 'instock';
-            $variation->set_stock_status($var_stock_status);
             
             // Set enabled
             $variation->set_status('publish');
@@ -1552,6 +1583,343 @@ class WC_XML_CSV_AI_Import_Importer {
         }
 
         return $processed_data;
+    }
+
+    /**
+     * Apply Pricing Engine rules to calculate final price.
+     *
+     * @since    1.0.0
+     * @param    array $processed_data Processed product data
+     * @param    array $raw_data Raw product data for condition checking
+     * @return   array Updated processed data with calculated price
+     */
+    private function apply_pricing_engine($processed_data, $raw_data) {
+        $pricing_config = $this->config['field_mapping']['pricing_engine'] ?? null;
+        
+        // Check if pricing engine is enabled
+        if (empty($pricing_config) || empty($pricing_config['enabled'])) {
+            return $processed_data;
+        }
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) { 
+            error_log('★★★ PRICING ENGINE: Starting with config: ' . json_encode($pricing_config)); 
+        }
+        
+        // Get base price from configured source field
+        $base_price_field = $pricing_config['base_price'] ?? 'price';
+        $base_price = 0;
+        
+        // Try to get base price from raw data
+        if (isset($raw_data[$base_price_field])) {
+            $base_price = floatval(str_replace(',', '.', $raw_data[$base_price_field]));
+        } elseif (isset($processed_data['regular_price'])) {
+            $base_price = floatval(str_replace(',', '.', $processed_data['regular_price']));
+        }
+        
+        if ($base_price <= 0) {
+            if (defined('WP_DEBUG') && WP_DEBUG) { 
+                error_log('★★★ PRICING ENGINE: No valid base price found, skipping'); 
+            }
+            return $processed_data;
+        }
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) { 
+            error_log('★★★ PRICING ENGINE: Base price = ' . $base_price); 
+        }
+        
+        // Find matching rule
+        $matched_rule = null;
+        $rules = $pricing_config['rules'] ?? array();
+        
+        foreach ($rules as $rule) {
+            if (empty($rule['enabled'])) {
+                continue;
+            }
+            
+            if ($this->check_pricing_rule_conditions($rule, $base_price, $raw_data)) {
+                $matched_rule = $rule;
+                if (defined('WP_DEBUG') && WP_DEBUG) { 
+                    error_log('★★★ PRICING ENGINE: Matched rule: ' . ($rule['name'] ?? 'Unnamed')); 
+                }
+                break; // First matching rule wins
+            }
+        }
+        
+        // Use default rule if no rule matched
+        if (!$matched_rule) {
+            $matched_rule = $pricing_config['default_rule'] ?? array(
+                'markup_percent' => 0,
+                'fixed_amount' => 0,
+                'rounding' => 'none'
+            );
+            if (defined('WP_DEBUG') && WP_DEBUG) { 
+                error_log('★★★ PRICING ENGINE: Using default rule'); 
+            }
+        }
+        
+        // Calculate final price
+        $markup_percent = floatval($matched_rule['markup_percent'] ?? 0);
+        $fixed_amount = floatval($matched_rule['fixed_amount'] ?? 0);
+        $rounding = $matched_rule['rounding'] ?? 'none';
+        $min_price = !empty($matched_rule['min_price']) ? floatval($matched_rule['min_price']) : null;
+        $max_price = !empty($matched_rule['max_price']) ? floatval($matched_rule['max_price']) : null;
+        
+        // If rule uses "inherit" rounding, get from default rule
+        if ($rounding === 'inherit' && isset($pricing_config['default_rule']['rounding'])) {
+            $rounding = $pricing_config['default_rule']['rounding'];
+        }
+        
+        // Apply markup: price * (1 + markup%/100) + fixed
+        $final_price = $base_price * (1 + $markup_percent / 100) + $fixed_amount;
+        
+        // Apply rounding
+        $final_price = $this->apply_pricing_rounding($final_price, $rounding);
+        
+        // Apply min/max constraints
+        if ($min_price !== null && $final_price < $min_price) {
+            $final_price = $min_price;
+        }
+        if ($max_price !== null && $final_price > $max_price) {
+            $final_price = $max_price;
+        }
+        
+        // Ensure price is not negative
+        if ($final_price < 0) {
+            $final_price = 0;
+        }
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) { 
+            error_log('★★★ PRICING ENGINE: Final price = ' . $final_price . ' (base=' . $base_price . ', markup=' . $markup_percent . '%, fixed=' . $fixed_amount . ')'); 
+        }
+        
+        // Update regular_price in processed data
+        $processed_data['regular_price'] = number_format($final_price, 2, '.', '');
+        
+        return $processed_data;
+    }
+    
+    /**
+     * Check if pricing rule conditions match.
+     *
+     * @param array $rule Rule configuration
+     * @param float $base_price Base price value
+     * @param array $raw_data Raw product data
+     * @return bool True if all/any conditions match
+     */
+    private function check_pricing_rule_conditions($rule, $base_price, $raw_data) {
+        $conditions = $rule['conditions'] ?? array();
+        
+        if (empty($conditions)) {
+            return true; // No conditions = always matches
+        }
+        
+        $logic = $rule['logic'] ?? 'AND';
+        $results = array();
+        
+        foreach ($conditions as $condition) {
+            $type = $condition['type'] ?? '';
+            $result = false;
+            
+            switch ($type) {
+                case 'price_range':
+                    $from = floatval(str_replace(',', '.', $condition['from'] ?? 0));
+                    $to = floatval(str_replace(',', '.', $condition['to'] ?? PHP_INT_MAX));
+                    $result = ($base_price >= $from && $base_price <= $to);
+                    break;
+                    
+                case 'category':
+                case 'brand':
+                case 'supplier':
+                    $operator = $condition['operator'] ?? 'equals';
+                    $value = $condition['value'] ?? '';
+                    $field_value = '';
+                    
+                    // Try to find the field in raw data
+                    $possible_fields = array($type, ucfirst($type), strtoupper($type));
+                    if ($type === 'category') {
+                        $possible_fields = array_merge($possible_fields, array('category_id', 'categoryId', 'cat', 'categories'));
+                    } elseif ($type === 'brand') {
+                        $possible_fields = array_merge($possible_fields, array('brand_id', 'brandId', 'manufacturer'));
+                    } elseif ($type === 'supplier') {
+                        $possible_fields = array_merge($possible_fields, array('supplier_id', 'supplierId', 'vendor'));
+                    }
+                    
+                    foreach ($possible_fields as $field) {
+                        if (isset($raw_data[$field]) && !empty($raw_data[$field])) {
+                            $field_value = (string)$raw_data[$field];
+                            break;
+                        }
+                    }
+                    
+                    $result = $this->check_condition_operator($field_value, $operator, $value);
+                    break;
+                    
+                case 'xml_field':
+                    $field = $condition['field'] ?? '';
+                    $operator = $condition['operator'] ?? 'equals';
+                    $value = $condition['value'] ?? '';
+                    $field_value = isset($raw_data[$field]) ? (string)$raw_data[$field] : '';
+                    $result = $this->check_condition_operator($field_value, $operator, $value);
+                    break;
+                    
+                case 'sku_pattern':
+                    $pattern = $condition['pattern'] ?? '';
+                    $sku = isset($raw_data['sku']) ? $raw_data['sku'] : (isset($raw_data['id']) ? $raw_data['id'] : '');
+                    if (!empty($pattern)) {
+                        $result = (preg_match('/' . preg_quote($pattern, '/') . '/i', $sku) === 1);
+                    }
+                    break;
+            }
+            
+            $results[] = $result;
+            
+            if (defined('WP_DEBUG') && WP_DEBUG) { 
+                error_log('★★★ PRICING ENGINE CONDITION: type=' . $type . ', result=' . ($result ? 'TRUE' : 'FALSE')); 
+            }
+        }
+        
+        // Apply logic (AND/OR)
+        if ($logic === 'OR') {
+            return in_array(true, $results, true);
+        } else {
+            return !in_array(false, $results, true);
+        }
+    }
+    
+    /**
+     * Check condition operator.
+     *
+     * @param string $field_value Field value
+     * @param string $operator Operator
+     * @param string $expected Expected value
+     * @return bool
+     */
+    private function check_condition_operator($field_value, $operator, $expected) {
+        switch ($operator) {
+            case 'equals':
+                return strtolower($field_value) === strtolower($expected);
+            case 'not_equals':
+                return strtolower($field_value) !== strtolower($expected);
+            case 'contains':
+                return stripos($field_value, $expected) !== false;
+            case 'not_contains':
+                return stripos($field_value, $expected) === false;
+            case 'starts_with':
+                return stripos($field_value, $expected) === 0;
+            case 'ends_with':
+                return substr(strtolower($field_value), -strlen($expected)) === strtolower($expected);
+            default:
+                return false;
+        }
+    }
+    
+    /**
+     * Apply rounding to price.
+     *
+     * @param float $price Price value
+     * @param string $rounding Rounding type
+     * @return float Rounded price
+     */
+    private function apply_pricing_rounding($price, $rounding) {
+        switch ($rounding) {
+            case '0.01':
+                return round($price, 2);
+            case '0.05':
+                return round($price * 20) / 20;
+            case '0.10':
+                return round($price * 10) / 10;
+            case '0.50':
+                return round($price * 2) / 2;
+            case '1.00':
+                return round($price);
+            case '0.99':
+                // Round to nearest .99 (e.g., 10.45 -> 10.99, 10.00 -> 9.99)
+                return floor($price) + 0.99;
+            case '0.95':
+                // Round to nearest .95
+                return floor($price) + 0.95;
+            case 'none':
+            default:
+                return round($price, 2);
+        }
+    }
+    
+    /**
+     * Apply Pricing Engine to a single price value.
+     * Used for variations where we only have the price, not full product data.
+     *
+     * @param float $base_price Base price value
+     * @param array $raw_data Raw data for condition checking
+     * @return string Calculated price as string
+     */
+    private function apply_pricing_engine_to_price($base_price, $raw_data = array()) {
+        $pricing_config = $this->config['field_mapping']['pricing_engine'] ?? null;
+        
+        // Check if pricing engine is enabled
+        if (empty($pricing_config) || empty($pricing_config['enabled'])) {
+            return number_format($base_price, 2, '.', '');
+        }
+        
+        if ($base_price <= 0) {
+            return number_format($base_price, 2, '.', '');
+        }
+        
+        // Find matching rule
+        $matched_rule = null;
+        $rules = $pricing_config['rules'] ?? array();
+        
+        foreach ($rules as $rule) {
+            if (empty($rule['enabled'])) {
+                continue;
+            }
+            
+            if ($this->check_pricing_rule_conditions($rule, $base_price, $raw_data)) {
+                $matched_rule = $rule;
+                break;
+            }
+        }
+        
+        // Use default rule if no rule matched
+        if (!$matched_rule) {
+            $matched_rule = $pricing_config['default_rule'] ?? array(
+                'markup_percent' => 0,
+                'fixed_amount' => 0,
+                'rounding' => 'none'
+            );
+        }
+        
+        // Calculate final price
+        $markup_percent = floatval($matched_rule['markup_percent'] ?? 0);
+        $fixed_amount = floatval($matched_rule['fixed_amount'] ?? 0);
+        $rounding = $matched_rule['rounding'] ?? 'none';
+        $min_price = !empty($matched_rule['min_price']) ? floatval($matched_rule['min_price']) : null;
+        $max_price = !empty($matched_rule['max_price']) ? floatval($matched_rule['max_price']) : null;
+        
+        // If rule uses "inherit" rounding, get from default rule
+        if ($rounding === 'inherit' && isset($pricing_config['default_rule']['rounding'])) {
+            $rounding = $pricing_config['default_rule']['rounding'];
+        }
+        
+        // Apply markup: price * (1 + markup%/100) + fixed
+        $final_price = $base_price * (1 + $markup_percent / 100) + $fixed_amount;
+        
+        // Apply rounding
+        $final_price = $this->apply_pricing_rounding($final_price, $rounding);
+        
+        // Apply min/max constraints
+        if ($min_price !== null && $final_price < $min_price) {
+            $final_price = $min_price;
+        }
+        if ($max_price !== null && $final_price > $max_price) {
+            $final_price = $max_price;
+        }
+        
+        // Ensure price is not negative
+        if ($final_price < 0) {
+            $final_price = 0;
+        }
+        
+        return number_format($final_price, 2, '.', '');
     }
 
     /**
@@ -4692,6 +5060,19 @@ class WC_XML_CSV_AI_Import_Importer {
             'fields' => 'ids'
         ));
         
+        // CRITICAL: Force all variations to be instock if they don't manage stock
+        // WooCommerce sync() can reset stock_status to outofstock even when manage_stock=no
+        foreach ($children as $child_id) {
+            $child_manage_stock = get_post_meta($child_id, '_manage_stock', true);
+            $child_stock_status = get_post_meta($child_id, '_stock_status', true);
+            
+            // If not managing stock and status is outofstock, force to instock
+            if ($child_manage_stock === 'no' && $child_stock_status !== 'instock') {
+                update_post_meta($child_id, '_stock_status', 'instock');
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  Fixed variation $child_id stock_status to instock (manage_stock=no)\n", FILE_APPEND); }
+            }
+        }
+        
         $has_stock = false;
         foreach ($children as $child_id) {
             $child_stock_status = get_post_meta($child_id, '_stock_status', true);
@@ -4708,9 +5089,27 @@ class WC_XML_CSV_AI_Import_Importer {
         // Sync the variable product to update prices and other aggregated data
         WC_Product_Variable::sync($product_id);
         
-        // IMPORTANT: Re-set stock status AFTER sync because sync can reset it
-        // Use direct DB query to bypass any WooCommerce hooks
+        // CRITICAL: Fix variations AGAIN after second sync - sync can reset stock_status
         global $wpdb;
+        foreach ($children as $child_id) {
+            $child_manage_stock = get_post_meta($child_id, '_manage_stock', true);
+            $child_stock_status = get_post_meta($child_id, '_stock_status', true);
+            
+            // If not managing stock and status is outofstock, force to instock
+            if ($child_manage_stock === 'no' && $child_stock_status !== 'instock') {
+                $wpdb->update(
+                    $wpdb->postmeta,
+                    array('meta_value' => 'instock'),
+                    array('post_id' => $child_id, 'meta_key' => '_stock_status'),
+                    array('%s'),
+                    array('%d', '%s')
+                );
+                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  Fixed variation $child_id stock_status to instock after sync\n", FILE_APPEND); }
+            }
+        }
+        
+        // IMPORTANT: Re-set parent stock status AFTER sync because sync can reset it
+        // Use direct DB query to bypass any WooCommerce hooks
         $wpdb->update(
             $wpdb->postmeta,
             array('meta_value' => $new_stock_status),
@@ -4802,20 +5201,74 @@ class WC_XML_CSV_AI_Import_Importer {
         
         if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  Processing " . count($variations_data) . " variations from source data\n", FILE_APPEND); }
         
+        // Check if auto-detect mode is enabled
+        $attribute_detection_mode = $attributes_config['attribute_detection_mode'] ?? 'manual';
+        $auto_attributes_path = $attributes_config['auto_attributes_path'] ?? 'attributes';
+        $auto_create_attributes = $attributes_config['auto_create_attributes'] ?? true;
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  Attribute detection mode: $attribute_detection_mode\n", FILE_APPEND); }
+        
         // Get attribute info for matching
         $attr_configs = $attributes_config['attributes'] ?? array();
         $variation_attrs_map = array(); // Maps attribute name to full config
         
-        foreach ($attr_configs as $attr_config) {
-            if (!empty($attr_config['used_for_variations'])) {
-                $attr_name = $attr_config['name'];
-                $taxonomy_name = $this->sanitize_attribute_name($attr_name);
-                $variation_attrs_map[$attr_name] = array(
-                    'taxonomy' => $taxonomy_name,
-                    'source' => $attr_config['values_source'] ?? '',
-                    'array_index' => isset($attr_config['array_index']) ? $attr_config['array_index'] : null
-                );
-                if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  Attribute config: $attr_name → source='" . ($attr_config['values_source'] ?? '') . "', array_index=" . (isset($attr_config['array_index']) ? $attr_config['array_index'] : 'null') . "\n", FILE_APPEND); }
+        if ($attribute_detection_mode === 'auto') {
+            // AUTO-DETECT MODE: Dynamically discover attributes from first variation
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  AUTO-DETECT: Analyzing first variation to discover attributes...\n", FILE_APPEND); }
+            
+            // Get attributes from first variation to discover structure
+            $first_var = $variations_data[0] ?? array();
+            $attrs_data = $this->get_nested_value($first_var, $auto_attributes_path) ?? $first_var;
+            
+            if (is_array($attrs_data)) {
+                foreach ($attrs_data as $attr_key => $attr_value) {
+                    // Skip non-string values (nested arrays, etc.)
+                    if (!is_string($attr_value) && !is_numeric($attr_value)) {
+                        continue;
+                    }
+                    
+                    // Skip common non-attribute fields
+                    $skip_fields = array('sku', 'price', 'regular_price', 'sale_price', 'stock', 'stock_quantity', 'manage_stock', 'stock_status', 'weight', 'length', 'width', 'height', 'description', 'image', 'virtual', 'downloadable', 'parent_sku', 'gtin', 'ean', 'upc', 'isbn', 'mpn', 'enabled', 'status', 'backorders', 'shipping_class', 'tax_class', 'download_limit', 'download_expiry', 'downloads', 'low_stock_amount', 'sale_price_dates_from', 'sale_price_dates_to', 'menu_order');
+                    if (in_array(strtolower($attr_key), $skip_fields)) {
+                        continue;
+                    }
+                    
+                    // This is an attribute! Create/get taxonomy
+                    $attr_name = ucfirst(str_replace('_', ' ', $attr_key));
+                    $taxonomy_name = $this->sanitize_attribute_name($attr_name);
+                    
+                    // Create attribute if needed
+                    if ($auto_create_attributes) {
+                        $this->ensure_attribute_taxonomy_exists($attr_name, $taxonomy_name);
+                    }
+                    
+                    $variation_attrs_map[$attr_name] = array(
+                        'taxonomy' => $taxonomy_name,
+                        'source_key' => $attr_key,  // Direct key in attributes object
+                        'source' => '',
+                        'array_index' => null
+                    );
+                    
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    AUTO-DETECTED attribute: '$attr_name' (key: $attr_key) → $taxonomy_name\n", FILE_APPEND); }
+                }
+            }
+            
+            // Also need to update parent product with these attributes
+            $this->update_parent_with_auto_attributes($product_id, $variation_attrs_map, $variations_data, $auto_attributes_path, $parent_product);
+            
+        } else {
+            // MANUAL MODE: Use configured attributes
+            foreach ($attr_configs as $attr_config) {
+                if (!empty($attr_config['used_for_variations'])) {
+                    $attr_name = $attr_config['name'];
+                    $taxonomy_name = $this->sanitize_attribute_name($attr_name);
+                    $variation_attrs_map[$attr_name] = array(
+                        'taxonomy' => $taxonomy_name,
+                        'source' => $attr_config['values_source'] ?? '',
+                        'array_index' => isset($attr_config['array_index']) ? $attr_config['array_index'] : null
+                    );
+                    if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  Attribute config: $attr_name → source='" . ($attr_config['values_source'] ?? '') . "', array_index=" . (isset($attr_config['array_index']) ? $attr_config['array_index'] : 'null') . "\n", FILE_APPEND); }
+                }
             }
         }
         
@@ -4842,13 +5295,26 @@ class WC_XML_CSV_AI_Import_Importer {
             
             foreach ($variation_attrs_map as $attr_name => $attr_cfg) {
                 $taxonomy_name = $attr_cfg['taxonomy'];
-                $source = $attr_cfg['source'];
-                $array_index = $attr_cfg['array_index'];
+                $source = $attr_cfg['source'] ?? '';
+                $array_index = $attr_cfg['array_index'] ?? null;
+                $source_key = $attr_cfg['source_key'] ?? null; // For auto-detect mode
                 
                 // Try different paths to find attribute value
                 $attr_value = null;
                 
-                // BEST METHOD: Look directly in attributes by attribute name (most common XML format)
+                // AUTO-DETECT MODE: Use source_key to directly access attribute in attrs_data
+                if ($source_key !== null) {
+                    // Get attributes data at the configured path
+                    $attrs_data_for_var = $this->get_nested_value($var_data, $auto_attributes_path) ?? $var_data;
+                    
+                    if (is_array($attrs_data_for_var) && isset($attrs_data_for_var[$source_key])) {
+                        $attr_value = $attrs_data_for_var[$source_key];
+                        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    AUTO-DETECT: Found '$attr_name' using source_key '$source_key': $attr_value\n", FILE_APPEND); }
+                    }
+                }
+                
+                // MANUAL MODE fallback: Try various path patterns
+                if (empty($attr_value)) {
                 // XML: <attributes><size>S</size><color>Black</color></attributes>
                 $attr_name_lower = strtolower($attr_name);
                 $attr_name_underscore = strtolower(str_replace(' ', '_', $attr_name));
@@ -4944,6 +5410,7 @@ class WC_XML_CSV_AI_Import_Importer {
                         }
                     }
                 }
+                } // End of manual mode fallback
                 
                 if ($attr_value) {
                     // Create/get term and use slug
@@ -5005,6 +5472,11 @@ class WC_XML_CSV_AI_Import_Importer {
             $var_stock = $this->get_variation_field($var_data, $map_config, 'stock', array('stock', 'stock_quantity', 'qty', 'quantity'));
             $var_stock_status = $this->get_variation_field($var_data, $map_config, 'stock_status', array('stock_status'));
             $var_manage_stock = $this->get_variation_field($var_data, $map_config, 'manage_stock', array('manage_stock'));
+            
+            // Debug: log stock values
+            if (defined('WP_DEBUG') && WP_DEBUG) { 
+                file_put_contents($log_file, "    Stock debug - var_stock: " . var_export($var_stock, true) . ", var_stock_status: " . var_export($var_stock_status, true) . ", var_manage_stock: " . var_export($var_manage_stock, true) . "\n", FILE_APPEND); 
+            }
             
             if ($var_stock !== null && $var_stock !== '') {
                 // Stock quantity is provided - enable stock management
@@ -5232,13 +5704,23 @@ class WC_XML_CSV_AI_Import_Importer {
                     // CRITICAL: Force stock status after save to prevent WooCommerce from overriding
                     // WooCommerce sometimes resets stock_status during save() process
                     $saved_stock_status = get_post_meta($variation_id, '_stock_status', true);
-                    if (empty($saved_stock_status) || $saved_stock_status === 'outofstock') {
-                        // Check if we intentionally set it to outofstock
-                        $intended_status = ($var_stock !== null && (int)$var_stock <= 0) ? 'outofstock' : 'instock';
-                        if ($saved_stock_status !== $intended_status) {
-                            update_post_meta($variation_id, '_stock_status', $intended_status);
-                            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Fixed stock_status to: $intended_status\n", FILE_APPEND); }
-                        }
+                    
+                    // Determine intended status based on mapping/data
+                    if ($var_stock !== null && $var_stock !== '') {
+                        // Stock quantity was provided - base status on quantity
+                        $intended_status = ((int)$var_stock > 0) ? 'instock' : 'outofstock';
+                    } elseif ($var_stock_status !== null && !empty($var_stock_status)) {
+                        // Stock status was explicitly mapped - use it
+                        $intended_status = (strtolower($var_stock_status) === 'outofstock') ? 'outofstock' : 'instock';
+                    } else {
+                        // No stock info - default to instock
+                        $intended_status = 'instock';
+                    }
+                    
+                    // Fix if saved status doesn't match intended
+                    if ($saved_stock_status !== $intended_status) {
+                        update_post_meta($variation_id, '_stock_status', $intended_status);
+                        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Fixed stock_status from '$saved_stock_status' to: $intended_status\n", FILE_APPEND); }
                     }
                     
                     // Ensure manage_stock is set correctly
@@ -6484,5 +6966,152 @@ class WC_XML_CSV_AI_Import_Importer {
         
         // Add pa_ prefix
         return 'pa_' . sanitize_title($name);
+    }
+    
+    /**
+     * Ensure attribute taxonomy exists in WooCommerce.
+     * Creates the attribute if it doesn't exist.
+     *
+     * @param string $attr_name Human-readable attribute name (e.g., "Size")
+     * @param string $taxonomy_name Taxonomy name with pa_ prefix (e.g., "pa_size")
+     * @return bool True if attribute exists or was created
+     */
+    private function ensure_attribute_taxonomy_exists($attr_name, $taxonomy_name) {
+        $log_file = WP_CONTENT_DIR . '/variations_debug.log';
+        
+        // Remove pa_ prefix for attribute slug
+        $attribute_slug = str_replace('pa_', '', $taxonomy_name);
+        
+        // Check if attribute taxonomy already exists
+        if (taxonomy_exists($taxonomy_name)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Attribute taxonomy '$taxonomy_name' already exists\n", FILE_APPEND); }
+            return true;
+        }
+        
+        // Check if attribute exists in WooCommerce attributes table
+        $attribute_id = wc_attribute_taxonomy_id_by_name($attribute_slug);
+        
+        if ($attribute_id) {
+            // Attribute exists but taxonomy not registered - register it
+            register_taxonomy($taxonomy_name, 'product', array(
+                'hierarchical' => false,
+                'labels' => array('name' => $attr_name),
+                'show_ui' => false,
+                'query_var' => true,
+                'rewrite' => false,
+            ));
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Registered existing attribute taxonomy '$taxonomy_name'\n", FILE_APPEND); }
+            return true;
+        }
+        
+        // Create new attribute
+        $args = array(
+            'name' => $attr_name,
+            'slug' => $attribute_slug,
+            'type' => 'select',
+            'order_by' => 'menu_order',
+            'has_archives' => false
+        );
+        
+        $result = wc_create_attribute($args);
+        
+        if (is_wp_error($result)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    ERROR creating attribute '$attr_name': " . $result->get_error_message() . "\n", FILE_APPEND); }
+            return false;
+        }
+        
+        // Register the taxonomy immediately so we can use it
+        register_taxonomy($taxonomy_name, 'product', array(
+            'hierarchical' => false,
+            'labels' => array('name' => $attr_name),
+            'show_ui' => false,
+            'query_var' => true,
+            'rewrite' => false,
+        ));
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    ✓ Created new attribute '$attr_name' → $taxonomy_name (ID: $result)\n", FILE_APPEND); }
+        
+        return true;
+    }
+    
+    /**
+     * Update parent product with auto-detected attributes.
+     *
+     * @param int $product_id Parent product ID
+     * @param array $variation_attrs_map Map of attributes discovered
+     * @param array $variations_data All variations data
+     * @param string $auto_attributes_path Path to attributes in variation data
+     * @param WC_Product $parent_product Parent product object
+     */
+    private function update_parent_with_auto_attributes($product_id, $variation_attrs_map, $variations_data, $auto_attributes_path, $parent_product) {
+        $log_file = WP_CONTENT_DIR . '/variations_debug.log';
+        
+        if (empty($variation_attrs_map)) {
+            return;
+        }
+        
+        // Collect all unique values for each attribute from all variations
+        $all_values = array();
+        foreach ($variation_attrs_map as $attr_name => $attr_cfg) {
+            $all_values[$attr_name] = array();
+        }
+        
+        foreach ($variations_data as $var_data) {
+            $attrs_data = $this->get_nested_value($var_data, $auto_attributes_path) ?? $var_data;
+            
+            if (!is_array($attrs_data)) {
+                continue;
+            }
+            
+            foreach ($variation_attrs_map as $attr_name => $attr_cfg) {
+                $source_key = $attr_cfg['source_key'] ?? strtolower(str_replace(' ', '_', $attr_name));
+                $value = $attrs_data[$source_key] ?? null;
+                
+                if (!empty($value) && is_string($value)) {
+                    $all_values[$attr_name][$value] = $value;
+                }
+            }
+        }
+        
+        // Build WooCommerce product attributes array
+        $product_attributes = array();
+        
+        foreach ($variation_attrs_map as $attr_name => $attr_cfg) {
+            $taxonomy_name = $attr_cfg['taxonomy'];
+            $values = array_values($all_values[$attr_name] ?? array());
+            
+            if (empty($values)) {
+                continue;
+            }
+            
+            // Add terms to taxonomy
+            foreach ($values as $term_value) {
+                if (!term_exists($term_value, $taxonomy_name)) {
+                    $term_result = wp_insert_term($term_value, $taxonomy_name);
+                    if (is_wp_error($term_result)) {
+                        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    Error adding term '$term_value' to $taxonomy_name: " . $term_result->get_error_message() . "\n", FILE_APPEND); }
+                    }
+                }
+            }
+            
+            // Create attribute for product
+            $product_attributes[$taxonomy_name] = array(
+                'name' => $taxonomy_name,
+                'value' => '',
+                'is_visible' => 1,
+                'is_variation' => 1,
+                'is_taxonomy' => 1,
+            );
+            
+            // Set object terms (link product to attribute values)
+            wp_set_object_terms($product_id, $values, $taxonomy_name);
+            
+            if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "    ✓ Added attribute $taxonomy_name with values: " . implode(', ', $values) . "\n", FILE_APPEND); }
+        }
+        
+        // Save attributes to product
+        update_post_meta($product_id, '_product_attributes', $product_attributes);
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) { file_put_contents($log_file, "  ✓ Updated parent product with " . count($product_attributes) . " auto-detected attributes\n", FILE_APPEND); }
     }
 }

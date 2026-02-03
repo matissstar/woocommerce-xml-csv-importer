@@ -407,6 +407,33 @@ class WC_XML_CSV_AI_Import_XML_Parser {
     }
 
     /**
+     * Merge nested structures to collect all unique fields.
+     * Used when scanning multiple variations/items to find ALL possible fields.
+     *
+     * @param array $existing Existing structure
+     * @param array $new New structure to merge
+     * @return array Merged structure with all unique fields
+     */
+    private function merge_nested_structures($existing, $new) {
+        if (!is_array($existing)) {
+            return $new;
+        }
+        if (!is_array($new)) {
+            return $existing;
+        }
+        
+        foreach ($new as $key => $value) {
+            if (!isset($existing[$key])) {
+                $existing[$key] = $value;
+            } elseif (is_array($value) && is_array($existing[$key])) {
+                $existing[$key] = $this->merge_nested_structures($existing[$key], $value);
+            }
+        }
+        
+        return $existing;
+    }
+
+    /**
      * Build field structure for mapping interface.
      *
      * @since    1.0.0
@@ -485,62 +512,77 @@ class WC_XML_CSV_AI_Import_XML_Parser {
                             'sample' => count($value) . ' nested items'
                         );
                         
-                        // For complex arrays, also add the child element path (e.g., attributes.attribute)
-                        // Extract field names from first element to show available sub-fields
-                        if (isset($value[0]) && is_array($value[0])) {
-                            $first_item = $value[0];
-                            $child_key = array_key_first($first_item);
+                        // For complex arrays, extract ALL unique fields from ALL items
+                        // This handles structures like: [0 => {sku, desc, attrs}, 1 => {sku, desc, attrs, sale_price}]
+                        $all_sub_fields = array();
+                        $all_nested_structures = array();
+                        
+                        // Scan up to 20 items to find all unique fields
+                        $scan_items = array_slice($value, 0, 20);
+                        foreach ($scan_items as $item_index => $item) {
+                            if (!is_array($item)) continue;
                             
-                            // Check if it's a named element array like attributes.attribute
-                            if ($child_key && !is_numeric($child_key) && isset($first_item[$child_key])) {
-                                $child_elements = $first_item[$child_key];
-                                
-                                // If child_elements is an array of items, get first one
-                                if (isset($child_elements[0])) {
-                                    $child_elements = $child_elements[0];
+                            foreach ($item as $sub_key => $sub_value) {
+                                if ($sub_key === '@attributes' || $sub_key === '#text' || is_numeric($sub_key)) {
+                                    continue;
                                 }
                                 
-                                $child_path = $field_path . '.' . $child_key;
-                                $structure[] = array(
-                                    'path' => $child_path,
-                                    'label' => $child_path,
-                                    'type' => 'array',
-                                    'sample' => 'Array of ' . $child_key . ' elements'
-                                );
-                                
-                                // Add child field names (name, value, visible, variation, etc.)
-                                if (is_array($child_elements)) {
-                                    foreach ($child_elements as $sub_key => $sub_value) {
-                                        if ($sub_key !== '@attributes' && $sub_key !== '#text' && !is_numeric($sub_key)) {
-                                            $sub_path = $child_path . '.' . $sub_key;
-                                            $structure[] = array(
-                                                'path' => $sub_path,
-                                                'label' => $sub_path,
+                                // Check if sub_value is simple text
+                                if (is_string($sub_value)) {
+                                    if (!isset($all_sub_fields[$sub_key])) {
+                                        $all_sub_fields[$sub_key] = array(
+                                            'type' => 'text',
+                                            'sample' => substr($sub_value, 0, 50)
+                                        );
+                                    }
+                                } elseif (is_array($sub_value)) {
+                                    $simple_text = $this->is_simple_text_element($sub_value);
+                                    if ($simple_text !== false) {
+                                        if (!isset($all_sub_fields[$sub_key])) {
+                                            $all_sub_fields[$sub_key] = array(
                                                 'type' => 'text',
-                                                'sample' => is_string($sub_value) ? substr($sub_value, 0, 50) : (is_array($sub_value) ? 'nested' : (string)$sub_value)
+                                                'sample' => substr($simple_text, 0, 50)
+                                            );
+                                        }
+                                    } else {
+                                        // Nested structure - store for later processing
+                                        if (!isset($all_nested_structures[$sub_key])) {
+                                            $all_nested_structures[$sub_key] = $sub_value;
+                                        } else {
+                                            // Merge nested structures to find all unique nested fields
+                                            $all_nested_structures[$sub_key] = $this->merge_nested_structures(
+                                                $all_nested_structures[$sub_key], 
+                                                $sub_value
                                             );
                                         }
                                     }
-                                }
-                            } elseif (!is_numeric($child_key)) {
-                                // Direct child fields in the array element
-                                foreach ($first_item as $sub_key => $sub_value) {
-                                    if ($sub_key !== '@attributes' && $sub_key !== '#text') {
-                                        $sub_path = $field_path . '.' . $sub_key;
-                                        $sample_val = is_string($sub_value) ? substr($sub_value, 0, 50) : '';
-                                        if (is_array($sub_value)) {
-                                            $sample_val = $this->is_simple_text_element($sub_value);
-                                            if ($sample_val === false) $sample_val = 'nested';
-                                        }
-                                        $structure[] = array(
-                                            'path' => $sub_path,
-                                            'label' => $sub_path,
+                                } else {
+                                    if (!isset($all_sub_fields[$sub_key])) {
+                                        $all_sub_fields[$sub_key] = array(
                                             'type' => 'text',
-                                            'sample' => $sample_val
+                                            'sample' => (string)$sub_value
                                         );
                                     }
                                 }
                             }
+                        }
+                        
+                        // Add all simple sub-fields as template paths (no indices)
+                        foreach ($all_sub_fields as $sub_key => $field_info) {
+                            $sub_path = $field_path . '.' . $sub_key;
+                            $structure[] = array(
+                                'path' => $sub_path,
+                                'label' => $sub_path,
+                                'type' => $field_info['type'],
+                                'sample' => $field_info['sample']
+                            );
+                        }
+                        
+                        // Process nested structures (like attributes inside variations)
+                        foreach ($all_nested_structures as $nested_key => $nested_value) {
+                            $nested_path = $field_path . '.' . $nested_key;
+                            $nested_structure = $this->build_field_structure(array($nested_key => $nested_value), $field_path);
+                            $structure = array_merge($structure, $nested_structure);
                         }
                     }
                 } else {

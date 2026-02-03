@@ -2210,7 +2210,7 @@ class WC_XML_CSV_AI_Import_Admin {
         
         $logs = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}wc_itp_import_logs WHERE import_id = %d ORDER BY created_at DESC LIMIT 10",
+                "SELECT * FROM {$wpdb->prefix}wc_itp_import_logs WHERE import_id = %d ORDER BY created_at DESC LIMIT 300",
                 $import_id
             ),
             ARRAY_A
@@ -2282,18 +2282,59 @@ class WC_XML_CSV_AI_Import_Admin {
             $ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();
             $result = $ai_providers->auto_map_fields($source_fields, $provider, $file_type, $sample_data);
             
-            wp_send_json_success(array(
+            // Get stats
+            $stats = isset($result['stats']) ? $result['stats'] : array(
+                'total_fields' => count($source_fields),
+                'ai_mapped' => count($result['mappings']),
+                'auto_filled' => 0,
+                'unmapped' => count($result['unmapped'] ?? array())
+            );
+            
+            // Build response array
+            $response = array(
                 'mappings' => $result['mappings'],
                 'confidence' => $result['confidence'],
                 'unmapped' => $result['unmapped'],
+                'auto_filled' => $result['auto_filled'] ?? array(),
                 'mapped_count' => count($result['mappings']),
                 'provider' => $result['provider'],
+                'stats' => $stats,
                 'message' => sprintf(
-                    __('AI successfully mapped %d of %d fields.', 'wc-xml-csv-import'),
+                    __('AI mapped %d fields, auto-filled %d fields. Total: %d of %d fields mapped.', 'wc-xml-csv-import'),
+                    $stats['ai_mapped'],
+                    $stats['auto_filled'],
                     count($result['mappings']),
-                    count($source_fields)
+                    $stats['total_fields']
                 )
-            ));
+            );
+            
+            // Add warning if some fields are still unmapped
+            if ($stats['unmapped'] > 0) {
+                $response['message'] .= ' ' . sprintf(
+                    __('Warning: %d fields could not be mapped automatically.', 'wc-xml-csv-import'),
+                    $stats['unmapped']
+                );
+            }
+            
+            // Add product structure info if available
+            if (!empty($result['product_structure'])) {
+                $response['product_structure'] = $result['product_structure'];
+                
+                // Update message if variable product detected
+                if (!empty($result['product_structure']['has_variations'])) {
+                    $response['message'] .= ' ' . __('Variable product structure detected.', 'wc-xml-csv-import');
+                    
+                    if (!empty($result['product_structure']['detected_attributes'])) {
+                        $attr_count = count($result['product_structure']['detected_attributes']);
+                        $response['message'] .= ' ' . sprintf(
+                            _n('%d attribute found.', '%d attributes found.', $attr_count, 'wc-xml-csv-import'),
+                            $attr_count
+                        );
+                    }
+                }
+            }
+            
+            wp_send_json_success($response);
             
         } catch (Exception $e) {
             wp_send_json_error(array(

@@ -371,10 +371,13 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             var provider = $('#ai-mapping-provider').val() || 'openai';
             var fileType = $('#detected_file_type').val() || 'xml';
             
-            // Get sample data from first product if available
-            var sampleData = {};
+            // Get sample data from ALL products (up to 50) to find all possible fields and attributes
+            var sampleData = [];
             if (window.currentSampleData && window.currentSampleData.length > 0) {
-                sampleData = window.currentSampleData[0] || {};
+                // Send up to 50 products for comprehensive analysis
+                var maxProducts = Math.min(window.currentSampleData.length, 50);
+                sampleData = window.currentSampleData.slice(0, maxProducts);
+                console.log('★★★ AI Auto-Mapping - Sending ' + maxProducts + ' products for analysis');
             }
             
             // Show progress
@@ -414,18 +417,72 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                         var confidence = response.data.confidence || {};
                         var unmapped = response.data.unmapped || [];
                         var mappedCount = response.data.mapped_count || 0;
+                        var productStructure = response.data.product_structure || null;
+                        var stats = response.data.stats || {};
                         
-                        // Apply mappings to dropdowns
-                        applyAiMappings(mappings, confidence);
+                        // FIRST: If product structure detected, enable Variable mode BEFORE applying mappings
+                        // This ensures var_field textareas exist in DOM when we try to map them
+                        if (productStructure && productStructure.has_variations) {
+                            console.log('★★★ Variable product detected - enabling Variable mode FIRST');
+                            applyProductStructure(productStructure);
+                            
+                            // Wait for DOM to update, then apply ALL mappings including variation fields
+                            setTimeout(function() {
+                                console.log('★★★ Now applying mappings after Variable mode is enabled');
+                                applyAiMappings(mappings, confidence);
+                                
+                                // Apply attribute mappings
+                                setTimeout(function() {
+                                    applyAttributeMappings(mappings, productStructure.variation_path);
+                                }, 500);
+                            }, 500);
+                        } else {
+                            // Simple product - apply mappings immediately
+                            applyAiMappings(mappings, confidence);
+                        }
+                        
+                        // Split message - base message and variable product part
+                        var baseMessage = response.data.message;
+                        var variableInfo = '';
+                        
+                        // Extract variable product info from message
+                        if (baseMessage.includes('Variable product structure')) {
+                            var parts = baseMessage.split('Variable product structure');
+                            baseMessage = parts[0].trim();
+                            variableInfo = 'Variable product structure' + parts[1];
+                        }
                         
                         // Show result
                         var resultHtml = '<div style="color: #90EE90;">';
-                        resultHtml += '<strong>✅ ' + response.data.message + '</strong>';
+                        resultHtml += '<strong>✅ ' + baseMessage + '</strong>';
+                        if (variableInfo) {
+                            resultHtml += '<br><span style="color: #64b5f6; font-weight: 600;">📦 ' + variableInfo + '</span>';
+                        }
                         resultHtml += '</div>';
+                        
+                        // Show product structure info
+                        if (productStructure && productStructure.has_variations) {
+                            resultHtml += '<div style="margin-top: 10px; padding: 10px 14px; background: linear-gradient(135deg, #1a237e 0%, #283593 100%); border: 1px solid #3949ab; border-radius: 8px; font-size: 12px; color: #e8eaf6;">';
+                            resultHtml += '<strong style="color: #90caf9; font-size: 13px;">📦 Variable Product Detected</strong><br>';
+                            resultHtml += '<span style="color: #e8eaf6;">Type: <strong>' + (productStructure.type || 'variable') + '</strong></span>';
+                            if (productStructure.variation_path) {
+                                resultHtml += '<br><span style="color: #e8eaf6;">Variations path: <code style="background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: 4px; color: #80d8ff; font-weight: 500;">' + productStructure.variation_path + '</code></span>';
+                            }
+                            if (productStructure.detected_attributes && productStructure.detected_attributes.length > 0) {
+                                resultHtml += '<br><span style="color: #e8eaf6;">Attributes: ';
+                                productStructure.detected_attributes.forEach(function(attr, i) {
+                                    if (i > 0) resultHtml += ' ';
+                                    resultHtml += '<span style="background: #4caf50; padding: 2px 8px; border-radius: 4px; color: #fff; font-weight: 500;">' + attr + '</span>';
+                                });
+                                resultHtml += '</span>';
+                            }
+                            resultHtml += '</div>';
+                        }
                         
                         if (mappedCount > 0) {
                             resultHtml += '<div style="margin-top: 10px; font-size: 12px;">';
-                            resultHtml += '<strong>Mapped fields:</strong><br>';
+                            resultHtml += '<strong>Mapped fields (' + mappedCount + '):</strong>';
+                            resultHtml += '<div style="max-height: 100px; overflow-y: auto; margin-top: 5px; padding: 5px; background: rgba(0,0,0,0.1); border-radius: 4px;">';
                             $.each(mappings, function(source, target) {
                                 var conf = confidence[source] || '?';
                                 resultHtml += '<span style="display: inline-block; margin: 2px 5px 2px 0; padding: 2px 8px; background: rgba(255,255,255,0.2); border-radius: 3px;">';
@@ -435,7 +492,7 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                                 }
                                 resultHtml += '</span>';
                             });
-                            resultHtml += '</div>';
+                            resultHtml += '</div></div>';
                         }
                         
                         if (unmapped.length > 0) {
@@ -447,13 +504,36 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                         $result.html(resultHtml).show();
                         
                     } else {
-                        $result.html('<div style="color: #ffcdd2;">❌ ' + (response.data.message || 'Unknown error') + '</div>').show();
+                        // Show error with better styling
+                        var errorMsg = response.data.message || 'Unknown error';
+                        var errorHtml = '<div class="ai-mapping-error">' +
+                            '<span class="error-icon">❌</span>' +
+                            '<div class="error-text">' +
+                            '<strong>AI auto-mapping failed</strong><br>' +
+                            '<span>' + escapeHtml(errorMsg.split('Response:')[0]) + '</span>';
+                        
+                        // Show response details if available
+                        if (errorMsg.indexOf('Response:') !== -1) {
+                            var responseDetails = errorMsg.split('Response:')[1];
+                            if (responseDetails && responseDetails.trim()) {
+                                errorHtml += '<div class="error-details">' + escapeHtml(responseDetails.trim()) + '</div>';
+                            }
+                        }
+                        
+                        errorHtml += '</div></div>';
+                        $result.html(errorHtml).show();
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('★★★ AI Auto-Mapping Error:', error);
                     $progress.hide();
-                    $result.html('<div style="color: #ffcdd2;">❌ Request failed: ' + error + '</div>').show();
+                    var errorHtml = '<div class="ai-mapping-error">' +
+                        '<span class="error-icon">❌</span>' +
+                        '<div class="error-text">' +
+                        '<strong>Request failed</strong><br>' +
+                        '<span>' + escapeHtml(error) + '</span>' +
+                        '</div></div>';
+                    $result.html(errorHtml).show();
                 },
                 complete: function() {
                     $btn.prop('disabled', false).html(originalText);
@@ -479,8 +559,153 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
     }
     
     /**
+     * Apply detected product structure settings (variations, attributes)
+     */
+    function applyProductStructure(productStructure) {
+        console.log('★★★ applyProductStructure() called with:', productStructure);
+        
+        if (!productStructure || !productStructure.has_variations) {
+            return;
+        }
+        
+        // Auto-select "Variable Products" mode using the radio buttons
+        var $variableRadio = $('input[name="product_mode"][value="variable"]');
+        if ($variableRadio.length > 0) {
+            $variableRadio.prop('checked', true).trigger('change');
+            console.log('★★★ Set product_mode to: variable');
+        }
+        
+        // Set variation path if detected (for XML files)
+        if (productStructure.variation_path) {
+            // Try multiple selectors for variation path input
+            var $variationPath = $('#variations_xpath, input[name="variations_xpath"], #variation-path-input, input[name="variation_path"]');
+            if ($variationPath.length > 0) {
+                $variationPath.val(productStructure.variation_path);
+                console.log('★★★ Set variation path to:', productStructure.variation_path);
+            }
+            
+            // Also set the textarea version with {path} syntax
+            var $variationPathTextarea = $('textarea[name="variations_xpath"]');
+            if ($variationPathTextarea.length > 0) {
+                $variationPathTextarea.val('{' + productStructure.variation_path + '}');
+                console.log('★★★ Set variation path textarea to:', '{' + productStructure.variation_path + '}');
+            }
+        }
+        
+        // Store detected attributes globally for import processor
+        if (productStructure.detected_attributes && productStructure.detected_attributes.length > 0) {
+            console.log('★★★ Detected attributes:', productStructure.detected_attributes);
+            
+            // Store for later use
+            window.aiDetectedAttributes = productStructure.detected_attributes;
+            window.aiAttributeMappings = {};
+            
+            // Auto-add variation attribute rows
+            setTimeout(function() {
+                productStructure.detected_attributes.forEach(function(attrName, index) {
+                    // Add attribute row by clicking the button
+                    if (index > 0) {
+                        $('#btn-add-var-attribute').trigger('click');
+                    } else {
+                        // First one - make sure at least one exists
+                        if ($('#variation-attributes-list .attr-row').length === 0) {
+                            $('#btn-add-var-attribute').trigger('click');
+                        }
+                    }
+                    
+                    // Wait for DOM to update, then fill in values
+                    setTimeout(function() {
+                        var $rows = $('#variation-attributes-list .attr-row');
+                        var $row = $rows.eq(index);
+                        
+                        if ($row.length > 0) {
+                            // Set attribute name
+                            var $nameInput = $row.find('input[name*="[name]"]');
+                            if ($nameInput.length > 0) {
+                                // Capitalize first letter
+                                var displayName = attrName.charAt(0).toUpperCase() + attrName.slice(1);
+                                $nameInput.val(displayName);
+                                console.log('★★★ Set var attribute name ' + index + ' to:', displayName);
+                            }
+                            
+                            // Guess the source path based on variation_path
+                            var $sourceTextarea = $row.find('textarea[name*="[source]"]');
+                            if ($sourceTextarea.length > 0 && productStructure.variation_path) {
+                                // Common patterns: attributes.size, size, attr_size
+                                var sourcePath = productStructure.variation_path + '.attributes.' + attrName.toLowerCase();
+                                
+                                // Store for reference
+                                window.aiAttributeMappings[attrName] = sourcePath;
+                                
+                                $sourceTextarea.val('{' + sourcePath + '}');
+                                
+                                // Highlight the field
+                                $sourceTextarea.css({
+                                    'background': '#e3f2fd',
+                                    'border-color': '#2196f3'
+                                });
+                                
+                                console.log('★★★ Set var attribute source ' + index + ' to:', '{' + sourcePath + '}');
+                            }
+                        }
+                    }, 150 * (index + 1));
+                });
+            }, 400);
+        }
+    }
+    
+    /**
+     * Apply attribute mappings from AI response
+     * Called after applyProductStructure to set the actual attribute source paths
+     */
+    function applyAttributeMappings(mappings, variationPath) {
+        console.log('★★★ applyAttributeMappings() called');
+        
+        // Find attribute mappings in the response (attribute:size, attribute:color, etc.)
+        var attrMappings = {};
+        $.each(mappings, function(sourceField, targetField) {
+            if (targetField.startsWith('attribute:')) {
+                var attrName = targetField.replace('attribute:', '');
+                attrMappings[attrName] = sourceField;
+            }
+        });
+        
+        console.log('★★★ Found attribute mappings:', attrMappings);
+        
+        // Apply to variation attribute rows
+        setTimeout(function() {
+            $.each(attrMappings, function(attrName, sourcePath) {
+                // Find the row with matching attribute name
+                $('#variation-attributes-list .attr-row').each(function() {
+                    var $row = $(this);
+                    var $nameInput = $row.find('input[name*="[name]"]');
+                    var currentName = $nameInput.val().toLowerCase();
+                    
+                    if (currentName === attrName.toLowerCase()) {
+                        var $sourceTextarea = $row.find('textarea[name*="[source]"]');
+                        if ($sourceTextarea.length > 0) {
+                            // Extract just the field part for the template
+                            var templateValue = '{' + sourcePath + '}';
+                            $sourceTextarea.val(templateValue);
+                            
+                            // Highlight
+                            $sourceTextarea.css({
+                                'background': '#c8e6c9',
+                                'border-color': '#4caf50'
+                            });
+                            
+                            console.log('★★★ Updated attribute source:', attrName, '→', templateValue);
+                        }
+                    }
+                });
+            });
+        }, 800);
+    }
+    
+    /**
      * Apply AI-suggested mappings to form fields
      * Supports both textarea (.field-mapping-textarea) and dropdown (.field-source-select) UI
+     * Also supports variation field mappings (var_field[...])
      */
     function applyAiMappings(mappings, confidence) {
         console.log('★★★ applyAiMappings() called with:', mappings);
@@ -488,6 +713,100 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         var appliedCount = 0;
         var skuMapped = false;
         var stockQuantityMapped = false;
+        
+        // Map WC variation field names to form field names
+        var variationFieldMap = {
+            'variation_sku': 'sku',
+            'variation_price': 'regular_price',
+            'variation_regular_price': 'regular_price',
+            'variation_sale_price': 'sale_price',
+            'variation_stock_quantity': 'stock_quantity',
+            'variation_stock': 'stock_quantity',
+            'variation_stock_status': 'stock_status',
+            'variation_weight': 'weight',
+            'variation_length': 'length',
+            'variation_width': 'width',
+            'variation_height': 'height',
+            'variation_description': 'description',
+            'variation_image': 'image',
+            'variation_parent_sku': 'parent_sku',
+            'variation_manage_stock': 'manage_stock',
+            'variation_backorders': 'backorders',
+            'variation_low_stock_amount': 'low_stock_amount',
+            'variation_gtin': 'gtin',
+            'variation_virtual': 'virtual',
+            'variation_downloadable': 'downloadable',
+            'variation_download_limit': 'download_limit',
+            'variation_download_expiry': 'download_expiry',
+            // Direct field names (without variation_ prefix)
+            'parent_sku': 'parent_sku',
+            'backorders': 'backorders',
+            'low_stock_amount': 'low_stock_amount',
+            'sale_price': 'sale_price',
+            'virtual': 'virtual',
+            'downloadable': 'downloadable',
+            'download_limit': 'download_limit',
+            'download_expiry': 'download_expiry'
+        };
+        
+        // Also check for fields that look like variation paths (contain "variation" in source)
+        var variationPathPatterns = ['variation', 'variant', 'offer'];
+        
+        // Helper to detect if a source field is from variation context
+        function isVariationField(sourceField) {
+            var lower = sourceField.toLowerCase();
+            for (var i = 0; i < variationPathPatterns.length; i++) {
+                if (lower.indexOf(variationPathPatterns[i]) !== -1) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // Helper to guess the variation form field from target
+        function guessVarFieldName(targetField) {
+            // Remove variation_ prefix if present
+            var clean = targetField.replace('variation_', '');
+            
+            // Common mappings from source field names to var_field names
+            var guessMap = {
+                'price': 'regular_price',
+                'regular_price': 'regular_price',
+                'sale_price': 'sale_price',
+                'stock': 'stock_quantity',
+                'stock_quantity': 'stock_quantity',
+                'qty': 'stock_quantity',
+                'quantity': 'stock_quantity',
+                'stock_status': 'stock_status',
+                'manage_stock': 'manage_stock',
+                'weight': 'weight',
+                'length': 'length',
+                'width': 'width',
+                'height': 'height',
+                'image': 'image',
+                'images': 'image',
+                'description': 'description',
+                'desc': 'description',
+                'sku': 'sku',
+                'parent_sku': 'parent_sku',
+                'gtin': 'gtin',
+                'ean': 'gtin',
+                'upc': 'gtin',
+                'barcode': 'gtin',
+                'backorders': 'backorders',
+                'low_stock_amount': 'low_stock_amount',
+                'low_stock': 'low_stock_amount',
+                'virtual': 'virtual',
+                'is_virtual': 'virtual',
+                'downloadable': 'downloadable',
+                'is_downloadable': 'downloadable',
+                'download_limit': 'download_limit',
+                'download_expiry': 'download_expiry',
+                'expiry_days': 'download_expiry'
+            };
+            
+            return guessMap[clean] || clean;
+        }
         
         // Iterate through each mapping
         $.each(mappings, function(sourceField, targetWcField) {
@@ -550,7 +869,75 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                     console.log('★★★ Successfully mapped:', sourceField, '→', targetWcField);
                 }
             } else {
-                console.log('★★★ WC field row not found:', targetWcField);
+                // Try variation field mapping (var_field[...])
+                var varFieldName = null;
+                
+                // Check if this is a variation field mapping
+                if (targetWcField.startsWith('variation_')) {
+                    varFieldName = variationFieldMap[targetWcField];
+                } else if (variationFieldMap['variation_' + targetWcField]) {
+                    varFieldName = targetWcField;
+                }
+                
+                if (varFieldName) {
+                    var $varTextarea = $('textarea[name="var_field[' + varFieldName + ']"]');
+                    if ($varTextarea.length > 0) {
+                        var templateValue = '{' + sourceField + '}';
+                        $varTextarea.val(templateValue).trigger('change').trigger('input');
+                        
+                        // Highlight the field
+                        $varTextarea.css({
+                            'background': '#e3f2fd',
+                            'border-color': '#2196f3',
+                            'transition': 'all 0.3s'
+                        });
+                        setTimeout(function() {
+                            $varTextarea.css({
+                                'background': '',
+                                'border-color': ''
+                            });
+                        }, 2000);
+                        
+                        appliedCount++;
+                        console.log('★★★ Successfully mapped variation field:', sourceField, '→ var_field[' + varFieldName + ']');
+                    } else {
+                        console.log('★★★ Variation field textarea not found: var_field[' + varFieldName + ']');
+                    }
+                } else if (isVariationField(sourceField)) {
+                    // Source field looks like it's from a variation (contains "variation", "variant", etc.)
+                    // Try to map to appropriate var_field based on the last part of the path
+                    var pathParts = sourceField.split(/[\.\[\]]+/).filter(Boolean);
+                    var lastPart = pathParts[pathParts.length - 1].toLowerCase();
+                    
+                    var guessedField = guessVarFieldName(lastPart);
+                    var $varTextarea = $('textarea[name="var_field[' + guessedField + ']"]');
+                    
+                    // Always fill if textarea exists (removed !$varTextarea.val() check)
+                    if ($varTextarea.length > 0) {
+                        var templateValue = '{' + sourceField + '}';
+                        $varTextarea.val(templateValue).trigger('change').trigger('input');
+                        
+                        // Highlight with different color for guessed mappings
+                        $varTextarea.css({
+                            'background': '#fff3e0',
+                            'border-color': '#ff9800',
+                            'transition': 'all 0.3s'
+                        });
+                        setTimeout(function() {
+                            $varTextarea.css({
+                                'background': '',
+                                'border-color': ''
+                            });
+                        }, 3000);
+                        
+                        appliedCount++;
+                        console.log('★★★ Auto-detected variation field:', sourceField, '→ var_field[' + guessedField + ']');
+                    } else {
+                        console.log('★★★ Could not find var_field textarea for:', guessedField, 'from source:', sourceField);
+                    }
+                } else {
+                    console.log('★★★ WC field row not found:', targetWcField);
+                }
             }
         });
         
@@ -921,6 +1308,18 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             } else {
                 $('#attr-mode-standard').show();
                 $('#attr-mode-key-value').hide();
+            }
+        });
+        
+        // Variation Attribute Detection Mode toggle (Manual vs Auto-detect)
+        $('input[name="attribute_detection_mode"]').on('change', function() {
+            var mode = $(this).val();
+            if (mode === 'auto') {
+                $('#manual-attributes-settings').hide();
+                $('#auto-detect-attributes-settings').show();
+            } else {
+                $('#manual-attributes-settings').show();
+                $('#auto-detect-attributes-settings').hide();
             }
         });
         
@@ -2130,11 +2529,11 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 return groupHtml;
             }
             
-            html += renderGroup('Basic Info', basicFields, '📋');
-            html += renderGroup('Pricing', pricingFields, '💰');
-            html += renderGroup('Inventory', inventoryFields, '📦');
-            html += renderGroup('Shipping', shippingFields, '🚚');
-            html += renderGroup('Identifiers', identifierFields, '🏷️');
+            html += renderGroup('Basic Info', basicFields, '');
+            html += renderGroup('Pricing', pricingFields, '');
+            html += renderGroup('Inventory', inventoryFields, '');
+            html += renderGroup('Shipping', shippingFields, '');
+            html += renderGroup('Identifiers', identifierFields, '');
             
             // Render remaining fields (not in predefined groups)
             var otherFieldsHtml = '';
@@ -2807,6 +3206,10 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             loadSavedAttributesVariations(savedMappings.attributes_variations);
         }
         
+        // NOTE: Pricing Engine config is restored AFTER initPricingEngine() 
+        // in the document.ready handler (around line 5460)
+        // Do NOT restore here - it would cause duplicate rules
+        
         console.log('★★★ Finished loading saved mappings');
     }
     
@@ -2875,7 +3278,23 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             console.log('★★★ Restored variation_path:', config.variation_path);
         }
         
-        // Load variation attributes (for "variable" mode)
+        // Load attribute detection mode (manual vs auto)
+        if (config.attribute_detection_mode) {
+            $('input[name="attribute_detection_mode"][value="' + config.attribute_detection_mode + '"]').prop('checked', true).trigger('change');
+            console.log('★★★ Restored attribute_detection_mode:', config.attribute_detection_mode);
+            
+            if (config.attribute_detection_mode === 'auto') {
+                // Restore auto-detect settings
+                if (config.auto_attributes_path) {
+                    $('#auto-attributes-path').val(config.auto_attributes_path);
+                }
+                if (config.auto_create_attributes !== undefined) {
+                    $('#auto-create-attributes').prop('checked', config.auto_create_attributes);
+                }
+            }
+        }
+        
+        // Load variation attributes (for "variable" mode - manual mode only)
         if (config.variation_attributes && config.variation_attributes.length > 0) {
             console.log('★★★ Loading variation_attributes:', config.variation_attributes.length);
             
@@ -3740,22 +4159,33 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 // Variation container path
                 attributesData.variation_path = $('#variation_path').val() || '';
                 
-                // Variation attributes
-                $('#variation-attributes-list .attr-row').each(function() {
-                    var $row = $(this);
-                    var name = $row.find('input[name$="[name]"]').val();
-                    var source = $row.find('textarea[name$="[source]"]').val();  // Use textarea, not select
-                    var arrayIndex = $row.find('input[name$="[array_index]"]').val();
-                    if (name) {
-                        attributesData.variation_attributes.push({
-                            name: name,
-                            source: source || '',
-                            array_index: arrayIndex !== '' ? parseInt(arrayIndex) : null,
-                            visible: 1,
-                            used_for_variations: 1
-                        });
-                    }
-                });
+                // Check attribute detection mode (manual vs auto)
+                var attrDetectionMode = $('input[name="attribute_detection_mode"]:checked').val() || 'manual';
+                attributesData.attribute_detection_mode = attrDetectionMode;
+                
+                if (attrDetectionMode === 'auto') {
+                    // Auto-detect mode - store path and settings
+                    attributesData.auto_attributes_path = $('#auto-attributes-path').val() || 'attributes';
+                    attributesData.auto_create_attributes = $('#auto-create-attributes').is(':checked');
+                    console.log('★★★ AUTO-DETECT MODE - path:', attributesData.auto_attributes_path);
+                } else {
+                    // Manual mode - collect variation attributes as before
+                    $('#variation-attributes-list .attr-row').each(function() {
+                        var $row = $(this);
+                        var name = $row.find('input[name$="[name]"]').val();
+                        var source = $row.find('textarea[name$="[source]"]').val();  // Use textarea, not select
+                        var arrayIndex = $row.find('input[name$="[array_index]"]').val();
+                        if (name) {
+                            attributesData.variation_attributes.push({
+                                name: name,
+                                source: source || '',
+                                array_index: arrayIndex !== '' ? parseInt(arrayIndex) : null,
+                                visible: 1,
+                                used_for_variations: 1
+                            });
+                        }
+                    });
+                }
                 
                 // Variation field mappings (use textarea, not select)
                 $('textarea[name^="var_field["]').each(function() {
@@ -3799,6 +4229,13 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         
         // Add to field_mapping
         data.field_mapping.attributes_variations = attributesData;
+        
+        // Collect Pricing Engine config
+        if (typeof window.getPricingEngineConfig === 'function') {
+            var pricingEngineConfig = window.getPricingEngineConfig();
+            data.field_mapping.pricing_engine = pricingEngineConfig;
+            console.log('★★★ COLLECTED PRICING ENGINE:', pricingEngineConfig);
+        }
 
         return data;
     }
@@ -3896,15 +4333,41 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         $('.stat-item').eq(1).find('.stat-value').text(data.processed_products || 0);
         $('.stat-item').eq(2).find('.stat-value').text(data.total_products - data.processed_products || 0);
 
-        // Update logs
+        // Update logs - append new entries instead of replacing all
         if (data.logs && data.logs.length > 0) {
-            var logsHtml = '';
-            data.logs.forEach(function(log) {
-                logsHtml += '<div class="log-entry ' + log.log_type + '">';
-                logsHtml += '[' + log.created_at + '] ' + log.message;
-                logsHtml += '</div>';
+            var $logsContainer = $('.import-logs');
+            var existingIds = [];
+            
+            // Collect existing log entry IDs
+            $logsContainer.find('.log-entry').each(function() {
+                var id = $(this).data('log-id');
+                if (id) existingIds.push(id);
             });
-            $('.import-logs').html(logsHtml);
+            
+            // Add only new logs
+            var newLogsAdded = false;
+            data.logs.forEach(function(log) {
+                var logId = log.id || (log.created_at + '_' + log.message.substring(0, 20));
+                if (existingIds.indexOf(logId) === -1) {
+                    var logClass = 'log-entry';
+                    if (log.log_type) logClass += ' ' + log.log_type;
+                    if (log.level) logClass += ' log-' + log.level;
+                    
+                    var $entry = $('<div class="' + logClass + '" data-log-id="' + logId + '"></div>');
+                    $entry.text('[' + log.created_at + '] ' + log.message);
+                    $entry.hide();
+                    $logsContainer.append($entry);
+                    $entry.fadeIn(200);
+                    newLogsAdded = true;
+                }
+            });
+            
+            // Smooth scroll to bottom if new logs added
+            if (newLogsAdded) {
+                $logsContainer.stop().animate({
+                    scrollTop: $logsContainer[0].scrollHeight
+                }, 300);
+            }
         }
     }
 
@@ -4242,6 +4705,10 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 if (response.success && response.data.recipe) {
                     console.log('Applying mapping data:', response.data.recipe.mapping_data);
                     applyMappingData(response.data.recipe.mapping_data);
+                    
+                    // Fill the save template name field with loaded recipe name
+                    $('#recipe-name-input').val(response.data.recipe.name);
+                    
                     showRecipeStatus('✅ Recipe "' + response.data.recipe.name + '" loaded successfully', 'success');
                 } else {
                     showRecipeStatus('❌ ' + (response.data.message || 'Failed to load recipe'), 'error');
@@ -5436,6 +5903,14 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 if (window.allKnownFieldsOrder && window.allKnownFieldsOrder.length > 0) {
                     clearInterval(checkInterval);
                     initTextareaMappingUI();
+                    initPricingEngine(); // Initialize Pricing Engine
+                    
+                    // Restore Pricing Engine config after initialization
+                    // (loadSavedMappings runs before initPricingEngine, so we need to restore again)
+                    if (typeof wcAiImportData !== 'undefined' && wcAiImportData.saved_mappings && wcAiImportData.saved_mappings.pricing_engine) {
+                        console.log('★★★ Restoring Pricing Engine config after init:', wcAiImportData.saved_mappings.pricing_engine);
+                        window.restorePricingEngineConfig(wcAiImportData.saved_mappings.pricing_engine);
+                    }
                 }
             }, 500);
             
@@ -5445,5 +5920,508 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             }, 30000);
         }
     });
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRICING ENGINE PRO - Multiple conditional rules with priorities
+    // Pipeline: XML Base Price → Match Rules → Apply Markup → Rounding → Final Price
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    var pricingRuleCounter = 0;
+    
+    /**
+     * Initialize Pricing Engine functionality
+     */
+    function initPricingEngine() {
+        console.log('★★★ initPricingEngine() CALLED ★★★');
+        
+        // Populate base price select with available XML fields
+        populatePricingEngineFields();
+        
+        // Toggle enable/disable
+        $('#pricing_engine_enabled').on('change', function() {
+            var enabled = $(this).is(':checked');
+            if (enabled) {
+                $('#pricing-engine-settings').slideDown(300);
+                $('#pricing-engine-disabled-msg').slideUp(300);
+            } else {
+                $('#pricing-engine-settings').slideUp(300);
+                $('#pricing-engine-disabled-msg').slideDown(300);
+            }
+            updatePricingPreview();
+        });
+        
+        // Add new pricing rule
+        $('#btn-add-pricing-rule').on('click', function() {
+            addPricingRule();
+        });
+        
+        // Remove pricing rule (delegated)
+        $(document).on('click', '.remove-pricing-rule', function() {
+            $(this).closest('.pricing-rule-row').slideUp(200, function() {
+                $(this).remove();
+                updateRuleNumbers();
+                updatePricingPreview();
+            });
+        });
+        
+        // Condition type change - show/hide relevant fields
+        $(document).on('change', '.condition-type', function() {
+            var $conditionRow = $(this).closest('.condition-row');
+            var type = $(this).val();
+            
+            // Hide all condition fields
+            $conditionRow.find('.condition-fields').hide();
+            
+            // Show relevant one
+            $conditionRow.find('.condition-' + type).css('display', 'flex');
+        });
+        
+        // Add condition to a rule
+        $(document).on('click', '.add-condition', function() {
+            var $rule = $(this).closest('.pricing-rule-row');
+            var ruleId = $rule.data('rule-id');
+            addConditionToRule($rule, ruleId);
+        });
+        
+        // Remove condition
+        $(document).on('click', '.remove-condition', function() {
+            var $conditionsList = $(this).closest('.conditions-list');
+            if ($conditionsList.find('.condition-row').length > 1) {
+                $(this).closest('.condition-row').remove();
+            } else {
+                alert('At least one condition is required');
+            }
+            updatePricingPreview();
+        });
+        
+        // Live preview updates on any input change
+        $(document).on('input change', '#pricing-rules-list input, #pricing-rules-list select, #pricing_engine_test_input, #pricing_engine_test_rule', function() {
+            updatePricingPreview();
+        });
+        
+        // Update rule dropdown when rule name changes
+        $(document).on('input', '.pricing-rule-conditional input[name$="[name]"]', function() {
+            updateRuleNumbers();
+        });
+        
+        // Initial preview
+        updatePricingPreview();
+    }
+    
+    /**
+     * Add a new pricing rule
+     */
+    function addPricingRule() {
+        pricingRuleCounter++;
+        var ruleId = 'rule_' + pricingRuleCounter;
+        
+        var $template = $('#pricing-rule-template');
+        if (!$template.length) {
+            console.error('Pricing rule template not found');
+            return;
+        }
+        
+        var html = $template.html().replace(/\{id\}/g, ruleId);
+        var $newRule = $(html);
+        $newRule.attr('data-rule-id', ruleId);
+        
+        // Insert before the default rule
+        var $defaultRule = $('.pricing-rule-default');
+        if ($defaultRule.length) {
+            $newRule.insertBefore($defaultRule);
+        } else {
+            $('#pricing-rules-list').append($newRule);
+        }
+        
+        // Populate XML field selects in the new rule
+        populateXmlFieldSelects($newRule);
+        
+        // Update rule numbers
+        updateRuleNumbers();
+        
+        // Animate in
+        $newRule.hide().slideDown(200);
+        
+        updatePricingPreview();
+    }
+    
+    /**
+     * Add a condition row to a rule
+     */
+    function addConditionToRule($rule, ruleId) {
+        var $conditionsList = $rule.find('.conditions-list');
+        var conditionIndex = $conditionsList.find('.condition-row').length;
+        
+        // Clone the first condition row as template
+        var $firstCondition = $conditionsList.find('.condition-row:first');
+        var $newCondition = $firstCondition.clone();
+        
+        // Update names with new index
+        $newCondition.find('[name]').each(function() {
+            var name = $(this).attr('name');
+            name = name.replace(/\[conditions\]\[\d+\]/, '[conditions][' + conditionIndex + ']');
+            $(this).attr('name', name);
+        });
+        
+        // Reset values
+        $newCondition.find('input[type="text"], input[type="number"]').val('');
+        $newCondition.find('select').each(function() {
+            $(this).prop('selectedIndex', 0);
+        });
+        
+        // Show price_range fields by default
+        $newCondition.find('.condition-fields').hide();
+        $newCondition.find('.condition-price_range').css('display', 'flex');
+        
+        $conditionsList.append($newCondition);
+        
+        // Populate XML field selects
+        populateXmlFieldSelects($newCondition);
+    }
+    
+    /**
+     * Update rule numbers display and Test Rule dropdown
+     */
+    function updateRuleNumbers() {
+        var number = 1;
+        var $testRuleSelect = $('#pricing_engine_test_rule');
+        var currentValue = $testRuleSelect.val();
+        
+        // Clear all options except Default
+        $testRuleSelect.find('option:not([value="default"])').remove();
+        
+        // Update rule numbers and add to dropdown
+        $('.pricing-rule-conditional').each(function() {
+            var $rule = $(this);
+            var ruleId = $rule.data('rule-id');
+            var ruleName = $rule.find('input[name$="[name]"]').val() || '';
+            var displayName = ruleName ? 'Rule #' + number + ': ' + ruleName : 'Rule #' + number;
+            
+            $rule.find('.rule-number').text(number);
+            
+            // Add to Test Rule dropdown
+            $testRuleSelect.append('<option value="' + ruleId + '">' + displayName + '</option>');
+            
+            number++;
+        });
+        
+        // Restore selection if still exists
+        if ($testRuleSelect.find('option[value="' + currentValue + '"]').length) {
+            $testRuleSelect.val(currentValue);
+        }
+    }
+    
+    /**
+     * Populate XML field selects in pricing rules
+     */
+    function populateXmlFieldSelects($container) {
+        var $selects = $container.find('.xml-field-select');
+        
+        $selects.each(function() {
+            var $select = $(this);
+            $select.find('option:not(:first)').remove();
+            
+            if (window.allKnownFieldsOrder && window.allKnownFieldsOrder.length > 0) {
+                $.each(window.allKnownFieldsOrder, function(i, field) {
+                    $select.append('<option value="' + field + '">' + field + '</option>');
+                });
+            }
+        });
+    }
+    
+    /**
+     * Populate the base price selector with available XML fields
+     */
+    function populatePricingEngineFields() {
+        var $select = $('#pricing_engine_base_price');
+        if (!$select.length) return;
+        
+        // Clear existing options
+        $select.find('option:not(:first)').remove();
+        
+        // Add fields from the parsed XML structure
+        if (window.allKnownFieldsOrder && window.allKnownFieldsOrder.length > 0) {
+            $.each(window.allKnownFieldsOrder, function(i, field) {
+                // Highlight likely price fields
+                var isLikelyPrice = /price|cost|wholesale|base|pvp|retail/i.test(field);
+                $select.append('<option value="{' + field + '}" ' + (isLikelyPrice ? 'style="background: #fff3e0;"' : '') + '>' + field + '</option>');
+            });
+        }
+        
+        // Also populate all XML field selects in existing rules
+        populateXmlFieldSelects($('#pricing-rules-list'));
+    }
+    
+    /**
+     * Update the live pricing preview using selected rule
+     */
+    function updatePricingPreview() {
+        var basePrice = parseFloat($('#pricing_engine_test_input').val()) || 100;
+        var selectedRule = $('#pricing_engine_test_rule').val() || 'default';
+        
+        // Find the selected rule
+        var $rule;
+        var ruleName;
+        
+        if (selectedRule === 'default') {
+            $rule = $('.pricing-rule-default');
+            ruleName = 'Default Rule';
+        } else {
+            $rule = $('.pricing-rule-conditional[data-rule-id="' + selectedRule + '"]');
+            var ruleNumber = $rule.find('.rule-number').text();
+            var customName = $rule.find('input[name$="[name]"]').val();
+            ruleName = customName ? 'Rule #' + ruleNumber + ': ' + customName : 'Rule #' + ruleNumber;
+        }
+        
+        if (!$rule.length) {
+            $rule = $('.pricing-rule-default');
+            ruleName = 'Default Rule';
+        }
+        
+        // Get rule values
+        var markupPercent = parseFloat($rule.find('input[name$="[markup_percent]"]').val()) || 0;
+        var fixedAmount = parseFloat($rule.find('input[name$="[fixed_amount]"]').val()) || 0;
+        var rounding = $rule.find('select[name$="[rounding]"]').val() || 'none';
+        var minPrice = parseFloat($rule.find('input[name$="[min_price]"]').val()) || null;
+        var maxPrice = parseFloat($rule.find('input[name$="[max_price]"]').val()) || null;
+        
+        // Handle "inherit" rounding - use default rule's rounding
+        if (rounding === 'inherit') {
+            rounding = $('.pricing-rule-default').find('select[name$="[rounding]"]').val() || 'none';
+        }
+        
+        // Calculate: base × (1 + markup/100) + fixed
+        var multiplier = 1 + (markupPercent / 100);
+        var calculated = (basePrice * multiplier) + fixedAmount;
+        
+        // Apply rounding
+        var final = applyPricingRounding(calculated, rounding);
+        
+        // Apply min/max
+        if (minPrice !== null && final < minPrice) {
+            final = minPrice;
+        }
+        if (maxPrice !== null && final > maxPrice) {
+            final = maxPrice;
+        }
+        
+        // Update display
+        var $output = $('#pricing_engine_test_output');
+        $output.text('€' + final.toFixed(2));
+        
+        // Add animation
+        $output.addClass('updated');
+        setTimeout(function() {
+            $output.removeClass('updated');
+        }, 200);
+        
+        // Update formula
+        var formula = basePrice.toFixed(2) + ' × ' + multiplier.toFixed(2) + ' + ' + fixedAmount.toFixed(2) + ' = ' + final.toFixed(2);
+        $('#pricing_engine_formula').text(formula);
+        
+        // Update matched rule indicator
+        $('#pricing_engine_matched_rule').text(ruleName);
+    }
+    
+    /**
+     * Apply rounding to a price
+     */
+    function applyPricingRounding(price, rounding) {
+        switch (rounding) {
+            case '0.01':
+                return Math.round(price * 100) / 100;
+            case '0.05':
+                return Math.round(price * 20) / 20;
+            case '0.10':
+                return Math.round(price * 10) / 10;
+            case '0.50':
+                return Math.round(price * 2) / 2;
+            case '1.00':
+                return Math.round(price);
+            case '0.99':
+                return Math.floor(price) + 0.99;
+            case '0.95':
+                return Math.floor(price) + 0.95;
+            default:
+                return price;
+        }
+    }
+    
+    /**
+     * Get pricing engine configuration for saving (PRO version with rules)
+     */
+    window.getPricingEngineConfig = function() {
+        var config = {
+            enabled: $('#pricing_engine_enabled').is(':checked'),
+            base_price: $('#pricing_engine_base_price').val(),
+            rules: []
+        };
+        
+        // Collect all rules
+        $('#pricing-rules-list .pricing-rule-row').each(function() {
+            var $rule = $(this);
+            var ruleId = $rule.data('rule-id');
+            var isDefault = $rule.hasClass('pricing-rule-default');
+            
+            var rule = {
+                id: ruleId,
+                is_default: isDefault,
+                name: $rule.find('input[name$="[name]"]').val() || '',
+                enabled: isDefault ? true : $rule.find('input[name$="[enabled]"]').is(':checked'),
+                markup_percent: parseFloat($rule.find('input[name$="[markup_percent]"]').val()) || 0,
+                fixed_amount: parseFloat($rule.find('input[name$="[fixed_amount]"]').val()) || 0,
+                rounding: $rule.find('select[name$="[rounding]"]').val() || 'none',
+                min_price: parseFloat($rule.find('input[name$="[min_price]"]').val()) || null,
+                max_price: parseFloat($rule.find('input[name$="[max_price]"]').val()) || null,
+                conditions: [],
+                condition_logic: $rule.find('select[name$="[condition_logic]"]').val() || 'AND'
+            };
+            
+            // Collect conditions (for non-default rules)
+            if (!isDefault) {
+                $rule.find('.condition-row').each(function() {
+                    var $cond = $(this);
+                    var type = $cond.find('.condition-type').val();
+                    
+                    var condition = {
+                        type: type
+                    };
+                    
+                    // Get type-specific values
+                    switch (type) {
+                        case 'price_range':
+                            condition.price_from = parseFloat($cond.find('input[name$="[price_from]"]').val()) || 0;
+                            condition.price_to = parseFloat($cond.find('input[name$="[price_to]"]').val()) || null;
+                            break;
+                        case 'category':
+                            condition.operator = $cond.find('select[name$="[category_operator]"]').val();
+                            condition.value = $cond.find('input[name$="[category_value]"]').val();
+                            break;
+                        case 'brand':
+                            condition.operator = $cond.find('select[name$="[brand_operator]"]').val();
+                            condition.value = $cond.find('input[name$="[brand_value]"]').val();
+                            break;
+                        case 'supplier':
+                            condition.operator = $cond.find('select[name$="[supplier_operator]"]').val();
+                            condition.value = $cond.find('input[name$="[supplier_value]"]').val();
+                            break;
+                        case 'xml_field':
+                            condition.field = $cond.find('select[name$="[xml_field_name]"]').val();
+                            condition.operator = $cond.find('select[name$="[xml_field_operator]"]').val();
+                            condition.value = $cond.find('input[name$="[xml_field_value]"]').val();
+                            break;
+                        case 'sku_pattern':
+                            condition.operator = $cond.find('select[name$="[sku_operator]"]').val();
+                            condition.value = $cond.find('input[name$="[sku_value]"]').val();
+                            break;
+                    }
+                    
+                    rule.conditions.push(condition);
+                });
+            }
+            
+            config.rules.push(rule);
+        });
+        
+        console.log('★★★ PRICING ENGINE CONFIG:', config);
+        return config;
+    };
+    
+    /**
+     * Restore pricing engine configuration (PRO version)
+     */
+    window.restorePricingEngineConfig = function(config) {
+        if (!config) return;
+        
+        console.log('★★★ Restoring Pricing Engine config:', config);
+        
+        if (config.enabled) {
+            $('#pricing_engine_enabled').prop('checked', true).trigger('change');
+        }
+        
+        if (config.base_price) {
+            $('#pricing_engine_base_price').val(config.base_price);
+        }
+        
+        // Restore rules
+        if (config.rules && config.rules.length > 0) {
+            config.rules.forEach(function(rule) {
+                if (rule.is_default) {
+                    // Restore default rule values
+                    var $defaultRule = $('.pricing-rule-default');
+                    $defaultRule.find('input[name$="[markup_percent]"]').val(rule.markup_percent || 0);
+                    $defaultRule.find('input[name$="[fixed_amount]"]').val(rule.fixed_amount || 0);
+                    $defaultRule.find('select[name$="[rounding]"]').val(rule.rounding || 'none');
+                    if (rule.min_price) $defaultRule.find('input[name$="[min_price]"]').val(rule.min_price);
+                    if (rule.max_price) $defaultRule.find('input[name$="[max_price]"]').val(rule.max_price);
+                } else {
+                    // Add and restore conditional rules
+                    addPricingRule();
+                    var $newRule = $('#pricing-rules-list .pricing-rule-conditional:last');
+                    
+                    $newRule.find('input[name$="[name]"]').val(rule.name || '');
+                    $newRule.find('input[name$="[enabled]"]').prop('checked', rule.enabled !== false);
+                    $newRule.find('input[name$="[markup_percent]"]').val(rule.markup_percent || 0);
+                    $newRule.find('input[name$="[fixed_amount]"]').val(rule.fixed_amount || 0);
+                    $newRule.find('select[name$="[rounding]"]').val(rule.rounding || 'inherit');
+                    if (rule.min_price) $newRule.find('input[name$="[min_price]"]').val(rule.min_price);
+                    if (rule.max_price) $newRule.find('input[name$="[max_price]"]').val(rule.max_price);
+                    $newRule.find('select[name$="[condition_logic]"]').val(rule.condition_logic || 'AND');
+                    
+                    // Restore conditions
+                    if (rule.conditions && rule.conditions.length > 0) {
+                        rule.conditions.forEach(function(cond, index) {
+                            if (index > 0) {
+                                // Add additional condition rows
+                                addConditionToRule($newRule, $newRule.data('rule-id'));
+                            }
+                            
+                            var $condRow = $newRule.find('.condition-row').eq(index);
+                            $condRow.find('.condition-type').val(cond.type).trigger('change');
+                            
+                            // Restore type-specific values
+                            switch (cond.type) {
+                                case 'price_range':
+                                    $condRow.find('input[name$="[price_from]"]').val(cond.price_from || '');
+                                    $condRow.find('input[name$="[price_to]"]').val(cond.price_to || '');
+                                    break;
+                                case 'category':
+                                    $condRow.find('select[name$="[category_operator]"]').val(cond.operator);
+                                    $condRow.find('input[name$="[category_value]"]').val(cond.value);
+                                    break;
+                                case 'brand':
+                                    $condRow.find('select[name$="[brand_operator]"]').val(cond.operator);
+                                    $condRow.find('input[name$="[brand_value]"]').val(cond.value);
+                                    break;
+                                case 'supplier':
+                                    $condRow.find('select[name$="[supplier_operator]"]').val(cond.operator);
+                                    $condRow.find('input[name$="[supplier_value]"]').val(cond.value);
+                                    break;
+                                case 'xml_field':
+                                    $condRow.find('select[name$="[xml_field_name]"]').val(cond.field);
+                                    $condRow.find('select[name$="[xml_field_operator]"]').val(cond.operator);
+                                    $condRow.find('input[name$="[xml_field_value]"]').val(cond.value);
+                                    break;
+                                case 'sku_pattern':
+                                    $condRow.find('select[name$="[sku_operator]"]').val(cond.operator);
+                                    $condRow.find('input[name$="[sku_value]"]').val(cond.value);
+                                    break;
+                            }
+                        });
+                    }
+                }
+            });
+        }
+        
+        // Legacy support - single rule format
+        if (!config.rules && config.markup_percent !== undefined) {
+            var $defaultRule = $('.pricing-rule-default');
+            $defaultRule.find('input[name$="[markup_percent]"]').val(config.markup_percent || 0);
+            $defaultRule.find('input[name$="[fixed_amount]"]').val(config.fixed_amount || 0);
+            $defaultRule.find('select[name$="[rounding]"]').val(config.rounding || 'none');
+        }
+        
+        updatePricingPreview();
+    };
 
-})(jQuery);/* Cache bust 1769150333 */
+})(jQuery);/* Cache bust 1770061919 */

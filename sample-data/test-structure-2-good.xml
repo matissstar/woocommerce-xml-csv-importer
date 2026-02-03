@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Structure 2: <xml><good> format like real mobilux data -->
+<xml>
+    <good>
+        <id>12345</id>
+        <code>T-MLX12345</code>
+        <product_name>Test Good Product 1</product_name>
+        <brand>TestBrand</brand>
+        <vendor_code>TB-001</vendor_code>
+        <short_name>TB-001</short_name>
+        <category_id>100</category_id>
+        <category>Electronics - Phones</category>
+        <price>199.99</price>
+        <quantity>10</quantity>
+        <eans>
+            <ean>1234567890123</ean>
+        </eans>
+        <image count="1">https://example.com/image1.jpg</image>
+        <image count="2">https://example.com/image2.jpg</image>
+        <description_lv>Test apraksts latviski</description_lv>
+        <description_en>Test description in English</description_en>
+    </good>
+    <good>
+        <id>12346</id>
+        <code>T-MLX12346</code>
+        <product_name>Test Good Product 2</product_name>
+        <brand>TestBrand</brand>
+        <vendor_code>TB-002</vendor_code>
+        <short_name>TB-002</short_name>
+        <category_id>100</category_id>
+        <category>Electronics - Phones</category>
+        <price>299.99</price>
+        <quantity>5</quantity>
+        <eans>
+            <ean>1234567890124</ean>
+        </eans>
+        <image count="1">https://example.com/image3.jpg</image>
+        <description_lv>Otrā produkta apraksts</description_lv>
+        <description_en>Second product description</description_en>
+    </good>
+</xml>

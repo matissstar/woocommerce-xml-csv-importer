@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<products>
+    <product>
+        <sku>VAR-TSHIRT-001</sku>
+        <title>Cotton T-Shirt</title>
+        <description>High quality cotton t-shirt available in multiple sizes and colors.</description>
+        <price>29.99</price>
+        <category>Clothing > T-Shirts</category>
+        <brand>FashionBrand</brand>
+        <material>100% Cotton</material>
+        <image>https://balticherbs.com/email.png</image>
+        <variations>
+            <variation>
+                <sku>VAR-TSHIRT-001-S-RED</sku>
+                <size>S</size>
+                <color>Red</color>
+                <price>29.99</price>
+                <stock>15</stock>
+            </variation>
+            <variation>
+                <sku>VAR-TSHIRT-001-S-BLUE</sku>
+                <size>S</size>
+                <color>Blue</color>
+                <price>29.99</price>
+                <stock>20</stock>
+            </variation>
+            <variation>
+                <sku>VAR-TSHIRT-001-M-RED</sku>
+                <size>M</size>
+                <color>Red</color>
+                <price>29.99</price>
+                <stock>25</stock>
+            </variation>
+            <variation>
+                <sku>VAR-TSHIRT-001-M-BLUE</sku>
+                <size>M</size>
+                <color>Blue</color>
+                <price>29.99</price>
+                <stock>30</stock>
+            </variation>
+            <variation>
+                <sku>VAR-TSHIRT-001-L-RED</sku>
+                <size>L</size>
+                <color>Red</color>
+                <price>31.99</price>
+                <stock>18</stock>
+            </variation>
+            <variation>
+                <sku>VAR-TSHIRT-001-L-BLUE</sku>
+                <size>L</size>
+                <color>Blue</color>
+                <price>31.99</price>
+                <stock>22</stock>
+            </variation>
+        </variations>
+    </product>
+    <product>
+        <sku>VAR-HOODIE-001</sku>
+        <title>Winter Hoodie</title>
+        <description>Warm and cozy winter hoodie with kangaroo pocket.</description>
+        <price>59.99</price>
+        <category>Clothing > Hoodies</category>
+        <brand>WarmWear</brand>
+        <material>80% Cotton, 20% Polyester</material>
+        <image>https://balticherbs.com/email.png</image>
+        <variations>
+            <variation>
+                <sku>VAR-HOODIE-001-M-BLACK</sku>
+                <size>M</size>
+                <color>Black</color>
+                <price>59.99</price>
+                <stock>12</stock>
+            </variation>
+            <variation>
+                <sku>VAR-HOODIE-001-L-BLACK</sku>
+                <size>L</size>
+                <color>Black</color>
+                <price>59.99</price>
+                <stock>15</stock>
+            </variation>
+            <variation>
+                <sku>VAR-HOODIE-001-XL-BLACK</sku>
+                <size>XL</size>
+                <color>Black</color>
+                <price>62.99</price>
+                <stock>10</stock>
+            </variation>
+        </variations>
+    </product>
+</products>

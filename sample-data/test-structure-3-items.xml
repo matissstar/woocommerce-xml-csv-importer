@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Structure 3: <items><item> format with attributes as name-value pairs -->
+<items>
+    <item>
+        <sku>ITEM-001</sku>
+        <title>Item Style Product</title>
+        <regular_price>49.99</regular_price>
+        <sale_price>39.99</sale_price>
+        <short_description>Short description for item</short_description>
+        <long_description>Long description with more details</long_description>
+        <categories>
+            <category>Category One</category>
+            <category>Category Two</category>
+        </categories>
+        <images>
+            <image>https://example.com/item1-1.jpg</image>
+            <image>https://example.com/item1-2.jpg</image>
+        </images>
+        <stock>100</stock>
+        <weight>1.5</weight>
+    </item>
+    <item>
+        <sku>ITEM-002</sku>
+        <title>Another Item Style Product</title>
+        <regular_price>79.99</regular_price>
+        <short_description>Another item</short_description>
+        <long_description>More details here</long_description>
+        <categories>
+            <category>Category Three</category>
+        </categories>
+        <images>
+            <image>https://example.com/item2-1.jpg</image>
+        </images>
+        <stock>50</stock>
+        <weight>2.0</weight>
+    </item>
+</items>

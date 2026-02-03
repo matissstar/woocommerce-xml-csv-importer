@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Structure 4: Variable products with different variation structures -->
+<catalog>
+    <product type="variable">
+        <sku>VAR-STRUCT-001</sku>
+        <name>Variable Product with Inline Variations</name>
+        <price>39.99</price>
+        <description>Test variable product</description>
+        <category>Clothing</category>
+        <variations>
+            <variation>
+                <sku>VAR-STRUCT-001-S</sku>
+                <size>Small</size>
+                <color>Red</color>
+                <price>39.99</price>
+                <stock_quantity>5</stock_quantity>
+                <manage_stock>yes</manage_stock>
+            </variation>
+            <variation>
+                <sku>VAR-STRUCT-001-M</sku>
+                <size>Medium</size>
+                <color>Blue</color>
+                <price>39.99</price>
+                <stock_quantity>10</stock_quantity>
+                <manage_stock>yes</manage_stock>
+            </variation>
+            <variation>
+                <sku>VAR-STRUCT-001-L</sku>
+                <size>Large</size>
+                <color>Green</color>
+                <price>44.99</price>
+                <stock_quantity>0</stock_quantity>
+                <stock_status>outofstock</stock_status>
+                <manage_stock>yes</manage_stock>
+            </variation>
+        </variations>
+    </product>
+    
+    <product type="simple">
+        <sku>SIMPLE-CAT-001</sku>
+        <name>Simple Catalog Product</name>
+        <price>25.00</price>
+        <description>Simple product in catalog</description>
+        <category>Accessories</category>
+        <stock_quantity>100</stock_quantity>
+    </product>
+    
+    <product type="variable">
+        <sku>VAR-STRUCT-002</sku>
+        <name>Variable with Nested Attributes</name>
+        <price>59.99</price>
+        <description>Another variable</description>
+        <category>Footwear</category>
+        <variations>
+            <variation>
+                <sku>VAR-STRUCT-002-36</sku>
+                <attributes>
+                    <shoe_size>36</shoe_size>
+                    <width>Standard</width>
+                </attributes>
+                <price>59.99</price>
+                <stock_quantity>3</stock_quantity>
+            </variation>
+            <variation>
+                <sku>VAR-STRUCT-002-38</sku>
+                <attributes>
+                    <shoe_size>38</shoe_size>
+                    <width>Wide</width>
+                </attributes>
+                <price>64.99</price>
+                <stock_quantity>7</stock_quantity>
+            </variation>
+        </variations>
+    </product>
+</catalog>

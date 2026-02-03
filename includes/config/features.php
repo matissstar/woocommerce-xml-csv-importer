@@ -22,6 +22,40 @@ if (!defined('ABSPATH')) {
 }
 
 /**
+ * Plugin Edition Flag
+ * Set to true for PRO version, false for FREE version
+ * This is the MASTER switch for all PRO features
+ */
+define('WC_XML_CSV_AI_IMPORT_IS_PRO', true);
+
+/**
+ * Check if running PRO version
+ * 
+ * @return bool True if PRO version, false if FREE
+ */
+function wc_xml_csv_ai_import_is_pro() {
+    return defined('WC_XML_CSV_AI_IMPORT_IS_PRO') && WC_XML_CSV_AI_IMPORT_IS_PRO;
+}
+
+/**
+ * Check if a specific feature is available
+ * 
+ * @param string $feature Feature key to check
+ * @return bool True if feature is available
+ */
+function wc_xml_csv_ai_import_has_feature($feature) {
+    static $features = null;
+    
+    if ($features === null) {
+        $features = include(__FILE__);
+    }
+    
+    $tier = wc_xml_csv_ai_import_is_pro() ? 'pro' : 'free';
+    
+    return isset($features[$tier][$feature]) && $features[$tier][$feature];
+}
+
+/**
  * Feature definitions per tier
  */
 return array(
@@ -74,6 +108,21 @@ return array(
         'filters_advanced'          => false,        // ❌ Advanced filters (PRO)
         'filters_regex'             => false,        // ❌ Regex filters (PRO)
         'conditional_logic'         => false,        // ❌ Conditional logic (PRO)
+        
+        // ─────────────────────────────────────────────────────────
+        // Pricing Engine
+        // ─────────────────────────────────────────────────────────
+        'pricing_engine'            => true,         // Basic pricing engine (global markup)
+        'pricing_global_markup'     => true,         // Global markup %
+        'pricing_fixed_amount'      => true,         // Fixed amount addition
+        'pricing_rounding'          => true,         // Price rounding
+        'pricing_price_ranges'      => false,        // ❌ Price range rules (PRO)
+        'pricing_by_category'       => false,        // ❌ Pricing by category (PRO)
+        'pricing_by_brand'          => false,        // ❌ Pricing by brand/attribute (PRO)
+        'pricing_by_supplier'       => false,        // ❌ Pricing by supplier (PRO)
+        'pricing_multiple_rules'    => false,        // ❌ Multiple pricing rules (PRO)
+        'pricing_conditions'        => false,        // ❌ Conditional pricing (PRO)
+        'pricing_min_max'           => false,        // ❌ Min/max price limits (PRO)
         
         // ─────────────────────────────────────────────────────────
         // Update Behavior
@@ -167,6 +216,21 @@ return array(
         'filters_advanced'          => true,         // ✅ Advanced filters
         'filters_regex'             => true,         // ✅ Regex filters
         'conditional_logic'         => true,         // ✅ Conditional logic
+        
+        // ─────────────────────────────────────────────────────────
+        // Pricing Engine
+        // ─────────────────────────────────────────────────────────
+        'pricing_engine'            => true,         // ✅ Full pricing engine
+        'pricing_global_markup'     => true,         // ✅ Global markup %
+        'pricing_fixed_amount'      => true,         // ✅ Fixed amount addition
+        'pricing_rounding'          => true,         // ✅ Price rounding
+        'pricing_price_ranges'      => true,         // ✅ Price range rules
+        'pricing_by_category'       => true,         // ✅ Pricing by category
+        'pricing_by_brand'          => true,         // ✅ Pricing by brand/attribute
+        'pricing_by_supplier'       => true,         // ✅ Pricing by supplier
+        'pricing_multiple_rules'    => true,         // ✅ Multiple pricing rules
+        'pricing_conditions'        => true,         // ✅ Conditional pricing
+        'pricing_min_max'           => true,         // ✅ Min/max price limits
         
         // ─────────────────────────────────────────────────────────
         // Update Behavior

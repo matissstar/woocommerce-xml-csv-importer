@@ -225,7 +225,7 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
                 <?php
                 // Get recent logs
                 $logs = $wpdb->get_results($wpdb->prepare(
-                    "SELECT * FROM {$wpdb->prefix}wc_itp_import_logs WHERE import_id = %d ORDER BY created_at DESC LIMIT 10",
+                    "SELECT * FROM {$wpdb->prefix}wc_itp_import_logs WHERE import_id = %d ORDER BY created_at DESC LIMIT 300",
                     $import_id
                 ));
 

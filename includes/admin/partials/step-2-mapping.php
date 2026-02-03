@@ -111,6 +111,11 @@ $woocommerce_fields = array(
             ),
         )
     ),
+    'pricing_engine' => array(
+        'title' => __('Price Markup', 'wc-xml-csv-import'),
+        'fields' => array(),
+        'custom_content' => true, // Flag for custom rendering
+    ),
     'pricing' => array(
         'title' => __('Pricing Fields', 'wc-xml-csv-import'),
         'fields' => array(
@@ -632,7 +637,384 @@ $ai_providers = array(
                                 </h3>
                                 
                                 <div class="section-fields" id="section-<?php echo $section_key; ?>">
-                                    <?php if ($section_key === 'attributes_variations'): ?>
+                                    <?php if ($section_key === 'pricing_engine'): ?>
+                                        <?php 
+                                        // Load features config for PRO check
+                                        if (!function_exists('wc_xml_csv_ai_import_is_pro')) {
+                                            require_once dirname(dirname(dirname(__FILE__))) . '/config/features.php';
+                                        }
+                                        $is_pro = wc_xml_csv_ai_import_is_pro();
+                                        ?>
+                                        <!-- ═══════════════════════════════════════════════════════════════ -->
+                                        <!-- PRICING ENGINE - Calculate prices before mapping                 -->
+                                        <!-- Pipeline: XML Base Price → Price Markup → Regular Price       -->
+                                        <!-- ═══════════════════════════════════════════════════════════════ -->
+                                        <div class="pricing-engine-container" style="padding: 20px;">
+                                            
+                                            <!-- Enable/Disable Toggle -->
+                                            <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border-radius: 8px; border-left: 4px solid #ff9800;">
+                                                <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                                                    <input type="checkbox" id="pricing_engine_enabled" name="pricing_engine_enabled" value="1" style="width: 20px; height: 20px;">
+                                                    <span>
+                                                        <strong style="font-size: 15px; color: #e65100;"><?php _e('Enable Price Markup', 'wc-xml-csv-import'); ?></strong>
+                                                        <small style="display: block; color: #bf360c; margin-top: 3px;">
+                                                            <?php _e('Calculate final prices by applying markup rules to the base price from XML', 'wc-xml-csv-import'); ?>
+                                                        </small>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            
+                                            <!-- Price Markup Settings (shown when enabled) -->
+                                            <div id="pricing-engine-settings" style="display: none;">
+                                                
+                                                <!-- Info Box -->
+                                                <div style="margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                                                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                                        <span style="font-size: 24px;">💡</span>
+                                                        <div>
+                                                            <strong style="color: #1565c0;"><?php _e('How it works:', 'wc-xml-csv-import'); ?></strong>
+                                                            <p style="margin: 8px 0 0 0; color: #1976d2; font-size: 13px; line-height: 1.6;">
+                                                                <?php _e('XML Base Price → Apply Matching Rules → Apply Rounding → Final Price', 'wc-xml-csv-import'); ?><br>
+                                                                <?php _e('Rules are evaluated from top to bottom. First matching rule wins (or use "Apply All" mode).', 'wc-xml-csv-import'); ?>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Base Price Source -->
+                                                <div style="margin-bottom: 20px; padding: 20px; background: #fff; border: 2px solid #e0e0e0; border-radius: 8px;">
+                                                    <label style="font-weight: 600; display: block; margin-bottom: 12px; color: #333; font-size: 14px;">
+                                                        <span class="dashicons dashicons-tag" style="color: #ff9800;"></span>
+                                                        <?php _e('Base Price Source (from XML):', 'wc-xml-csv-import'); ?>
+                                                    </label>
+                                                    <select id="pricing_engine_base_price" name="pricing_engine_base_price" class="wc-xml-field-select" style="width: 100%; max-width: 400px; padding: 10px;">
+                                                        <option value=""><?php _e('-- Select XML field with base price --', 'wc-xml-csv-import'); ?></option>
+                                                    </select>
+                                                    <p class="description" style="margin-top: 8px; color: #666;">
+                                                        <?php _e('Select the XML field that contains the supplier/wholesale price', 'wc-xml-csv-import'); ?>
+                                                    </p>
+                                                </div>
+                                                
+                                                <!-- ═══════════════════════════════════════════════════════════════ -->
+                                                <!-- PRICING RULES - Multiple conditional rules                      -->
+                                                <!-- ═══════════════════════════════════════════════════════════════ -->
+                                                <div style="margin-bottom: 20px;">
+                                                    
+                                                    <!-- Rule Priority Info Box -->
+                                                    <div style="margin-bottom: 15px; padding: 12px 15px; background: #fff8e1; border-radius: 6px; border-left: 4px solid #ffc107; display: flex; align-items: center; gap: 10px;">
+                                                        <span style="font-size: 18px;">⚠️</span>
+                                                        <div style="font-size: 13px; color: #795548;">
+                                                            <strong><?php _e('Rule Priority:', 'wc-xml-csv-import'); ?></strong>
+                                                            <?php _e('Rules are evaluated top to bottom. First matching rule applies. Avoid overlapping conditions.', 'wc-xml-csv-import'); ?>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;">
+                                                        <h4 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                                                            <span class="dashicons dashicons-chart-line" style="color: #4caf50;"></span>
+                                                            <?php _e('Pricing Rules', 'wc-xml-csv-import'); ?>
+                                                            <span style="font-size: 12px; font-weight: normal; color: #666; margin-left: 10px;">
+                                                                <?php _e('(First matching rule wins)', 'wc-xml-csv-import'); ?>
+                                                            </span>
+                                                        </h4>
+                                                        <button type="button" id="btn-add-pricing-rule" class="button button-primary" style="display: flex; align-items: center; gap: 5px;">
+                                                            <span class="dashicons dashicons-plus-alt2" style="margin-top: 3px;"></span>
+                                                            <?php _e('Add Rule', 'wc-xml-csv-import'); ?>
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    <!-- Rules Container -->
+                                                    <div id="pricing-rules-list">
+                                                        
+                                                        <!-- Default/Fallback Rule (always present) -->
+                                                        <div class="pricing-rule-row pricing-rule-default" data-rule-id="default" style="padding: 20px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 2px solid #4caf50; border-radius: 8px; margin-bottom: 15px;">
+                                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                                    <span style="font-size: 20px;">🏠</span>
+                                                                    <strong style="color: #2e7d32; font-size: 14px;"><?php _e('Default Rule (Fallback)', 'wc-xml-csv-import'); ?></strong>
+                                                                    <span style="font-size: 11px; background: #4caf50; color: white; padding: 2px 8px; border-radius: 10px;">
+                                                                        <?php _e('Always applies if no other rule matches', 'wc-xml-csv-import'); ?>
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #558b2f; display: block; margin-bottom: 4px;">
+                                                                        <?php _e('Markup %', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <input type="number" name="pricing_rule[default][markup_percent]" value="0" min="-100" max="10000" step="0.01"
+                                                                           style="width: 80px; padding: 8px; border: 2px solid #81c784; border-radius: 4px;">
+                                                                </div>
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #558b2f; display: block; margin-bottom: 4px;">
+                                                                        <?php _e('+ Fixed €', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <input type="number" name="pricing_rule[default][fixed_amount]" value="0" min="-10000" max="10000" step="0.01"
+                                                                           style="width: 80px; padding: 8px; border: 2px solid #81c784; border-radius: 4px;">
+                                                                </div>
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #558b2f; display: block; margin-bottom: 4px;">
+                                                                        <?php _e('Round to', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <select name="pricing_rule[default][rounding]" style="padding: 8px; border: 2px solid #81c784; border-radius: 4px; min-width: 130px;">
+                                                                        <option value="none"><?php _e('No rounding', 'wc-xml-csv-import'); ?></option>
+                                                                        <option value="0.01"><?php _e('0.01', 'wc-xml-csv-import'); ?></option>
+                                                                        <option value="0.05"><?php _e('0.05', 'wc-xml-csv-import'); ?></option>
+                                                                        <option value="0.10"><?php _e('0.10', 'wc-xml-csv-import'); ?></option>
+                                                                        <option value="0.50"><?php _e('0.50', 'wc-xml-csv-import'); ?></option>
+                                                                        <option value="1.00"><?php _e('1.00', 'wc-xml-csv-import'); ?></option>
+                                                                        <option value="0.99"><?php _e('.99', 'wc-xml-csv-import'); ?></option>
+                                                                        <option value="0.95"><?php _e('.95', 'wc-xml-csv-import'); ?></option>
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #558b2f; display: block; margin-bottom: 4px;">
+                                                                        <?php _e('Min Price €', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <input type="number" name="pricing_rule[default][min_price]" value="" min="0" step="0.01" placeholder="—"
+                                                                           style="width: 70px; padding: 8px; border: 2px solid #81c784; border-radius: 4px;">
+                                                                </div>
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #558b2f; display: block; margin-bottom: 4px;">
+                                                                        <?php _e('Max Price €', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <input type="number" name="pricing_rule[default][max_price]" value="" min="0" step="0.01" placeholder="—"
+                                                                           style="width: 70px; padding: 8px; border: 2px solid #81c784; border-radius: 4px;">
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <!-- Dynamic rules will be added here -->
+                                                        
+                                                    </div>
+                                                    
+                                                    <!-- Rule Template (hidden, cloned by JS) -->
+                                                    <template id="pricing-rule-template">
+                                                        <div class="pricing-rule-row pricing-rule-conditional" data-rule-id="" style="padding: 20px; background: #fff; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 15px; transition: all 0.2s;">
+                                                            
+                                                            <!-- Rule Header -->
+                                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                                    <span class="rule-drag-handle" style="cursor: move; color: #999; font-size: 18px;">⋮⋮</span>
+                                                                    <span class="rule-number" style="background: #ff9800; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;">1</span>
+                                                                    <input type="text" name="pricing_rule[{id}][name]" placeholder="<?php _e('Rule name (optional)', 'wc-xml-csv-import'); ?>" 
+                                                                           style="border: none; border-bottom: 1px dashed #ccc; padding: 5px; font-weight: 500; width: 200px;">
+                                                                </div>
+                                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                                    <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666;">
+                                                                        <input type="checkbox" name="pricing_rule[{id}][enabled]" checked>
+                                                                        <?php _e('Enabled', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <button type="button" class="button-link remove-pricing-rule" style="color: #d63638;">
+                                                                        <span class="dashicons dashicons-trash"></span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <!-- Conditions -->
+                                                            <div class="rule-conditions" style="margin-bottom: 15px; padding: 15px; background: #fafafa; border-radius: 6px;">
+                                                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                                                    <strong style="font-size: 13px; color: #333;">
+                                                                        <span class="dashicons dashicons-filter" style="color: #2196f3;"></span>
+                                                                        <?php _e('Apply when:', 'wc-xml-csv-import'); ?>
+                                                                    </strong>
+                                                                    <select name="pricing_rule[{id}][condition_logic]" style="padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                                                        <option value="AND"><?php _e('ALL conditions match', 'wc-xml-csv-import'); ?></option>
+                                                                        <option value="OR"><?php _e('ANY condition matches', 'wc-xml-csv-import'); ?></option>
+                                                                    </select>
+                                                                </div>
+                                                                
+                                                                <div class="conditions-list" style="display: flex; flex-direction: column; gap: 8px;">
+                                                                    <!-- Condition row template -->
+                                                                    <div class="condition-row" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                                                        <select name="pricing_rule[{id}][conditions][0][type]" class="condition-type" style="padding: 6px; border-radius: 4px; min-width: 140px;">
+                                                                            <option value="price_range"><?php _e('Price Range', 'wc-xml-csv-import'); ?></option>
+                                                                            <option value="category"><?php _e('📁 Category', 'wc-xml-csv-import'); ?></option>
+                                                                            <option value="brand"><?php _e('🏷️ Brand', 'wc-xml-csv-import'); ?></option>
+                                                                            <option value="supplier"><?php _e('🏭 Supplier', 'wc-xml-csv-import'); ?></option>
+                                                                            <option value="xml_field"><?php _e('📄 XML Field', 'wc-xml-csv-import'); ?></option>
+                                                                            <option value="sku_pattern"><?php _e('🔢 SKU Pattern', 'wc-xml-csv-import'); ?></option>
+                                                                        </select>
+                                                                        
+                                                                        <!-- Price Range condition fields -->
+                                                                        <div class="condition-fields condition-price_range" style="display: flex; gap: 8px; align-items: center;">
+                                                                            <span style="color: #666;"><?php _e('from', 'wc-xml-csv-import'); ?></span>
+                                                                            <input type="number" name="pricing_rule[{id}][conditions][0][price_from]" placeholder="0" min="0" step="0.01" style="width: 80px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                            <span style="color: #666;"><?php _e('to', 'wc-xml-csv-import'); ?></span>
+                                                                            <input type="number" name="pricing_rule[{id}][conditions][0][price_to]" placeholder="∞" min="0" step="0.01" style="width: 80px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                            <span style="color: #888; font-size: 11px;">€</span>
+                                                                        </div>
+                                                                        
+                                                                        <!-- Category condition fields (hidden by default) -->
+                                                                        <div class="condition-fields condition-category" style="display: none; gap: 8px; align-items: center;">
+                                                                            <select name="pricing_rule[{id}][conditions][0][category_operator]" style="padding: 6px; border-radius: 4px;">
+                                                                                <option value="equals"><?php _e('equals', 'wc-xml-csv-import'); ?></option>
+                                                                                <option value="contains"><?php _e('contains', 'wc-xml-csv-import'); ?></option>
+                                                                                <option value="not_equals"><?php _e('not equals', 'wc-xml-csv-import'); ?></option>
+                                                                            </select>
+                                                                            <input type="text" name="pricing_rule[{id}][conditions][0][category_value]" placeholder="<?php _e('Category name or slug', 'wc-xml-csv-import'); ?>" style="width: 200px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                        </div>
+                                                                        
+                                                                        <!-- Brand condition fields (hidden by default) -->
+                                                                        <div class="condition-fields condition-brand" style="display: none; gap: 8px; align-items: center;">
+                                                                            <select name="pricing_rule[{id}][conditions][0][brand_operator]" style="padding: 6px; border-radius: 4px;">
+                                                                                <option value="equals"><?php _e('equals', 'wc-xml-csv-import'); ?></option>
+                                                                                <option value="contains"><?php _e('contains', 'wc-xml-csv-import'); ?></option>
+                                                                                <option value="not_equals"><?php _e('not equals', 'wc-xml-csv-import'); ?></option>
+                                                                            </select>
+                                                                            <input type="text" name="pricing_rule[{id}][conditions][0][brand_value]" placeholder="<?php _e('Brand name', 'wc-xml-csv-import'); ?>" style="width: 200px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                        </div>
+                                                                        
+                                                                        <!-- Supplier condition fields (hidden by default) -->
+                                                                        <div class="condition-fields condition-supplier" style="display: none; gap: 8px; align-items: center;">
+                                                                            <select name="pricing_rule[{id}][conditions][0][supplier_operator]" style="padding: 6px; border-radius: 4px;">
+                                                                                <option value="equals"><?php _e('equals', 'wc-xml-csv-import'); ?></option>
+                                                                                <option value="contains"><?php _e('contains', 'wc-xml-csv-import'); ?></option>
+                                                                            </select>
+                                                                            <input type="text" name="pricing_rule[{id}][conditions][0][supplier_value]" placeholder="<?php _e('Supplier name', 'wc-xml-csv-import'); ?>" style="width: 200px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                        </div>
+                                                                        
+                                                                        <!-- XML Field condition fields (hidden by default) -->
+                                                                        <div class="condition-fields condition-xml_field" style="display: none; gap: 8px; align-items: center;">
+                                                                            <select name="pricing_rule[{id}][conditions][0][xml_field_name]" class="xml-field-select" style="padding: 6px; border-radius: 4px; min-width: 120px;">
+                                                                                <option value=""><?php _e('-- Field --', 'wc-xml-csv-import'); ?></option>
+                                                                            </select>
+                                                                            <select name="pricing_rule[{id}][conditions][0][xml_field_operator]" style="padding: 6px; border-radius: 4px;">
+                                                                                <option value="equals">=</option>
+                                                                                <option value="not_equals">≠</option>
+                                                                                <option value="contains"><?php _e('contains', 'wc-xml-csv-import'); ?></option>
+                                                                                <option value="gt">></option>
+                                                                                <option value="lt"><</option>
+                                                                                <option value="gte">≥</option>
+                                                                                <option value="lte">≤</option>
+                                                                            </select>
+                                                                            <input type="text" name="pricing_rule[{id}][conditions][0][xml_field_value]" placeholder="<?php _e('Value', 'wc-xml-csv-import'); ?>" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                        </div>
+                                                                        
+                                                                        <!-- SKU Pattern condition fields (hidden by default) -->
+                                                                        <div class="condition-fields condition-sku_pattern" style="display: none; gap: 8px; align-items: center;">
+                                                                            <select name="pricing_rule[{id}][conditions][0][sku_operator]" style="padding: 6px; border-radius: 4px;">
+                                                                                <option value="starts_with"><?php _e('starts with', 'wc-xml-csv-import'); ?></option>
+                                                                                <option value="ends_with"><?php _e('ends with', 'wc-xml-csv-import'); ?></option>
+                                                                                <option value="contains"><?php _e('contains', 'wc-xml-csv-import'); ?></option>
+                                                                                <option value="regex"><?php _e('matches regex', 'wc-xml-csv-import'); ?></option>
+                                                                            </select>
+                                                                            <input type="text" name="pricing_rule[{id}][conditions][0][sku_value]" placeholder="<?php _e('Pattern', 'wc-xml-csv-import'); ?>" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                        </div>
+                                                                        
+                                                                        <button type="button" class="button-link remove-condition" style="color: #999; padding: 5px;" title="<?php _e('Remove condition', 'wc-xml-csv-import'); ?>">✕</button>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <button type="button" class="button button-small add-condition" style="margin-top: 10px;">
+                                                                    <span class="dashicons dashicons-plus" style="font-size: 14px; line-height: 1.4;"></span>
+                                                                    <?php _e('Add Condition', 'wc-xml-csv-import'); ?>
+                                                                </button>
+                                                            </div>
+                                                            
+                                                            <!-- Pricing Values -->
+                                                            <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end;">
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">
+                                                                        <?php _e('Markup %', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <input type="number" name="pricing_rule[{id}][markup_percent]" value="0" min="-100" max="10000" step="0.01"
+                                                                           style="width: 80px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                                                </div>
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">
+                                                                        <?php _e('+ Fixed €', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <input type="number" name="pricing_rule[{id}][fixed_amount]" value="0" min="-10000" max="10000" step="0.01"
+                                                                           style="width: 80px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                                                </div>
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">
+                                                                        <?php _e('Round to', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <select name="pricing_rule[{id}][rounding]" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; min-width: 130px;">
+                                                                        <option value="inherit"><?php _e('Use default', 'wc-xml-csv-import'); ?></option>
+                                                                        <option value="none"><?php _e('No rounding', 'wc-xml-csv-import'); ?></option>
+                                                                        <option value="0.01">0.01</option>
+                                                                        <option value="0.05">0.05</option>
+                                                                        <option value="0.10">0.10</option>
+                                                                        <option value="0.50">0.50</option>
+                                                                        <option value="1.00">1.00</option>
+                                                                        <option value="0.99">.99</option>
+                                                                        <option value="0.95">.95</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">
+                                                                        <?php _e('Min €', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <input type="number" name="pricing_rule[{id}][min_price]" value="" min="0" step="0.01" placeholder="—"
+                                                                           style="width: 70px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                                                </div>
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">
+                                                                        <?php _e('Max €', 'wc-xml-csv-import'); ?>
+                                                                    </label>
+                                                                    <input type="number" name="pricing_rule[{id}][max_price]" value="" min="0" step="0.01" placeholder="—"
+                                                                           style="width: 70px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                                                </div>
+                                                            </div>
+                                                            
+                                                        </div>
+                                                    </template>
+                                                    
+                                                </div>
+                                                
+                                                <!-- Live Preview Calculator -->
+                                                <div style="padding: 20px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 8px; border: 2px solid #4caf50; margin-top: 20px;">
+                                                    <h4 style="margin: 0 0 15px 0; color: #2e7d32; display: flex; align-items: center; gap: 8px;">
+                                                        <span class="dashicons dashicons-calculator" style="color: #4caf50;"></span>
+                                                        <?php _e('Live Preview', 'wc-xml-csv-import'); ?>
+                                                    </h4>
+                                                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                                                        <div>
+                                                            <label style="font-size: 12px; color: #558b2f; display: block; margin-bottom: 4px;">
+                                                                <?php _e('Test with Rule:', 'wc-xml-csv-import'); ?>
+                                                            </label>
+                                                            <select id="pricing_engine_test_rule" style="padding: 8px 12px; border: 2px solid #81c784; border-radius: 4px; font-size: 14px; min-width: 150px;">
+                                                                <option value="default"><?php _e('Default Rule', 'wc-xml-csv-import'); ?></option>
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label style="font-size: 12px; color: #558b2f; display: block; margin-bottom: 4px;">
+                                                                <?php _e('Test Base Price:', 'wc-xml-csv-import'); ?>
+                                                            </label>
+                                                            <input type="number" id="pricing_engine_test_input" value="100" step="0.01" min="0"
+                                                                   style="width: 120px; padding: 8px; border: 2px solid #81c784; border-radius: 4px; font-size: 16px; font-weight: 600;">
+                                                        </div>
+                                                        <div style="font-size: 24px; color: #4caf50;">→</div>
+                                                        <div>
+                                                            <label style="font-size: 12px; color: #558b2f; display: block; margin-bottom: 4px;">
+                                                                <?php _e('Final Price:', 'wc-xml-csv-import'); ?>
+                                                            </label>
+                                                            <div id="pricing_engine_test_output" style="padding: 8px 15px; background: #fff; border: 2px solid #4caf50; border-radius: 4px; font-size: 18px; font-weight: 700; color: #2e7d32; min-width: 100px;">
+                                                                €100.00
+                                                            </div>
+                                                        </div>
+                                                        <div style="margin-left: 10px; padding: 8px 12px; background: #fff; border-radius: 4px; font-size: 12px; color: #666;">
+                                                            <span id="pricing_engine_matched_rule" style="color: #4caf50; font-weight: 600;"><?php _e('Default Rule', 'wc-xml-csv-import'); ?></span><br>
+                                                            <span id="pricing_engine_formula">100 × 1.00 + 0 = 100.00</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                            </div>
+                                            
+                                            <!-- Disabled State Message -->
+                                            <div id="pricing-engine-disabled-msg" style="padding: 25px; background: #f5f5f5; border-radius: 8px; text-align: center;">
+                                                <span style="font-size: 36px; opacity: 0.5;">⚡</span>
+                                                <p style="margin: 10px 0 0 0; color: #999;">
+                                                    <?php _e('Enable the Price Markup above to configure automatic price calculations', 'wc-xml-csv-import'); ?>
+                                                </p>
+                                            </div>
+                                            
+                                        </div>
+                                    <?php elseif ($section_key === 'attributes_variations'): ?>
                                         <!-- ═══════════════════════════════════════════════════════════════ -->
                                         <!-- SIMPLIFIED UI - 3 Clear Options                                  -->
                                         <!-- 1. Simple (default)  2. Attributes  3. Variations               -->
@@ -1009,25 +1391,74 @@ $ai_providers = array(
                                                             <label style="font-weight: 600; color: #e65100; font-size: 14px;">
                                                                 🏷️ <?php _e('Variation Attributes', 'wc-xml-csv-import'); ?>
                                                             </label>
-                                                            <button type="button" class="button" id="btn-add-var-attribute">
-                                                                <span class="dashicons dashicons-plus" style="margin-top: 3px;"></span>
-                                                                <?php _e('Add Attribute', 'wc-xml-csv-import'); ?>
-                                                            </button>
                                                         </div>
-                                                        <p class="description" style="margin-bottom: 10px;">
+                                                        <p class="description" style="margin-bottom: 15px;">
                                                             <?php _e('Define attributes used for variations (e.g., Size, Color). Each unique combination creates a product variation.', 'wc-xml-csv-import'); ?>
                                                         </p>
-                                                        <div style="background: #fff; padding: 12px; border-radius: 4px; border: 1px solid #ffe0b2; margin-bottom: 15px;">
-                                                            <strong style="font-size: 12px; color: #e65100;">💡 <?php _e('Example for your XML structure:', 'wc-xml-csv-import'); ?></strong>
-                                                            <div style="font-size: 11px; color: #666; margin-top: 8px;">
-                                                                <?php _e('If your XML has:', 'wc-xml-csv-import'); ?><br>
-                                                                <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 10px;">&lt;attributes&gt;&lt;attribute&gt;S&lt;/attribute&gt;&lt;attribute&gt;Red&lt;/attribute&gt;&lt;/attributes&gt;</code><br><br>
-                                                                <?php _e('Add 2 attributes:', 'wc-xml-csv-import'); ?><br>
-                                                                • <strong>Size</strong> → Source: <code>attributes.attribute</code> + Array Index: <code>0</code><br>
-                                                                • <strong>Color</strong> → Source: <code>attributes.attribute</code> + Array Index: <code>1</code>
+                                                        
+                                                        <!-- Attribute Mode Selection -->
+                                                        <div style="background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #ffe0b2; margin-bottom: 15px;">
+                                                            <div style="display: flex; gap: 25px; flex-wrap: wrap;">
+                                                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
+                                                                    <input type="radio" name="attribute_detection_mode" value="manual" checked class="attribute-mode-radio">
+                                                                    <span>📝 <?php _e('Manual', 'wc-xml-csv-import'); ?></span>
+                                                                    <span style="font-weight: normal; color: #666; font-size: 12px;">— <?php _e('Define each attribute manually', 'wc-xml-csv-import'); ?></span>
+                                                                </label>
+                                                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
+                                                                    <input type="radio" name="attribute_detection_mode" value="auto" class="attribute-mode-radio">
+                                                                    <span>🔍 <?php _e('Auto-detect', 'wc-xml-csv-import'); ?></span>
+                                                                    <span style="font-weight: normal; color: #666; font-size: 12px;">— <?php _e('Read all attributes from XML automatically', 'wc-xml-csv-import'); ?></span>
+                                                                </label>
                                                             </div>
                                                         </div>
-                                                        <div id="variation-attributes-list"></div>
+                                                        
+                                                        <!-- AUTO-DETECT Settings (hidden by default) -->
+                                                        <div id="auto-detect-attributes-settings" style="display: none; background: #e8f5e9; padding: 15px; border-radius: 6px; border: 1px solid #a5d6a7; margin-bottom: 15px;">
+                                                            <p style="margin: 0 0 12px 0; font-weight: 500; color: #2e7d32;">
+                                                                ✨ <?php _e('Auto-detect Settings', 'wc-xml-csv-import'); ?>
+                                                            </p>
+                                                            <div style="display: grid; grid-template-columns: 180px 1fr; gap: 10px; align-items: center;">
+                                                                <label style="font-weight: 500;"><?php _e('Attributes path:', 'wc-xml-csv-import'); ?></label>
+                                                                <div class="textarea-mapping-wrapper">
+                                                                    <textarea name="auto_attributes_path" id="auto-attributes-path" class="field-mapping-textarea field-mapping-textarea-small" rows="1" placeholder="<?php esc_attr_e('e.g., variations.variation.attributes', 'wc-xml-csv-import'); ?>" style="max-width: 350px;"></textarea>
+                                                                    <p class="description" style="font-size: 10px; margin-top: 2px; color: #666;">
+                                                                        <?php _e('Path to attributes container in each variation (without { })', 'wc-xml-csv-import'); ?>
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div style="margin-top: 12px;">
+                                                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                                                    <input type="checkbox" name="auto_create_attributes" id="auto-create-attributes" checked>
+                                                                    <span><?php _e('Create WooCommerce attributes if they don\'t exist', 'wc-xml-csv-import'); ?></span>
+                                                                </label>
+                                                            </div>
+                                                            <div style="background: #fff; padding: 10px; border-radius: 4px; margin-top: 12px; font-size: 11px; color: #555;">
+                                                                <strong>💡 <?php _e('How it works:', 'wc-xml-csv-import'); ?></strong><br>
+                                                                <?php _e('For XML like:', 'wc-xml-csv-import'); ?> <code>&lt;attributes&gt;&lt;size&gt;L&lt;/size&gt;&lt;color&gt;Black&lt;/color&gt;&lt;/attributes&gt;</code><br>
+                                                                <?php _e('Plugin will automatically create attributes: pa_size=L, pa_color=Black', 'wc-xml-csv-import'); ?>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <!-- MANUAL Attributes Settings -->
+                                                        <div id="manual-attributes-settings">
+                                                            <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                                                                <button type="button" class="button" id="btn-add-var-attribute">
+                                                                    <span class="dashicons dashicons-plus" style="margin-top: 3px;"></span>
+                                                                    <?php _e('Add Attribute', 'wc-xml-csv-import'); ?>
+                                                                </button>
+                                                            </div>
+                                                            <div style="background: #fff; padding: 12px; border-radius: 4px; border: 1px solid #ffe0b2; margin-bottom: 15px;">
+                                                                <strong style="font-size: 12px; color: #e65100;">💡 <?php _e('Example for your XML structure:', 'wc-xml-csv-import'); ?></strong>
+                                                                <div style="font-size: 11px; color: #666; margin-top: 8px;">
+                                                                    <?php _e('If your XML has:', 'wc-xml-csv-import'); ?><br>
+                                                                    <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 10px;">&lt;attributes&gt;&lt;attribute&gt;S&lt;/attribute&gt;&lt;attribute&gt;Red&lt;/attribute&gt;&lt;/attributes&gt;</code><br><br>
+                                                                    <?php _e('Add 2 attributes:', 'wc-xml-csv-import'); ?><br>
+                                                                    • <strong>Size</strong> → Source: <code>attributes.attribute</code> + Array Index: <code>0</code><br>
+                                                                    • <strong>Color</strong> → Source: <code>attributes.attribute</code> + Array Index: <code>1</code>
+                                                                </div>
+                                                            </div>
+                                                            <div id="variation-attributes-list"></div>
+                                                        </div>
                                                     </div>
                                                     
                                                     <!-- SECTION 3: Variation Field Mapping -->
