@@ -1,11 +1,11 @@
 <?php
 /**
- * Plugin Name: WooCommerce XML & CSV Importer
- * Plugin URI: https://bootflow.io/woocommerce-xml-csv-importer/
- * Description: Import and update WooCommerce products from XML and CSV files with manual field mapping, product variations support, and a reliable import workflow.
- * Version: 0.9.0
- * Author: BootFlow.io
- * Author URI: https://bootflow.io
+ * Plugin Name: Bootflow – WooCommerce XML & CSV Importer
+ * Plugin URI:  https://bootflow.io/woocommerce-xml-csv-importer/
+ * Description: Import and update WooCommerce products from XML and CSV feeds with manual field mapping, product variations support, and a reliable import workflow.
+ * Version:     0.9.0
+ * Author:      Bootflow
+ * Author URI:  https://bootflow.io
  * Text Domain: wc-xml-csv-import
  * Domain Path: /languages
  * Requires at least: 5.8
@@ -13,7 +13,7 @@
  * Requires PHP: 7.4
  * WC requires at least: 6.0
  * WC tested up to: 8.3
- * License: GPL v2 or later
+ * License:     GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
 
@@ -57,11 +57,21 @@ add_action('admin_init', 'wc_xml_csv_ai_import_suppress_debug_output', 1);
 /**
  * Currently plugin version.
  */
-define('WC_XML_CSV_AI_IMPORT_VERSION', '1.0.1');
+define('WC_XML_CSV_AI_IMPORT_VERSION', '0.9.1-test-2033');
 define('WC_XML_CSV_AI_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WC_XML_CSV_AI_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WC_XML_CSV_AI_IMPORT_PLUGIN_BASENAME', plugin_basename(__FILE__));
 define('WC_XML_CSV_AI_IMPORT_TEXT_DOMAIN', 'wc-xml-csv-import');
+
+/**
+ * Pro/Free edition flag
+ * This constant is set by the build script:
+ * - true = Pro version (with license validation)
+ * - false = Free version (WordPress.org compliant)
+ */
+if (!defined('WC_XML_CSV_AI_IMPORT_IS_PRO')) {
+    define('WC_XML_CSV_AI_IMPORT_IS_PRO', true); // BUILD_SCRIPT_WILL_CHANGE_THIS
+}
 
 // Ensure clean output for production
 if (!defined('WC_XML_CSV_AI_IMPORT_DEBUG')) {
@@ -72,7 +82,10 @@ if (!defined('WC_XML_CSV_AI_IMPORT_DEBUG')) {
 require_once plugin_dir_path(__FILE__) . 'includes/class-wc-xml-csv-ai-import-security.php';
 WC_XML_CSV_AI_Import_Security::init(); // Initialize security measures
 
-// Load license/tier management
+// Load features class (Pro/Free feature detection)
+require_once plugin_dir_path(__FILE__) . 'includes/class-wc-xml-csv-ai-import-features.php';
+
+// Load license/tier management (Pro only, but class exists in both for compatibility)
 require_once plugin_dir_path(__FILE__) . 'includes/class-wc-xml-csv-ai-import-license.php';
 
 // Load logger class (respects WP_DEBUG setting)

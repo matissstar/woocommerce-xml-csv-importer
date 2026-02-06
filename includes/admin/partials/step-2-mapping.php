@@ -12,13 +12,26 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Get current tier and feature availability
-$current_tier = WC_XML_CSV_AI_Import_License::get_tier();
-$can_smart_mapping = WC_XML_CSV_AI_Import_License::can('mapping_auto_php_js');
-$can_ai_mapping = WC_XML_CSV_AI_Import_License::can('mapping_auto_ai');
-$can_templates = WC_XML_CSV_AI_Import_License::can('templates');
-$can_selective_update = WC_XML_CSV_AI_Import_License::can('selective_update');
-$can_filters_advanced = WC_XML_CSV_AI_Import_License::can('filters_advanced');
+// Get current edition and feature availability using new Features class
+$is_pro = WC_XML_CSV_AI_Import_Features::is_pro();
+$is_pro_plugin = WC_XML_CSV_AI_Import_Features::is_pro_plugin();
+
+// Feature checks using new Features class
+$can_ai_mapping = WC_XML_CSV_AI_Import_Features::is_available('ai_auto_mapping');
+$can_templates = WC_XML_CSV_AI_Import_Features::is_available('mapping_templates');
+$can_scheduling = WC_XML_CSV_AI_Import_Features::is_available('scheduled_import');
+$can_variable_products = WC_XML_CSV_AI_Import_Features::is_available('variable_products');
+$can_import_filters = WC_XML_CSV_AI_Import_Features::is_available('import_filters');
+$can_php_processing = WC_XML_CSV_AI_Import_Features::is_available('php_processing');
+$can_ai_processing = WC_XML_CSV_AI_Import_Features::is_available('ai_processing');
+$can_hybrid_processing = WC_XML_CSV_AI_Import_Features::is_available('hybrid_processing');
+$can_advanced_formulas = WC_XML_CSV_AI_Import_Features::is_available('advanced_formulas');
+
+// Legacy compatibility - keep old variables for existing code
+$current_tier = $is_pro ? 'pro' : 'free';
+$can_smart_mapping = $can_php_processing;
+$can_selective_update = $is_pro;
+$can_filters_advanced = $can_import_filters;
 // Note: No product count limits - both FREE and PRO have unlimited products
 
 // Get parameters from URL
@@ -45,8 +58,7 @@ $update_existing = $import['update_existing'];
 $skip_unchanged = $import['skip_unchanged'];
 $total_products_from_session = $import['total_products'];
 
-// Check if scheduling is available (PRO feature + URL source)
-$can_scheduling = WC_XML_CSV_AI_Import_License::can('scheduling');
+// Check if this is a URL source (for scheduling UI)
 $is_url_source = !empty($file_url);
 
 // Load saved mappings if exists
@@ -385,7 +397,7 @@ $ai_providers = array(
                         <th scope="row">
                             <?php _e('Scheduled Import', 'wc-xml-csv-import'); ?>
                             <?php if (!$can_scheduling): ?>
-                            <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; font-weight: bold;">PRO</span>
+                            <span class="pro-badge pro-feature-trigger" data-feature="scheduled_import" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; font-weight: bold; cursor: pointer;">PRO</span>
                             <?php endif; ?>
                         </th>
                         <td>
@@ -540,7 +552,7 @@ $ai_providers = array(
                         <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #6c757d;">
                             <span class="dashicons dashicons-saved" style="color: #adb5bd;"></span>
                             <?php _e('Mapping Templates', 'wc-xml-csv-import'); ?>
-                            <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; font-weight: bold;">PRO</span>
+                            <span class="pro-badge pro-feature-trigger" data-feature="mapping_templates" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; font-weight: bold; cursor: pointer;">PRO</span>
                         </h4>
                         <p style="margin: 0; color: #6c757d; font-size: 13px;">
                             <?php _e('Save and reuse mapping configurations across imports. Available in PRO version.', 'wc-xml-csv-import'); ?>
@@ -550,11 +562,12 @@ $ai_providers = array(
                     
                     <?php
                     // Check if AI API key is configured for AI auto-mapping
-                    $ai_settings = get_option('wc_xml_csv_ai_import_settings', array());
-                    $has_openai = !empty($ai_settings['ai_api_keys']['openai']);
-                    $has_claude = !empty($ai_settings['ai_api_keys']['claude']);
-                    $has_gemini = !empty($ai_settings['ai_api_keys']['gemini']);
-                    $has_any_ai = $has_openai || $has_claude || $has_gemini;
+                    $ai_settings = get_option('wc_xml_csv_ai_import_ai_settings', array());
+                    $has_openai = !empty($ai_settings['openai_api_key']);
+                    $has_claude = !empty($ai_settings['claude_api_key']);
+                    $has_gemini = !empty($ai_settings['gemini_api_key']);
+                    $has_grok = !empty($ai_settings['grok_api_key']);
+                    $has_any_ai = $has_openai || $has_claude || $has_gemini || $has_grok;
                     ?>
                     
                     <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -583,6 +596,7 @@ $ai_providers = array(
                                     <?php if ($has_openai): ?><option value="openai">OpenAI</option><?php endif; ?>
                                     <?php if ($has_claude): ?><option value="claude">Claude</option><?php endif; ?>
                                     <?php if ($has_gemini): ?><option value="gemini">Gemini</option><?php endif; ?>
+                                    <?php if ($has_grok): ?><option value="grok">Grok</option><?php endif; ?>
                                 </select>
                                 <?php else: ?>
                                 <span style="color: #6c757d; font-size: 12px;">
@@ -2226,7 +2240,7 @@ $ai_providers = array(
                         <h3>
                             <span class="dashicons dashicons-filter" style="color: #adb5bd;"></span>
                             <?php _e('Import Filters', 'wc-xml-csv-import'); ?>
-                            <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; font-weight: bold;">PRO</span>
+                            <span class="pro-badge pro-feature-trigger" data-feature="import_filters" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; font-weight: bold; cursor: pointer;">PRO</span>
                         </h3>
                         <div style="padding: 20px; background: #f8f9fa; border-radius: 4px; margin: 0 15px 15px 15px;">
                             <p style="margin: 0 0 15px 0; color: #6c757d;">
@@ -2976,4 +2990,287 @@ jQuery(document).ready(function($) {
         }
     });
 });
+</script>
+
+<!-- Pro Feature Modal -->
+<div id="pro-feature-modal" class="pro-modal-overlay" style="display: none;">
+    <div class="pro-modal-content">
+        <button type="button" class="pro-modal-close" aria-label="<?php esc_attr_e('Close', 'wc-xml-csv-import'); ?>">&times;</button>
+        <div class="pro-modal-icon"></div>
+        <h2 class="pro-modal-title"></h2>
+        <p class="pro-modal-description"></p>
+        <div class="pro-modal-media"></div>
+        <div class="pro-modal-features">
+            <h4><?php _e('Pro includes:', 'wc-xml-csv-import'); ?></h4>
+            <ul>
+                <li>✅ <?php _e('AI Auto-Mapping', 'wc-xml-csv-import'); ?></li>
+                <li>✅ <?php _e('Variable Products', 'wc-xml-csv-import'); ?></li>
+                <li>✅ <?php _e('Scheduled Imports', 'wc-xml-csv-import'); ?></li>
+                <li>✅ <?php _e('Import Filters', 'wc-xml-csv-import'); ?></li>
+                <li>✅ <?php _e('Mapping Templates', 'wc-xml-csv-import'); ?></li>
+                <li>✅ <?php _e('Advanced Formulas', 'wc-xml-csv-import'); ?></li>
+            </ul>
+        </div>
+        <a href="https://bootflow.io/pricing/?utm_source=plugin&utm_medium=pro_modal&utm_campaign=wc_xml_csv_import" 
+           target="_blank" 
+           class="pro-modal-upgrade-btn">
+            <?php _e('Upgrade to Pro', 'wc-xml-csv-import'); ?> →
+        </a>
+    </div>
+</div>
+
+<style>
+/* Pro Modal Styles */
+.pro-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+}
+
+.pro-modal-content {
+    background: #fff;
+    border-radius: 12px;
+    padding: 30px 40px;
+    max-width: 480px;
+    width: 90%;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: proModalSlideIn 0.3s ease;
+}
+
+@keyframes proModalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.pro-modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+    line-height: 1;
+    padding: 5px;
+    transition: color 0.2s;
+}
+
+.pro-modal-close:hover {
+    color: #333;
+}
+
+.pro-modal-icon {
+    font-size: 48px;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.pro-modal-title {
+    font-size: 22px;
+    font-weight: 600;
+    text-align: center;
+    margin: 0 0 10px 0;
+    color: #1e1e1e;
+}
+
+.pro-modal-description {
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 20px 0;
+}
+
+.pro-modal-media {
+    margin: 15px 0;
+    text-align: center;
+}
+
+.pro-modal-media img,
+.pro-modal-media iframe {
+    max-width: 100%;
+    border-radius: 8px;
+}
+
+.pro-modal-features {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin: 20px 0;
+}
+
+.pro-modal-features h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #333;
+}
+
+.pro-modal-features ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.pro-modal-features li {
+    font-size: 13px;
+    color: #555;
+}
+
+.pro-modal-upgrade-btn {
+    display: block;
+    width: 100%;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 15px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pro-modal-upgrade-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    color: #fff;
+}
+
+/* Clickable Pro Badge */
+.pro-badge.pro-feature-trigger {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pro-badge.pro-feature-trigger:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+</style>
+
+<script>
+// Pro Feature Modal Handler
+(function($) {
+    'use strict';
+    
+    // Feature definitions for modal content
+    var proFeatures = {
+        'ai_auto_mapping': {
+            icon: '🤖',
+            title: '<?php echo esc_js(__('AI Auto-Mapping', 'wc-xml-csv-import')); ?>',
+            description: '<?php echo esc_js(__('Automatically map XML/CSV fields to WooCommerce product fields using artificial intelligence. Save hours of manual mapping work.', 'wc-xml-csv-import')); ?>'
+        },
+        'variable_products': {
+            icon: '📦',
+            title: '<?php echo esc_js(__('Variable Products', 'wc-xml-csv-import')); ?>',
+            description: '<?php echo esc_js(__('Import products with variations - sizes, colors, materials, and more. Full support for WooCommerce variable product structure.', 'wc-xml-csv-import')); ?>'
+        },
+        'scheduled_import': {
+            icon: '⏰',
+            title: '<?php echo esc_js(__('Scheduled Imports', 'wc-xml-csv-import')); ?>',
+            description: '<?php echo esc_js(__('Set up automatic imports on a schedule. Keep your products updated from supplier feeds without manual intervention.', 'wc-xml-csv-import')); ?>'
+        },
+        'mapping_templates': {
+            icon: '💾',
+            title: '<?php echo esc_js(__('Mapping Templates', 'wc-xml-csv-import')); ?>',
+            description: '<?php echo esc_js(__('Save your field mappings as reusable templates. Perfect for recurring imports from the same source.', 'wc-xml-csv-import')); ?>'
+        },
+        'import_filters': {
+            icon: '🔍',
+            title: '<?php echo esc_js(__('Import Filters', 'wc-xml-csv-import')); ?>',
+            description: '<?php echo esc_js(__('Filter products during import based on field values, price ranges, stock status, and more.', 'wc-xml-csv-import')); ?>'
+        },
+        'php_processing': {
+            icon: '⚙️',
+            title: '<?php echo esc_js(__('PHP Processing', 'wc-xml-csv-import')); ?>',
+            description: '<?php echo esc_js(__('Use PHP formulas to transform field values during import. Full flexibility for complex transformations.', 'wc-xml-csv-import')); ?>'
+        },
+        'ai_processing': {
+            icon: '✨',
+            title: '<?php echo esc_js(__('AI Processing', 'wc-xml-csv-import')); ?>',
+            description: '<?php echo esc_js(__('Let AI handle complex field transformations. Describe what you want in plain language.', 'wc-xml-csv-import')); ?>'
+        },
+        'advanced_formulas': {
+            icon: '📐',
+            title: '<?php echo esc_js(__('Advanced Formulas', 'wc-xml-csv-import')); ?>',
+            description: '<?php echo esc_js(__('Create complex field transformation formulas. String manipulation, conditionals, and more.', 'wc-xml-csv-import')); ?>'
+        },
+        'remote_url_import': {
+            icon: '🌐',
+            title: '<?php echo esc_js(__('Remote URL Import', 'wc-xml-csv-import')); ?>',
+            description: '<?php echo esc_js(__('Import directly from remote URLs. Perfect for supplier feeds that are hosted online.', 'wc-xml-csv-import')); ?>'
+        }
+    };
+    
+    // Default feature for generic Pro badges
+    var defaultFeature = {
+        icon: '🔒',
+        title: '<?php echo esc_js(__('Pro Feature', 'wc-xml-csv-import')); ?>',
+        description: '<?php echo esc_js(__('This feature is available in the Pro version. Upgrade to unlock all advanced features.', 'wc-xml-csv-import')); ?>'
+    };
+    
+    // Show modal
+    function showProModal(featureId) {
+        var feature = proFeatures[featureId] || defaultFeature;
+        var $modal = $('#pro-feature-modal');
+        
+        $modal.find('.pro-modal-icon').text(feature.icon);
+        $modal.find('.pro-modal-title').text(feature.title);
+        $modal.find('.pro-modal-description').text(feature.description);
+        
+        $modal.fadeIn(200);
+        $('body').css('overflow', 'hidden');
+    }
+    
+    // Hide modal
+    function hideProModal() {
+        $('#pro-feature-modal').fadeOut(200);
+        $('body').css('overflow', '');
+    }
+    
+    // Initialize
+    $(document).ready(function() {
+        // Click on Pro badge
+        $(document).on('click', '.pro-feature-trigger', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var featureId = $(this).data('feature') || '';
+            showProModal(featureId);
+        });
+        
+        // Close modal
+        $(document).on('click', '.pro-modal-close', hideProModal);
+        $(document).on('click', '.pro-modal-overlay', function(e) {
+            if ($(e.target).hasClass('pro-modal-overlay')) {
+                hideProModal();
+            }
+        });
+        
+        // ESC key
+        $(document).on('keydown', function(e) {
+            if (e.keyCode === 27) {
+                hideProModal();
+            }
+        });
+    });
+})(jQuery);
 </script>

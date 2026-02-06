@@ -455,7 +455,25 @@ class WC_XML_CSV_AI_Import_AI_Providers {
      * @return   string API key
      */
     private function get_api_key($provider) {
-        return isset($this->settings['ai_api_keys'][$provider]) ? $this->settings['ai_api_keys'][$provider] : '';
+        $key_name = $provider . '_api_key';
+        
+        // PRIORITY 1: New format from Settings page (most recent user input)
+        $ai_settings = get_option('wc_xml_csv_ai_import_ai_settings', array());
+        if (isset($ai_settings[$key_name]) && !empty($ai_settings[$key_name])) {
+            return $ai_settings[$key_name];
+        }
+        
+        // PRIORITY 2: Direct key in main settings
+        if (isset($this->settings[$key_name]) && !empty($this->settings[$key_name])) {
+            return $this->settings[$key_name];
+        }
+        
+        // PRIORITY 3: Legacy format (old imports, will be deprecated)
+        if (isset($this->settings['ai_api_keys'][$provider]) && !empty($this->settings['ai_api_keys'][$provider])) {
+            return $this->settings['ai_api_keys'][$provider];
+        }
+        
+        return '';
     }
 
     /**
@@ -779,20 +797,61 @@ class WC_XML_CSV_AI_Import_AI_Providers {
         // Count source fields for the prompt
         $source_field_count = count($source_fields);
         
-        // Build the prompt
+        // Build the prompt - focused on MAPPING EVERYTHING without skipping
         $prompt = "You are an expert at mapping product data fields for WooCommerce e-commerce import.
-You specialize in recognizing VARIABLE PRODUCTS with VARIATIONS and ATTRIBUTES.
 
-=== MANDATORY REQUIREMENT ===
-YOU MUST MAP EVERY SINGLE FIELD! There are exactly {$source_field_count} source fields.
-Your response MUST contain exactly {$source_field_count} mappings in the 'mappings' object.
-DO NOT SKIP ANY FIELD! If you cannot determine the mapping, map it to the closest match or use a custom field.
+=== CRITICAL: MAP ALL {$source_field_count} FIELDS - NO EXCEPTIONS! ===
+You MUST map EVERY SINGLE source field. Do NOT skip any field! This is mandatory.
 
-I have a {$file_type} file with these {$source_field_count} column/field names from the source file:
+SOURCE FIELDS ({$source_field_count} total):
 " . json_encode($source_fields, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "
 
-I need to map them to these WooCommerce product fields:
-" . json_encode($wc_fields, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+WOOCOMMERCE TARGET FIELDS:
+" . json_encode($wc_fields, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "
+
+=== MAPPING RULES (FOLLOW EXACTLY!) ===
+
+BASIC FIELDS:
+- id, product_id → id
+- sku, code, article, artikul, product_code, vendor_code → sku
+- name, title, product_name, nosaukums, short_name → name
+- description, description_lv, description_en, description_ru, apraksts → description
+- short_description, short_desc, short_specs → short_description
+- price, regular_price, cena → regular_price
+- sale_price, discount_price, atlaide → sale_price
+- stock, quantity, stock_quantity, daudzums, qty → stock_quantity
+- category, categories, kategorija, category_id → categories
+- brand, manufacturer, razotajs, zīmols → brand
+
+IMAGES (CRITICAL - map ALL image fields!):
+- image → images
+- image[0], image[1], image[2], etc. → images
+- image[0].#text, image[1].#text → images (text content = URL)
+- image[0].@attributes.count → SKIP (metadata, not useful)
+- image.#text → images
+- images, picture, photo, img → images
+- ANY field with 'image' containing URL → images
+
+SKIP THESE FIELDS (metadata, not product data):
+- @attributes.count → skip
+- ANY .@attributes.* → skip (XML metadata)
+- amount_on_pallet → skip (warehouse data)
+- package_dimensions (parent object) → skip (use children instead)
+
+WEIGHT & DIMENSIONS (use child fields!):
+- weight, svars, gross_weight, net_weight → weight
+- package_dimensions.width → width
+- package_dimensions.height → height  
+- package_dimensions.length → length
+- ANY field ending with '.width' → width
+- ANY field ending with '.height' → height
+- ANY field ending with '.length' → length
+
+BARCODES:
+- ean, eans, eans.ean, gtin, upc, barcode → gtin
+
+DATASHEETS & DOCUMENTS (map to custom meta):
+- dsheet_lv, dsheet_en, dsheet_ru, dsheet_lt, dsheet_et → meta:datasheet";
 
         // Add sample data context if available - now supports multiple products
         if (!empty($sample_data)) {
@@ -805,217 +864,43 @@ I need to map them to these WooCommerce product fields:
                 $prompt .= "\n\nIMPORTANT: Different products may have different attributes. Map ALL attributes you see from any product.";
             } else {
                 // Single product (backwards compatibility)
-                $prompt .= "\n\nHere are sample values from the first product to help identify field types:\n" . json_encode($sample_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+                $prompt .= "\n\nSample values from first product:\n" . json_encode($sample_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             }
         }
 
         $prompt .= "
 
-Analyze each source field name and its sample value (if provided) to determine which WooCommerce field it should map to.
+=== FOR VARIABLE PRODUCTS (if variations/offers/variants exist) ===
+Fields inside variations should be prefixed with 'variation_':
+- variation.sku → variation_sku
+- variation.price → variation_price
+- variation.stock → variation_stock
+- variation.size/color → attribute:size, attribute:color
 
-=== VARIABLE PRODUCTS & VARIATIONS ===
-Look for these patterns that indicate VARIABLE products with VARIATIONS:
-- Fields containing: variations, variants, options, sizes, colors, combinations, offers
-- Nested structures like: variations/variation, variants/variant, offers/offer
-- XML paths like: /good/offers/offer, /product/variations/variation
-- Fields with multiple values: sizes, colors, materials (comma-separated or pipe-separated)
-
-When you detect variation structures:
-- Map the container to 'variations' field
-- Look for variation-specific fields: sku, price, stock inside variations
-- Identify ATTRIBUTES inside variations (size, color, material, etc.)
-
-=== VARIATION FIELD MAPPING (CRITICAL!) ===
-For EACH field found inside variations, map them with 'variation_' prefix:
-- sku inside variation → variation_sku
-- price, regular_price inside variation → variation_price  
-- sale_price inside variation → variation_sale_price
-- stock, stock_quantity, quantity inside variation → variation_stock
-- stock_status inside variation → variation_stock_status
-- manage_stock inside variation → variation_manage_stock
-- weight inside variation → variation_weight
-- length inside variation → variation_length
-- width inside variation → variation_width
-- height inside variation → variation_height
-- image, images inside variation → variation_image
-- description inside variation → variation_description
-- parent_sku → variation_parent_sku (to link variation to parent)
-- gtin, ean, upc, barcode inside variation → variation_gtin
-- backorders inside variation → variation_backorders
-- low_stock_amount, low_stock inside variation → variation_low_stock_amount
-- virtual, is_virtual inside variation → variation_virtual
-- downloadable, is_downloadable inside variation → variation_downloadable
-- download_limit inside variation → variation_download_limit
-- download_expiry, expiry_days inside variation → variation_download_expiry
-
-YOU MUST MAP ALL OF THESE IF THEY EXIST IN THE SOURCE FILE - CHECK EVERY FIELD:
-1. variation_parent_sku (if parent_sku exists in variation)
-2. variation_sku (if sku exists in variation)
-3. variation_price OR variation_regular_price (if price/regular_price exists)
-4. variation_sale_price (if sale_price exists)
-5. variation_stock OR variation_stock_quantity (if stock/stock_quantity/quantity exists)
-6. variation_stock_status (if stock_status exists)
-7. variation_manage_stock (if manage_stock exists)
-8. variation_weight (if weight exists)
-9. variation_image (if image exists)
-10. variation_backorders (if backorders exists) - IMPORTANT!
-11. variation_low_stock_amount (if low_stock_amount exists) - IMPORTANT!
-12. variation_length, variation_width, variation_height (if dimensions exist)
-13. variation_virtual (if virtual exists) - IMPORTANT!
-14. variation_downloadable (if downloadable exists) - IMPORTANT!
-15. variation_download_limit (if download_limit exists) - IMPORTANT!
-16. variation_download_expiry (if download_expiry exists) - IMPORTANT!
-17. variation_description (if description exists)
-11. variation_low_stock_amount (if low_stock_amount exists) - IMPORTANT!
-12. variation_length, variation_width, variation_height (if dimensions exist)
-
-=== ATTRIBUTE MAPPING (CRITICAL!) ===
-When you find attribute fields inside variations (size, color, etc.):
-- Map them as 'attribute:ATTRIBUTE_NAME'
-- Example: variations.variation.attributes.size → attribute:size
-- Example: variations.variation.attributes.color → attribute:color
-- Example: variations.variation.color → attribute:color  
-- Example: offer.param[name=Размер] → attribute:size
-- ALL attributes found in variations MUST be mapped!
-
-=== ATTRIBUTE DETECTION ===
-Attributes are properties used for product variations. Look for:
-- Fields named: size, color, colour, material, style, format, capacity, volume
-- Latvian: izmērs, krāsa, materiāls, formāts
-- German: größe, farbe, material
-- Russian: размер, цвет, материал
-- Fields inside variation containers with values like: S, M, L, XL, Red, Blue, 42, 44
-
-Map attributes as 'attribute:ATTRIBUTE_NAME' format, e.g.:
-- size, sizes, izmērs → attribute:size
-- color, colour, krāsa → attribute:color
-- material, materiāls → attribute:material
-
-=== DOWNLOADABLE & VIRTUAL PRODUCTS ===
-Look for:
-- virtual, is_virtual, digital → virtual
-- downloadable, is_downloadable → downloadable
-- download_url, file_url, download_link → downloadable_files
-- download_limit, max_downloads → download_limit
-- download_expiry, expiry_days → download_expiry
-
-=== MULTI-LANGUAGE FIELD PATTERNS ===
-Consider multiple languages when matching field names:
-- Latvian: Artikuls, Nosaukums, Cena, Daudzums, Apraksts, Kategorija, Attēls, Svars, Izmērs, Krāsa
-- English: SKU, Name, Title, Price, Stock, Quantity, Description, Category, Image, Weight, Size, Color
-- German: Artikelnummer, Bezeichnung, Preis, Lager, Bestand, Beschreibung, Kategorie, Bild, Größe, Farbe
-- Russian: Артикул, Название, Цена, Количество, Описание, Категория, Изображение, Размер, Цвет
-
-=== COMMON FIELD PATTERNS ===
-- Contains 'sku', 'code', 'article', 'artikul', 'product_code' → sku
-- Contains 'id', 'product_id', 'woo_id' (numeric ID) → id
-- Contains 'slug', 'url_key', 'permalink', 'handle' → slug
-- Contains 'name', 'title', 'nosaukums', 'bezeichnung', 'название' → name
-- Contains 'price', 'cena', 'preis', 'цена', 'regular' → regular_price
-- Contains 'sale', 'discount', 'atlaide' → sale_price
-- Contains 'stock', 'qty', 'quantity', 'daudzums', 'bestand', 'количество', 'inventory' → stock_quantity
-- Contains 'description', 'apraksts', 'beschreibung', 'описание', 'desc' → description
-- Contains 'short_desc', 'summary', 'īss_apraksts' → short_description
-- Contains 'category', 'kategorija', 'kategorie', 'категория', 'cat' → categories
-- Contains 'tag', 'birka', 'тег' → tags
-- Contains 'image', 'picture', 'photo', 'attēls', 'bild', 'изображение', 'img' → images
-- Contains 'brand', 'manufacturer', 'ražotājs', 'hersteller', 'производитель', 'zīmols' → brand
-- Contains 'weight', 'svars', 'gewicht', 'вес' → weight
-- Contains 'type', 'product_type' → type
-- Contains 'variations', 'variants', 'offers' → variations
-
-=== SPECIAL XML STRUCTURE PATTERNS ===
-For XML files, recognize these common structures:
-1. Mobilux format: <xml><good>...<offers><offer>...</offer></offers></good></xml>
-2. Standard: <products><product>...<variations><variation>...</variation></variations></product></products>
-3. WooCommerce export: similar to CSV with flat structure
-4. Prestashop: <product><combinations>...</combinations></product>
-
-Return ONLY a valid JSON object with this exact structure - no explanations, no markdown, just the JSON:
+=== OUTPUT FORMAT ===
+Return ONLY valid JSON (no markdown, no explanation):
 {
   \"mappings\": {
-    \"parent_sku\": \"sku\",
-    \"name\": \"name\",
-    \"description\": \"description\",
-    \"short_description\": \"short_description\",
-    \"regular_price\": \"regular_price\",
-    \"sale_price\": \"sale_price\",
-    \"categories\": \"categories\",
-    \"tags\": \"tags\",
-    \"images.image\": \"images\",
-    \"brand\": \"brand\",
-    \"weight\": \"weight\",
-    \"variations.variation.parent_sku\": \"variation_parent_sku\",
-    \"variations.variation.sku\": \"variation_sku\",
-    \"variations.variation.regular_price\": \"variation_price\",
-    \"variations.variation.sale_price\": \"variation_sale_price\",
-    \"variations.variation.stock_quantity\": \"variation_stock\",
-    \"variations.variation.stock_status\": \"variation_stock_status\",
-    \"variations.variation.manage_stock\": \"variation_manage_stock\",
-    \"variations.variation.weight\": \"variation_weight\",
-    \"variations.variation.image\": \"variation_image\",
-    \"variations.variation.description\": \"variation_description\",
-    \"variations.variation.backorders\": \"variation_backorders\",
-    \"variations.variation.low_stock_amount\": \"variation_low_stock_amount\",
-    \"variations.variation.virtual\": \"variation_virtual\",
-    \"variations.variation.downloadable\": \"variation_downloadable\",
-    \"variations.variation.download_limit\": \"variation_download_limit\",
-    \"variations.variation.download_expiry\": \"variation_download_expiry\",
-    \"variations.variation.attributes.size\": \"attribute:size\",
-    \"variations.variation.attributes.color\": \"attribute:color\"
+    \"source_field\": \"woocommerce_field\",
+    ...MUST have exactly {$source_field_count} entries...
   },
-  \"confidence\": {
-    \"parent_sku\": 95,
-    \"name\": 98
-  },
+  \"confidence\": {\"field\": 80, ...},
   \"unmapped\": [],
-  \"product_structure\": {
-    \"type\": \"variable\",
-    \"has_variations\": true,
-    \"variation_path\": \"variations.variation\",
-    \"detected_attributes\": [\"size\", \"color\"],
-    \"variation_fields\": [\"parent_sku\", \"sku\", \"regular_price\", \"sale_price\", \"stock_quantity\", \"stock_status\", \"manage_stock\", \"weight\", \"image\", \"backorders\", \"low_stock_amount\", \"virtual\", \"downloadable\", \"download_limit\", \"download_expiry\", \"description\"]
-  }
+  \"product_structure\": {\"type\": \"simple\", \"has_variations\": false}
 }
 
-=== ABSOLUTE REQUIREMENTS - FOLLOW EXACTLY ===
-
-1. MAP EVERY SINGLE SOURCE FIELD! Count: {$source_field_count} fields. Your mappings object MUST have {$source_field_count} entries!
-
-2. For fields inside 'variations.variation.*' - use these EXACT mappings:
-   - .virtual → variation_virtual
-   - .downloadable → variation_downloadable
-   - .download_limit → variation_download_limit
-   - .download_expiry → variation_download_expiry
-   - .sale_price → variation_sale_price
-   - .regular_price → variation_price
-   - .price → variation_price
-   - .sku → variation_sku
-   - .parent_sku → variation_parent_sku
-   - .stock_quantity → variation_stock
-   - .stock_status → variation_stock_status
-   - .manage_stock → variation_manage_stock
-   - .backorders → variation_backorders
-   - .low_stock_amount → variation_low_stock_amount
-   - .weight → variation_weight
-   - .image → variation_image
-   - .description → variation_description
-   - .gtin or .ean or .upc → variation_gtin
-
-3. For fields inside 'variations.variation[0].attributes.*' - use 'attribute:FIELD_NAME' format
-   Example: variations.variation[0].attributes.license_type → attribute:license_type
-
-4. 'unmapped' array should be EMPTY if you mapped everything correctly!
-
-5. DO NOT SKIP virtual, downloadable, download_limit, download_expiry - these are CRITICAL!
-
-6. Set confidence to at least 60 for all mapped fields";
+=== FINAL CHECK ===
+Count your mappings - there MUST be exactly {$source_field_count} entries!
+Every image field → images
+Every weight field → weight
+Every dimension field → width/height/length
+NO FIELD LEFT UNMAPPED!";
 
         try {
             $result = $this->process_field('', $prompt, array(
                 'provider' => $provider,
-                'temperature' => 0.1,  // Low temperature for consistent results
-                'max_tokens' => 4000  // Increased for more fields
+                'temperature' => 0.2,  // Slightly higher for better field matching
+                'max_tokens' => 4096   // Maximum for gpt-3.5-turbo
             ));
             
             // Parse JSON response - try to extract JSON from response

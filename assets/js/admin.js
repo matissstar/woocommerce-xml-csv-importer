@@ -444,6 +444,14 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                         // Split message - base message and variable product part
                         var baseMessage = response.data.message;
                         var variableInfo = '';
+                        var warningInfo = '';
+                        
+                        // Extract warning from message
+                        if (baseMessage.includes('Warning:')) {
+                            var warnParts = baseMessage.split('Warning:');
+                            baseMessage = warnParts[0].trim();
+                            warningInfo = warnParts[1].split('Variable product')[0].trim();
+                        }
                         
                         // Extract variable product info from message
                         if (baseMessage.includes('Variable product structure')) {
@@ -453,8 +461,11 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                         }
                         
                         // Show result
-                        var resultHtml = '<div style="color: #90EE90;">';
+                        var resultHtml = '<div style="color: #155724; background: #d4edda; padding: 10px 14px; border-radius: 6px; border: 1px solid #c3e6cb;">';
                         resultHtml += '<strong>✅ ' + baseMessage + '</strong>';
+                        if (warningInfo) {
+                            resultHtml += '<div style="margin-top: 8px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404; font-weight: 600;">⚠️ Warning: ' + warningInfo + '</div>';
+                        }
                         if (variableInfo) {
                             resultHtml += '<br><span style="color: #64b5f6; font-weight: 600;">📦 ' + variableInfo + '</span>';
                         }
@@ -818,8 +829,8 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             if ($row.length > 0) {
                 var mapped = false;
                 
-                // First try textarea (new UI) - wrap field in {field} template syntax
-                var $textarea = $row.find('.field-mapping-textarea');
+                // First try textarea (both classes: .field-mapping-textarea and .field-source-textarea)
+                var $textarea = $row.find('.field-mapping-textarea, .field-source-textarea');
                 if ($textarea.length > 0) {
                     // Set the value with template syntax {field}
                     var templateValue = '{' + sourceField + '}';
@@ -4619,6 +4630,9 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         });
     }
     
+    // Track currently loaded recipe ID
+    var currentLoadedRecipeId = null;
+    
     /**
      * Save Recipe button click
      */
@@ -4639,6 +4653,10 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         var mappingData = collectMappingData();
         console.log('Saving recipe with mapping data:', mappingData);
         
+        // Check if we have a loaded recipe ID to update
+        var selectedRecipeId = $('#recipe-select').val();
+        var recipeIdToSend = currentLoadedRecipeId || selectedRecipeId || '';
+        
         $.ajax({
             url: wc_xml_csv_ai_import_ajax.ajax_url,
             type: 'POST',
@@ -4646,12 +4664,15 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 action: 'wc_xml_csv_ai_import_save_recipe',
                 nonce: wc_xml_csv_ai_import_ajax.nonce,
                 recipe_name: recipeName,
+                recipe_id: recipeIdToSend,
                 mapping_data: mappingData
             },
             success: function(response) {
                 if (response.success) {
                     showRecipeStatus('✅ ' + response.data.message, 'success');
-                    $('#recipe-name-input').val('');
+                    
+                    // Update currentLoadedRecipeId with the saved recipe ID
+                    currentLoadedRecipeId = response.data.recipe_id;
                     
                     // Refresh recipes dropdown
                     if (response.data.recipes) {
@@ -4663,6 +4684,9 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                                 text: recipe.name + ' (' + recipe.created_at.split(' ')[0] + ')'
                             }));
                         });
+                        
+                        // Select the saved recipe in dropdown
+                        $select.val(response.data.recipe_id);
                     }
                 } else {
                     showRecipeStatus('❌ ' + response.data.message, 'error');
@@ -4709,6 +4733,9 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                     // Fill the save template name field with loaded recipe name
                     $('#recipe-name-input').val(response.data.recipe.name);
                     
+                    // Track loaded recipe ID for updating
+                    currentLoadedRecipeId = recipeId;
+                    
                     showRecipeStatus('✅ Recipe "' + response.data.recipe.name + '" loaded successfully', 'success');
                 } else {
                     showRecipeStatus('❌ ' + (response.data.message || 'Failed to load recipe'), 'error');
@@ -4754,6 +4781,10 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             success: function(response) {
                 if (response.success) {
                     showRecipeStatus('✅ Recipe deleted', 'success');
+                    
+                    // Clear loaded recipe tracking
+                    currentLoadedRecipeId = null;
+                    $('#recipe-name-input').val('');
                     
                     // Refresh recipes dropdown
                     if (response.data.recipes) {

@@ -1,0 +1,26 @@
+# Files to EXCLUDE from FREE version
+# These files contain Pro-only functionality
+
+# AI Provider (AI auto-mapping, AI processing)
+includes/class-wc-xml-csv-ai-import-ai-providers.php
+
+# Scheduler (Cron/automated imports)
+includes/class-wc-xml-csv-ai-import-scheduler.php
+
+# Build files (not needed in distribution)
+build.sh
+build-config/
+.git/
+.gitignore
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
+tests/
+phpunit.xml
+composer.json
+composer.lock
+package.json
+package-lock.json
+*.md
+!readme.txt

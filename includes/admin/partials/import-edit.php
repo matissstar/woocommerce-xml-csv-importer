@@ -679,7 +679,7 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
         
         <!-- Automated Schedule (PRO only) -->
         <?php 
-        if (WC_XML_CSV_AI_Import_License::can('scheduling')): 
+        if (WC_XML_CSV_AI_Import_Features::is_available('scheduled_import')): 
             $schedule_method = $import['schedule_method'] ?? 'action_scheduler';
             $global_settings = get_option('wc_xml_csv_ai_import_settings', array());
             $cron_secret = $global_settings['cron_secret_key'] ?? '';

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Bootflow WooCommerce XML/CSV Importer - PRO Features List</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 40px; }
+h1 { color: #667eea; }
+h2 { color: #764ba2; border-bottom: 2px solid #764ba2; padding-bottom: 5px; }
+h3 { color: #333; }
+table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
+th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+tr:nth-child(even) { background-color: #f9f9f9; }
+.pro-badge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Bootflow – WooCommerce XML &amp; CSV Importer</h1>
+<h2>PRO Features List</h2>
+
+<h3>1. Step 1 - Upload (step-1-upload.php)</h3>
+<table>
+<tr><th>Vieta</th><th>Funkcija</th><th>Ko atrisina PRO</th></tr>
+<tr>
+<td><strong>Remote URL import</strong><br>(rinda ~145-147)</td>
+<td>URL lauka blakus ir PRO badge, lauks ir ar opacity: 0.7 un bloķēts</td>
+<td>Ļauj importēt no attālināta URL (http/https) nevis tikai lokāli augšupielādētiem failiem</td>
+</tr>
+</table>
+
+<h3>2. Step 2 - Mapping (step-2-mapping.php)</h3>
+<table>
+<tr><th>Vieta</th><th>Funkcija</th><th>Ko atrisina PRO</th></tr>
+<tr>
+<td><strong>Scheduled Import</strong><br>(rinda ~400)</td>
+<td>PRO badge pie "Schedule Type" dropdown</td>
+<td>Automātiski ieplānoti importi (reizi stundā, dienā, nedēļā) bez manuālas palaišanas</td>
+</tr>
+<tr>
+<td><strong>Mapping Templates/Recipes</strong><br>(rinda ~551-555)</td>
+<td>PRO badge pie "Mapping Recipes" sadaļas</td>
+<td>Saglabāt un atkārtoti lietot mapping konfigurācijas vairākiem importiem</td>
+</tr>
+<tr>
+<td><strong>Import Filters</strong><br>(rinda ~2237-2253)</td>
+<td>PRO badge un Upgrade poga pie "Import Filters" sadaļas</td>
+<td>Filtrēt produktus pēc nosacījumiem (importēt tikai noteiktas kategorijas, cenu diapazona, utt.)</td>
+</tr>
+<tr>
+<td><strong>PRO Feature Modal</strong><br>(rinda ~2994-3015)</td>
+<td>Popup modāls ar "Upgrade to Pro →" pogu</td>
+<td>Parādās klikšķinot uz jebkuru PRO badge, piedāvā upgrade</td>
+</tr>
+</table>
+
+<h3>3. Import Edit (import-edit.php)</h3>
+<table>
+<tr><th>Vieta</th><th>Funkcija</th><th>Ko atrisina PRO</th></tr>
+<tr>
+<td><strong>Processing Modes sadaļa</strong><br>(rinda ~768-778)</td>
+<td>PRO badge un Upgrade poga pie processing režīmiem</td>
+<td>PHP Formula un AI Processing režīmi lauku apstrādei</td>
+</tr>
+</table>
+
+<h3>4. Settings Page (settings-page.php)</h3>
+<table>
+<tr><th>Vieta</th><th>Funkcija</th><th>Ko atrisina PRO</th></tr>
+<tr>
+<td><strong>License aktivācija</strong><br>(rinda ~180)</td>
+<td>Teksts par PRO licences ievadi</td>
+<td>Aktivizēt PRO licenci lai atbloķētu funkcijas</td>
+</tr>
+<tr>
+<td><strong>AI Providers tab</strong><br>(rinda ~740-752)</td>
+<td>PRO badge un Upgrade poga pie AI Providers sadaļas</td>
+<td>Konfigurēt AI providera API atslēgas (OpenAI, Anthropic)</td>
+</tr>
+</table>
+
+<h3>5. Progress/Run Page (class-wc-xml-csv-ai-import-admin.php)</h3>
+<table>
+<tr><th>Vieta</th><th>Funkcija</th><th>Ko atrisina PRO</th></tr>
+<tr>
+<td><strong>Background Import promo</strong><br>(rinda ~3269-3323)</td>
+<td>Liela violetā promo karte ar "Unlock all PRO features" pogu</td>
+<td>Pilnais PRO promo bloks ar funkciju sarakstu</td>
+</tr>
+</table>
+
+<h3>6. Backend Funkcionalitāte (kods, nav UI)</h3>
+<table>
+<tr><th>Vieta</th><th>Funkcija</th><th>Ko atrisina PRO</th></tr>
+<tr>
+<td><strong>PHP Formula processing</strong><br>(processor.php ~97, admin.php ~2364-2369)</td>
+<td>Atgriež kļūdu ja mēģina lietot PHP formulas</td>
+<td>Dinamiskas PHP formulas lauku aprēķiniem (piemēram, cenas = bāzes_cena * 1.2)</td>
+</tr>
+<tr>
+<td><strong>Shipping Formula</strong><br>(admin.php ~2594-2599, importer.php ~6854)</td>
+<td>Atgriež kļūdu ja mēģina lietot shipping formulas</td>
+<td>Dinamiska piegādes izmaksu aprēķināšana</td>
+</tr>
+<tr>
+<td><strong>Selective Field Update</strong><br>(importer.php ~2420)</td>
+<td>FREE vienmēr atjaunina visus laukus</td>
+<td>Izvēlēties kurus laukus atjaunot (tikai cenu, tikai stock, utt.)</td>
+</tr>
+<tr>
+<td><strong>Scheduled Imports</strong><br>(admin.php ~2647)</td>
+<td>Logins ka scheduling ir PRO</td>
+<td>Automātiski ieplānoti importi ar WP-Cron vai Server Cron</td>
+</tr>
+</table>
+
+<hr>
+<p><strong>Kopsavilkums:</strong> 10 UI vietas + 4 backend funkcijas = <strong>14 PRO ierobežojumi</strong></p>
+
+</body>
+</html>

@@ -1167,10 +1167,12 @@ class WC_XML_CSV_AI_Import_Admin {
      * @since    1.0.0
      */
     public function display_settings_page() {
+        // Handle form submission
         if (isset($_POST['submit'])) {
             $this->save_settings();
         }
         
+        // Load settings
         $settings = get_option('wc_xml_csv_ai_import_settings', array());
         
         // Generate secret key if not exists
@@ -1179,127 +1181,8 @@ class WC_XML_CSV_AI_Import_Admin {
             update_option('wc_xml_csv_ai_import_settings', $settings);
         }
         
-        echo '<div class="wrap">';
-        echo '<h1>' . __('Import Settings', 'wc-xml-csv-import') . '</h1>';
-        
-        echo '<form method="post" action="">';
-        wp_nonce_field('wc_xml_csv_ai_import_settings', 'wc_xml_csv_ai_import_settings_nonce');
-        
-        echo '<table class="form-table">';
-        
-        // General Settings
-        echo '<tr>';
-        echo '<th scope="row">' . __('Chunk Size', 'wc-xml-csv-import') . '</th>';
-        echo '<td>';
-        echo '<input type="number" name="chunk_size" value="' . esc_attr($settings['chunk_size'] ?? 50) . '" min="1" max="500" />';
-        echo '<p class="description">' . __('Number of products to process per batch.', 'wc-xml-csv-import') . '</p>';
-        echo '</td>';
-        echo '</tr>';
-        
-        echo '<tr>';
-        echo '<th scope="row">' . __('Max File Size (MB)', 'wc-xml-csv-import') . '</th>';
-        echo '<td>';
-        echo '<input type="number" name="max_file_size" value="' . esc_attr($settings['max_file_size'] ?? 100) . '" min="1" max="1000" />';
-        echo '<p class="description">' . __('Maximum allowed file size for uploads.', 'wc-xml-csv-import') . '</p>';
-        echo '</td>';
-        echo '</tr>';
-        
-        echo '</table>';
-        
-        // Cron Settings - PRO only
-        if (WC_XML_CSV_AI_Import_License::get_tier() === 'pro') {
-            echo '<h2>' . __('Cron Settings', 'wc-xml-csv-import') . '</h2>';
-            echo '<table class="form-table">';
-            
-            // Generate or retrieve secret key
-            if (empty($settings['cron_secret_key'])) {
-                $settings['cron_secret_key'] = wp_generate_password(32, false);
-                update_option('wc_xml_csv_ai_import_settings', $settings);
-            }
-            
-            $cron_url = admin_url('admin-ajax.php?action=wc_xml_csv_ai_import_cron&secret=' . $settings['cron_secret_key']);
-            
-            echo '<tr>';
-            echo '<th scope="row">' . __('Cron Secret Key', 'wc-xml-csv-import') . '</th>';
-            echo '<td>';
-            echo '<input type="text" value="' . esc_attr($settings['cron_secret_key']) . '" class="regular-text" readonly />';
-            echo '<button type="button" class="button" onclick="navigator.clipboard.writeText(\'' . esc_js($settings['cron_secret_key']) . '\'); alert(\'Copied!\');">' . __('Copy', 'wc-xml-csv-import') . '</button>';
-            echo '<p class="description">' . __('This key is used to secure your cron endpoint.', 'wc-xml-csv-import') . '</p>';
-            echo '</td>';
-            echo '</tr>';
-            
-            echo '<tr>';
-            echo '<th scope="row">' . __('Cron URL', 'wc-xml-csv-import') . '</th>';
-            echo '<td>';
-            echo '<input type="text" value="' . esc_attr($cron_url) . '" class="large-text" readonly />';
-            echo '<button type="button" class="button" onclick="navigator.clipboard.writeText(\'' . esc_js($cron_url) . '\'); alert(\'Copied!\');">' . __('Copy', 'wc-xml-csv-import') . '</button>';
-            echo '<p class="description">' . __('Use this URL in your cPanel cron job.', 'wc-xml-csv-import') . '</p>';
-            echo '</td>';
-            echo '</tr>';
-            
-            echo '<tr>';
-            echo '<th scope="row">' . __('cPanel Cron Command', 'wc-xml-csv-import') . '</th>';
-            echo '<td>';
-            echo '<p><strong>' . __('For Every 15 Minutes:', 'wc-xml-csv-import') . '</strong></p>';
-            $cron_cmd_15 = "*/15 * * * * wget -q -O - " . esc_attr($cron_url) . " >/dev/null 2>&1";
-            echo '<code style="display:block; padding:10px; background:#f5f5f5; margin:10px 0;">' . esc_html($cron_cmd_15) . '</code>';
-            echo '<button type="button" class="button" onclick="navigator.clipboard.writeText(\'' . esc_js($cron_cmd_15) . '\'); alert(\'Copied!\');">' . __('Copy Command', 'wc-xml-csv-import') . '</button>';
-            
-            echo '<p style="margin-top:20px;"><strong>' . __('For Every Hour:', 'wc-xml-csv-import') . '</strong></p>';
-            $cron_cmd_60 = "0 * * * * wget -q -O - " . esc_attr($cron_url) . " >/dev/null 2>&1";
-            echo '<code style="display:block; padding:10px; background:#f5f5f5; margin:10px 0;">' . esc_html($cron_cmd_60) . '</code>';
-            echo '<button type="button" class="button" onclick="navigator.clipboard.writeText(\'' . esc_js($cron_cmd_60) . '\'); alert(\'Copied!\');">' . __('Copy Command', 'wc-xml-csv-import') . '</button>';
-            
-            echo '<p style="margin-top:20px;"><strong>' . __('For Every 6 Hours:', 'wc-xml-csv-import') . '</strong></p>';
-            $cron_cmd_6h = "0 */6 * * * wget -q -O - " . esc_attr($cron_url) . " >/dev/null 2>&1";
-            echo '<code style="display:block; padding:10px; background:#f5f5f5; margin:10px 0;">' . esc_html($cron_cmd_6h) . '</code>';
-            echo '<button type="button" class="button" onclick="navigator.clipboard.writeText(\'' . esc_js($cron_cmd_6h) . '\'); alert(\'Copied!\');">' . __('Copy Command', 'wc-xml-csv-import') . '</button>';
-            
-            echo '<p class="description" style="margin-top:20px;">';
-            echo __('Add this command to your cPanel Cron Jobs (Advanced cron jobs section). The schedule depends on which import you want to run automatically.', 'wc-xml-csv-import');
-            echo '</p>';
-            echo '</td>';
-            echo '</tr>';
-            
-            echo '</table>';
-        }
-        
-        // AI Settings - PRO only
-        if (WC_XML_CSV_AI_Import_License::get_tier() === 'pro') {
-            echo '<h2>' . __('AI Settings', 'wc-xml-csv-import') . '</h2>';
-            echo '<table class="form-table">';
-            
-            // AI Settings
-            echo '<tr>';
-            echo '<th scope="row">' . __('Default AI Provider', 'wc-xml-csv-import') . '</th>';
-            echo '<td>';
-            echo '<select name="default_ai_provider">';
-            $providers = array('openai' => 'OpenAI', 'gemini' => 'Google Gemini', 'claude' => 'Anthropic Claude', 'grok' => 'xAI Grok', 'copilot' => 'Microsoft Copilot');
-            foreach ($providers as $value => $label) {
-                $selected = ($settings['default_ai_provider'] ?? 'openai') == $value ? 'selected' : '';
-                echo '<option value="' . esc_attr($value) . '" ' . $selected . '>' . esc_html($label) . '</option>';
-            }
-            echo '</select>';
-            echo '</td>';
-            echo '</tr>';
-            
-            // AI API Keys
-            foreach ($providers as $provider => $label) {
-                echo '<tr>';
-                echo '<th scope="row">' . sprintf(__('%s API Key', 'wc-xml-csv-import'), $label) . '</th>';
-                echo '<td>';
-                echo '<input type="password" name="ai_api_keys[' . $provider . ']" value="' . esc_attr($settings['ai_api_keys'][$provider] ?? '') . '" class="regular-text" />';
-                echo '</td>';
-                echo '</tr>';
-            }
-            
-            echo '</table>';
-        }
-        
-        submit_button();
-        
-        echo '</form>';
-        echo '</div>';
+        // Include the settings page partial (with all tabs)
+        include_once WC_XML_CSV_AI_IMPORT_PLUGIN_DIR . 'includes/admin/partials/settings-page.php';
     }
 
     /**
@@ -1322,26 +1205,17 @@ class WC_XML_CSV_AI_Import_Admin {
             return 'return ' . $formula . ';';
         }
         
-        // Handle if statements - normalize common patterns
-        // Pattern: "if (condition) return value" or "if (condition)\nreturn value"
-        // Convert to: "if (condition) { return value; } return $value;"
+        // For complex formulas with control structures, keep the original formatting
+        // Only do minimal normalization to preserve multi-line code blocks
         
-        // First, normalize whitespace - replace newlines with spaces
-        $formula = preg_replace('/\s+/', ' ', $formula);
-        
-        // Pattern: if (...) return 'value' (without braces)
-        // Match: if (condition) return something
-        if (preg_match('/^if\s*\((.+?)\)\s*return\s+(.+?)(?:;?\s*)?$/i', $formula, $matches)) {
-            $condition = trim($matches[1]);
-            $return_value = rtrim(trim($matches[2]), ';');
-            return "if ({$condition}) { return {$return_value}; } return \$value;";
+        // If formula already ends with return statement, use as-is
+        if (preg_match('/return\s+[^;]+;\s*$/i', $formula)) {
+            return $formula;
         }
         
-        // Pattern: if (...) { return ... } (has braces but no else)
-        if (preg_match('/^if\s*\(.+?\)\s*\{.+?\}\s*$/i', $formula) && 
-            stripos($formula, 'else') === false) {
-            // Add default return at end
-            return $formula . ' return $value;';
+        // If formula has else block covering all cases, use as-is
+        if (stripos($formula, 'else {') !== false || stripos($formula, 'else{') !== false) {
+            return $formula;
         }
         
         // Pattern: condition ? true : false (ternary without return)
@@ -1350,14 +1224,12 @@ class WC_XML_CSV_AI_Import_Admin {
             return 'return ' . $formula . ';';
         }
         
-        // If formula already has return statements in all branches, use as-is
-        // Just ensure it ends with semicolon
-        if (stripos($formula, 'return') !== false) {
-            // Check if there's a final return for else case
-            if (stripos($formula, 'else') === false && !preg_match('/return\s+[^;]+;\s*$/i', $formula)) {
-                // No else and doesn't end with return - add default
-                $formula = rtrim($formula, ';') . '; return $value;';
-            }
+        // For simple single-line if without braces, normalize
+        $single_line = preg_replace('/\s+/', ' ', $formula);
+        if (preg_match('/^if\s*\((.+?)\)\s*return\s+(.+?)(?:;?\s*)?$/i', $single_line, $matches)) {
+            $condition = trim($matches[1]);
+            $return_value = rtrim(trim($matches[2]), ';');
+            return "if ({$condition}) { return {$return_value}; } return \$value;";
         }
         
         return $formula;
@@ -2208,9 +2080,10 @@ class WC_XML_CSV_AI_Import_Admin {
             wp_send_json_error(array('message' => __('Import not found.', 'wc-xml-csv-import')));
         }
         
+        // Get only the 15 most recent logs, ordered by ID (more reliable than timestamp)
         $logs = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}wc_itp_import_logs WHERE import_id = %d ORDER BY created_at DESC LIMIT 300",
+                "SELECT * FROM {$wpdb->prefix}wc_itp_import_logs WHERE import_id = %d ORDER BY id DESC LIMIT 15",
                 $import_id
             ),
             ARRAY_A
@@ -2489,7 +2362,7 @@ class WC_XML_CSV_AI_Import_Admin {
         }
         
         // PRO feature check - PHP formulas require PRO license
-        if (!WC_XML_CSV_AI_Import_License::can('mode_php_formula')) {
+        if (!WC_XML_CSV_AI_Import_Features::is_available('php_processing')) {
             wp_send_json_error(array(
                 'message' => __('PHP Formula processing is a PRO feature. Please upgrade to use this functionality.', 'wc-xml-csv-import'),
                 'upgrade_required' => true,
@@ -2719,7 +2592,7 @@ class WC_XML_CSV_AI_Import_Admin {
         }
         
         // PRO feature check - Shipping formulas require PRO license
-        if (!WC_XML_CSV_AI_Import_License::can('mode_php_formula')) {
+        if (!WC_XML_CSV_AI_Import_Features::is_available('php_processing')) {
             wp_send_json_error(array(
                 'message' => __('Shipping formula processing is a PRO feature. Please upgrade to use this functionality.', 'wc-xml-csv-import'),
                 'upgrade_required' => true,
@@ -2770,7 +2643,7 @@ class WC_XML_CSV_AI_Import_Admin {
         global $wpdb;
         
         // PRO-only feature: scheduled imports require PRO license
-        if (!WC_XML_CSV_AI_Import_License::can('scheduling')) {
+        if (!WC_XML_CSV_AI_Import_Features::is_available('scheduled_import')) {
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Scheduling is a PRO feature'); }
             wp_die('Scheduled imports require PRO license', 'Forbidden', array('response' => 403));
         }
@@ -3214,7 +3087,7 @@ class WC_XML_CSV_AI_Import_Admin {
         }
         
         // Check if PRO feature is available
-        if (!WC_XML_CSV_AI_Import_License::can('import_logs')) {
+        if (!WC_XML_CSV_AI_Import_Features::is_available('detailed_logs')) {
             $this->display_logs_pro_upsell();
             return;
         }
@@ -3713,6 +3586,7 @@ class WC_XML_CSV_AI_Import_Admin {
         
         $recipe_name = sanitize_text_field($_POST['recipe_name'] ?? '');
         $mapping_data = isset($_POST['mapping_data']) ? $_POST['mapping_data'] : array();
+        $existing_recipe_id = sanitize_text_field($_POST['recipe_id'] ?? '');
         
         if (empty($recipe_name)) {
             wp_send_json_error(array('message' => __('Recipe name is required', 'wc-xml-csv-import')));
@@ -3721,22 +3595,50 @@ class WC_XML_CSV_AI_Import_Admin {
         // Get existing recipes
         $recipes = get_option('wc_xml_csv_ai_import_recipes', array());
         
-        // Generate unique ID
-        $recipe_id = sanitize_title($recipe_name) . '_' . time();
+        // Check if updating existing recipe (by ID) or by name match
+        $recipe_id = null;
+        $is_update = false;
         
-        // Save recipe
+        // First check if recipe_id was provided (loaded recipe)
+        if (!empty($existing_recipe_id) && isset($recipes[$existing_recipe_id])) {
+            $recipe_id = $existing_recipe_id;
+            $is_update = true;
+        } else {
+            // Check if a recipe with this name already exists
+            foreach ($recipes as $id => $recipe) {
+                if (strtolower($recipe['name']) === strtolower($recipe_name)) {
+                    $recipe_id = $id;
+                    $is_update = true;
+                    break;
+                }
+            }
+        }
+        
+        // If no existing recipe found, create new ID
+        if (!$recipe_id) {
+            $recipe_id = sanitize_title($recipe_name) . '_' . time();
+        }
+        
+        // Save/update recipe
         $recipes[$recipe_id] = array(
             'name' => $recipe_name,
             'mapping_data' => $mapping_data,
-            'created_at' => current_time('mysql'),
+            'created_at' => $is_update && isset($recipes[$recipe_id]['created_at']) 
+                ? $recipes[$recipe_id]['created_at'] 
+                : current_time('mysql'),
             'updated_at' => current_time('mysql')
         );
         
         update_option('wc_xml_csv_ai_import_recipes', $recipes);
         
+        $message = $is_update 
+            ? __('Recipe updated successfully', 'wc-xml-csv-import')
+            : __('Recipe saved successfully', 'wc-xml-csv-import');
+        
         wp_send_json_success(array(
-            'message' => __('Recipe saved successfully', 'wc-xml-csv-import'),
+            'message' => $message,
             'recipe_id' => $recipe_id,
+            'is_update' => $is_update,
             'recipes' => $this->get_recipes_list()
         ));
     }

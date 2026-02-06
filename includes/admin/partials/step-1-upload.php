@@ -16,8 +16,8 @@ $settings = get_option('wc_xml_csv_ai_import_settings', array());
 $max_file_size = isset($settings['max_file_size']) ? $settings['max_file_size'] : 100;
 
 // License checks
-$can_scheduling = WC_XML_CSV_AI_Import_License::can('scheduling');
-$can_import_url = WC_XML_CSV_AI_Import_License::can('import_url');
+$can_scheduling = WC_XML_CSV_AI_Import_Features::is_available('scheduled_import');
+$can_import_url = WC_XML_CSV_AI_Import_Features::is_available('remote_url_import');
 ?>
 
 <div class="wc-ai-import-step wc-ai-import-step-1">

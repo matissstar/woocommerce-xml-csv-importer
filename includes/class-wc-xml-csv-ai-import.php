@@ -236,7 +236,9 @@ class WC_XML_CSV_AI_Import {
         $this->loader->run();
         
         // Initialize the scheduler for PRO scheduled imports
-        WC_XML_CSV_AI_Import_Scheduler::get_instance();
+        if (defined('WC_XML_CSV_AI_IMPORT_IS_PRO') && WC_XML_CSV_AI_IMPORT_IS_PRO && class_exists('WC_XML_CSV_AI_Import_Scheduler')) {
+            WC_XML_CSV_AI_Import_Scheduler::get_instance();
+        }
     }
 
     /**

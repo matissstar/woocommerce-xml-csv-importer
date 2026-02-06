@@ -1,15 +1,15 @@
-# WooCommerce XML & CSV Importer
+# Bootflow – WooCommerce XML & CSV Importer (Pro)
 
-A professional WooCommerce product importer for XML and CSV feeds.
+Advanced WooCommerce product importer for XML and CSV feeds with automation, scheduled imports, and AI-assisted workflows.
 
 - **WordPress:** 5.8+
 - **PHP:** 7.4+
 - **License:** GPL v2 or later
-- **Landing page:** https://bootflow.io/
+- **Website:** https://bootflow.io/
 
 ## Overview
 
-**WooCommerce XML & CSV Importer** lets you import and update WooCommerce products from XML and CSV files using a reliable manual mapping workflow.
+**Bootflow – WooCommerce XML & CSV Importer (Pro)** provides advanced automation, scheduled imports, selective updates, and AI-assisted workflows for WooCommerce XML and CSV product feeds.
 
 The **Free** version is fully usable for real WooCommerce stores (no product limits).  
 The **Pro** version adds automation, selective updates, and optional AI-assisted data processing.

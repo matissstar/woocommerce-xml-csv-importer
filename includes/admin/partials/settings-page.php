@@ -616,7 +616,7 @@ $security_settings = get_option('wc_xml_csv_ai_import_security_settings', array(
             <h2><?php _e('Scheduled Imports (Cron)', 'wc-xml-csv-import'); ?></h2>
             
             <?php 
-            $can_scheduling = WC_XML_CSV_AI_Import_License::can('scheduling');
+            $can_scheduling = WC_XML_CSV_AI_Import_Features::is_available('scheduled_import');
             $cron_secret = $saved_settings['cron_secret_key'] ?? '';
             
             // Generate secret if not exists

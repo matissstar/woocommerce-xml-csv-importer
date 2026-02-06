@@ -3,6 +3,7 @@
  * License and Feature Management
  * 
  * Manages plugin tiers (Free/Pro) and feature access.
+ * Uses bootflow.io API for license validation.
  * 
  * Tier Philosophy:
  * - FREE: Full manual import tool, no artificial limits
@@ -21,6 +22,26 @@ if (!defined('ABSPATH')) {
 class WC_XML_CSV_AI_Import_License {
 
     /**
+     * API URL for license validation
+     */
+    const API_URL = 'https://bootflow.io/wp-json/bootflow/v1/license/validate';
+    
+    /**
+     * Option key for storing license data
+     */
+    const OPTION_KEY = 'wc_xml_csv_ai_import_license';
+    
+    /**
+     * Cache key for license status
+     */
+    const CACHE_KEY = 'wc_xml_csv_ai_import_license_cache';
+    
+    /**
+     * Cache expiry in seconds (24 hours)
+     */
+    const CACHE_EXPIRY = 86400;
+
+    /**
      * Current tier: 'free' or 'pro'
      *
      * @var string
@@ -33,6 +54,13 @@ class WC_XML_CSV_AI_Import_License {
      * @var array
      */
     private static $features = null;
+    
+    /**
+     * Cached validation result
+     *
+     * @var array|null
+     */
+    private static $cached_status = null;
 
     /**
      * Get the current license tier.
@@ -45,10 +73,18 @@ class WC_XML_CSV_AI_Import_License {
             return self::$current_tier;
         }
 
-        // Check saved license settings
-        $settings = get_option('wc_xml_csv_ai_import_settings', array());
-        $license_key = isset($settings['license_key']) ? $settings['license_key'] : '';
-        $license_tier = isset($settings['license_tier']) ? $settings['license_tier'] : 'free';
+        // Check if this is Free plugin (no license needed)
+        if (defined('WC_XML_CSV_AI_IMPORT_IS_PRO') && WC_XML_CSV_AI_IMPORT_IS_PRO === false) {
+            self::$current_tier = 'free';
+            return 'free';
+        }
+
+        // PRO plugin - for now, skip license validation (development mode)
+        // TODO: Enable license validation when bootflow.io API is ready
+        if (defined('WC_XML_CSV_AI_IMPORT_IS_PRO') && WC_XML_CSV_AI_IMPORT_IS_PRO === true) {
+            self::$current_tier = 'pro';
+            return 'pro';
+        }
 
         // For development/testing: check if explicitly set
         if (defined('WC_XML_CSV_AI_IMPORT_TIER')) {
@@ -56,20 +92,227 @@ class WC_XML_CSV_AI_Import_License {
             return self::$current_tier;
         }
 
-        // If license key is set and tier is valid, use it
-        // Map legacy 'agency'/'advanced' tiers to 'pro'
+        // Check saved license settings (for future use with bootflow.io)
+        $settings = get_option('wc_xml_csv_ai_import_settings', array());
+        $license_key = isset($settings['license_key']) ? $settings['license_key'] : '';
+
+        // If license key is set, validate it
         if (!empty($license_key)) {
-            if (in_array($license_tier, array('pro', 'agency', 'advanced'))) {
-                self::$current_tier = 'pro';
-            } else {
-                self::$current_tier = 'free';
+            // Check cached validation first
+            $cached = self::get_cached_status();
+            if ($cached !== null) {
+                self::$current_tier = $cached['valid'] ? 'pro' : 'free';
+                return self::$current_tier;
             }
-        } else {
-            // Default to FREE (production mode)
-            self::$current_tier = 'free';
+            
+            // Validate with API (will cache result)
+            $validation = self::validate($license_key);
+            if ($validation['valid']) {
+                self::$current_tier = 'pro';
+                return 'pro';
+            }
         }
 
+        // Default to FREE
+        self::$current_tier = 'free';
         return self::$current_tier;
+    }
+    
+    /**
+     * Check if license is valid (Pro active)
+     *
+     * @since    1.0.0
+     * @return   bool
+     */
+    public static function is_valid() {
+        return self::get_tier() === 'pro';
+    }
+    
+    /**
+     * Validate license key with bootflow.io API
+     *
+     * @since    1.0.0
+     * @param    string $license_key License key to validate
+     * @return   array  Validation result
+     */
+    public static function validate($license_key = null) {
+        // Get license key from settings if not provided
+        if ($license_key === null) {
+            $settings = get_option('wc_xml_csv_ai_import_settings', array());
+            $license_key = isset($settings['license_key']) ? $settings['license_key'] : '';
+        }
+        
+        if (empty($license_key)) {
+            return array(
+                'valid' => false,
+                'message' => __('No license key provided.', 'wc-xml-csv-import'),
+                'features' => array(),
+                'expires_at' => null,
+            );
+        }
+        
+        // Check cache first
+        $cached = self::get_cached_status();
+        if ($cached !== null && isset($cached['license_key']) && $cached['license_key'] === $license_key) {
+            return $cached;
+        }
+        
+        // Make API request
+        $result = self::api_request($license_key);
+        
+        // Cache the result
+        self::cache_status($result, $license_key);
+        
+        return $result;
+    }
+    
+    /**
+     * Make API request to validate license
+     *
+     * @since    1.0.0
+     * @param    string $license_key License key
+     * @return   array  API response
+     */
+    private static function api_request($license_key) {
+        $response = wp_remote_post(self::API_URL, array(
+            'timeout' => 15,
+            'headers' => array(
+                'Content-Type' => 'application/json',
+            ),
+            'body' => wp_json_encode(array(
+                'license_key' => $license_key,
+                'site_url' => home_url(),
+                'site_name' => get_bloginfo('name'),
+                'plugin_version' => defined('WC_XML_CSV_AI_IMPORT_VERSION') ? WC_XML_CSV_AI_IMPORT_VERSION : '0.9',
+                'product_id' => 'xml-csv-importer-pro',
+            )),
+        ));
+        
+        // Handle connection errors - fallback to invalid
+        if (is_wp_error($response)) {
+            return array(
+                'valid' => false,
+                'message' => __('Could not connect to license server. Please try again later.', 'wc-xml-csv-import'),
+                'features' => array(),
+                'expires_at' => null,
+                'error' => $response->get_error_message(),
+            );
+        }
+        
+        $code = wp_remote_retrieve_response_code($response);
+        $body = wp_remote_retrieve_body($response);
+        $data = json_decode($body, true);
+        
+        // API returned error or invalid response
+        if ($code !== 200 || !is_array($data)) {
+            return array(
+                'valid' => false,
+                'message' => isset($data['message']) ? $data['message'] : __('Invalid license key.', 'wc-xml-csv-import'),
+                'features' => array(),
+                'expires_at' => null,
+            );
+        }
+        
+        // Valid response from API
+        return array(
+            'valid' => !empty($data['valid']),
+            'message' => isset($data['message']) ? $data['message'] : '',
+            'features' => isset($data['features']) ? $data['features'] : array(),
+            'expires_at' => isset($data['expires_at']) ? $data['expires_at'] : null,
+            'plan' => isset($data['plan']) ? $data['plan'] : 'pro',
+        );
+    }
+    
+    /**
+     * Get cached license status
+     *
+     * @since    1.0.0
+     * @return   array|null  Cached status or null
+     */
+    public static function get_cached_status() {
+        if (self::$cached_status !== null) {
+            return self::$cached_status;
+        }
+        
+        $cached = get_transient(self::CACHE_KEY);
+        if ($cached !== false && is_array($cached)) {
+            self::$cached_status = $cached;
+            return $cached;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Cache license status
+     *
+     * @since    1.0.0
+     * @param    array  $status Status to cache
+     * @param    string $license_key License key
+     */
+    private static function cache_status($status, $license_key) {
+        $status['license_key'] = $license_key;
+        $status['cached_at'] = time();
+        
+        set_transient(self::CACHE_KEY, $status, self::CACHE_EXPIRY);
+        self::$cached_status = $status;
+    }
+    
+    /**
+     * Clear license cache
+     *
+     * @since    1.0.0
+     */
+    public static function clear_cache() {
+        delete_transient(self::CACHE_KEY);
+        self::$cached_status = null;
+        self::$current_tier = null;
+    }
+    
+    /**
+     * Get license key from settings
+     *
+     * @since    1.0.0
+     * @return   string
+     */
+    public static function get_license_key() {
+        $settings = get_option('wc_xml_csv_ai_import_settings', array());
+        return isset($settings['license_key']) ? $settings['license_key'] : '';
+    }
+    
+    /**
+     * Save license key to settings
+     *
+     * @since    1.0.0
+     * @param    string $key License key
+     */
+    public static function save_license_key($key) {
+        $settings = get_option('wc_xml_csv_ai_import_settings', array());
+        $settings['license_key'] = sanitize_text_field($key);
+        update_option('wc_xml_csv_ai_import_settings', $settings);
+        
+        // Clear cache to force re-validation
+        self::clear_cache();
+    }
+    
+    /**
+     * Get enabled features from license
+     *
+     * @since    1.0.0
+     * @return   array
+     */
+    public static function get_features() {
+        $cached = self::get_cached_status();
+        if ($cached !== null && isset($cached['features'])) {
+            return $cached['features'];
+        }
+        
+        // If Pro is valid, return all Pro features
+        if (self::is_valid()) {
+            return array('all'); // All Pro features enabled
+        }
+        
+        return array(); // No Pro features
     }
 
     /**

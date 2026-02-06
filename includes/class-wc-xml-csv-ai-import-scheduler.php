@@ -51,7 +51,7 @@ class WC_XML_CSV_AI_Import_Scheduler {
      */
     private function __construct() {
         // Only initialize if scheduling is available (PRO feature)
-        if (!WC_XML_CSV_AI_Import_License::can('scheduling')) {
+        if (!WC_XML_CSV_AI_Import_Features::is_available('scheduled_import')) {
             return;
         }
 
@@ -106,18 +106,98 @@ class WC_XML_CSV_AI_Import_Scheduler {
     }
 
     /**
+     * Rescue stuck imports that are in processing/pending state but have no scheduled action
+     * This handles cases where import was interrupted (timeout, page closed, error)
+     */
+    private function rescue_stuck_imports() {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'wc_itp_imports';
+
+        // Find imports that are processing/pending but haven't been updated in 5+ minutes
+        // This indicates they are stuck
+        $stuck_imports = $wpdb->get_results(
+            $wpdb->prepare("
+                SELECT id, processed_products, total_products, status, updated_at
+                FROM {$table_name}
+                WHERE status IN ('processing', 'pending')
+                AND total_products > 0
+                AND processed_products < total_products
+                AND updated_at < DATE_SUB(%s, INTERVAL 5 MINUTE)
+                LIMIT 3
+            ", current_time('mysql')),
+            ARRAY_A
+        );
+
+        if (empty($stuck_imports)) {
+            return;
+        }
+
+        foreach ($stuck_imports as $import) {
+            $import_id = intval($import['id']);
+            $offset = intval($import['processed_products']);
+
+            // Check if there's already a pending action for this import
+            if (as_has_scheduled_action(self::ACTION_PROCESS_CHUNK, array('import_id' => $import_id))) {
+                continue;
+            }
+
+            // Also check with offset parameter (Action Scheduler might store args differently)
+            $pending_actions = as_get_scheduled_actions(array(
+                'hook' => self::ACTION_PROCESS_CHUNK,
+                'status' => \ActionScheduler_Store::STATUS_PENDING,
+                'args' => array('import_id' => $import_id),
+                'per_page' => 1,
+            ), 'ids');
+
+            if (!empty($pending_actions)) {
+                continue;
+            }
+
+            // No pending action found - this import is stuck! Rescue it.
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WC XML CSV AI Import Scheduler: RESCUING stuck import ID ' . $import_id . 
+                         ' at offset ' . $offset . ' (last update: ' . $import['updated_at'] . ')');
+            }
+
+            // Update status to processing (in case it was pending)
+            $wpdb->update(
+                $table_name,
+                array(
+                    'status' => 'processing',
+                    'updated_at' => current_time('mysql')
+                ),
+                array('id' => $import_id),
+                array('%s', '%s'),
+                array('%d')
+            );
+
+            // Schedule the next chunk to continue from where it left off
+            as_schedule_single_action(
+                time(),
+                self::ACTION_PROCESS_CHUNK,
+                array('import_id' => $import_id, 'offset' => $offset),
+                'wc-xml-csv-import'
+            );
+        }
+    }
+
+    /**
      * Check for scheduled imports that need to run
      * Called by Action Scheduler every minute
      */
     public function check_scheduled_imports() {
         global $wpdb;
 
-        if (!WC_XML_CSV_AI_Import_License::can('scheduling')) {
+        if (!WC_XML_CSV_AI_Import_Features::is_available('scheduled_import')) {
             return;
         }
 
         $table_name = $wpdb->prefix . 'wc_itp_imports';
         $current_time = current_time('mysql');
+
+        // FIRST: Check for stuck imports (processing/pending without scheduled action)
+        $this->rescue_stuck_imports();
 
         // Find imports that are ready to run
         $scheduled_imports = $wpdb->get_results(

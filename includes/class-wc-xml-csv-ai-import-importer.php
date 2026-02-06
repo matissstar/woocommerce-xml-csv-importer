@@ -105,7 +105,7 @@ class WC_XML_CSV_AI_Import_Importer {
             $import_filters = array();
             
             // Only process filters if PRO license is active
-            if (WC_XML_CSV_AI_Import_License::can('filters_advanced')) {
+            if (WC_XML_CSV_AI_Import_Features::is_available('import_filters')) {
                 if (isset($import_data['import_filters']) && is_array($import_data['import_filters'])) {
                     foreach ($import_data['import_filters'] as $filter) {
                         if (!empty($filter['field']) && !empty($filter['operator'])) {
@@ -686,7 +686,7 @@ class WC_XML_CSV_AI_Import_Importer {
             $image_keys = array_filter(array_keys($product_data), function($key) {
                 return strpos($key, 'image') !== false;
             });
-            $this->log('info', 'Raw product data image keys: ' . implode(', ', $image_keys));
+            $this->log('debug', 'Raw product data image keys: ' . implode(', ', $image_keys));
             
             // Check import filters BEFORE processing
             $passes_filters = $this->passes_import_filters($product_data);
@@ -1219,7 +1219,7 @@ class WC_XML_CSV_AI_Import_Importer {
      */
     private function passes_import_filters($product_data) {
         // PRO-only feature: if not PRO, skip all filters and import everything
-        if (!WC_XML_CSV_AI_Import_License::can('filters_advanced')) {
+        if (!WC_XML_CSV_AI_Import_Features::is_available('import_filters')) {
             return true; // FREE version = no filtering, import all
         }
         
@@ -1997,7 +1997,7 @@ class WC_XML_CSV_AI_Import_Importer {
         switch ($product_type) {
             case 'grouped':
                 // PRO feature check
-                if (!WC_XML_CSV_AI_Import_License::can('grouped_products')) {
+                if (!WC_XML_CSV_AI_Import_Features::is_available('variable_products')) {
                     $this->log('warning', sprintf(__('Grouped products require PRO license. Importing "%s" as Simple product.', 'wc-xml-csv-import'), $product_data['name']));
                     $product = new WC_Product_Simple();
                     $product_type = 'simple';
@@ -2009,7 +2009,7 @@ class WC_XML_CSV_AI_Import_Importer {
             case 'external':
             case 'affiliate':
                 // PRO feature check
-                if (!WC_XML_CSV_AI_Import_License::can('external_products')) {
+                if (!WC_XML_CSV_AI_Import_Features::is_available('variable_products')) {
                     $this->log('warning', sprintf(__('External products require PRO license. Importing "%s" as Simple product.', 'wc-xml-csv-import'), $product_data['name']));
                     $product = new WC_Product_Simple();
                     $product_type = 'simple';
@@ -2241,22 +2241,22 @@ class WC_XML_CSV_AI_Import_Importer {
         }
 
         // Handle brand
-        $this->log('info', 'CREATE_PRODUCT: Checking brand in product_data: ' . print_r($product_data['brand'] ?? 'NOT SET', true));
+        $this->log('debug', 'CREATE_PRODUCT: Checking brand in product_data: ' . print_r($product_data['brand'] ?? 'NOT SET', true));
         if (!empty($product_data['brand'])) {
-            $this->log('info', 'CREATE_PRODUCT: Brand value: ' . print_r($product_data['brand'], true));
+            $this->log('debug', 'CREATE_PRODUCT: Brand value: ' . print_r($product_data['brand'], true));
             $this->set_product_brand($product_id, $product_data['brand']);
         } else {
             $this->log('warning', 'CREATE_PRODUCT: No brand data found');
         }
 
         // Handle images
-        $this->log('info', 'CREATE_PRODUCT: Starting image processing');
-        $this->log('info', 'mapped_data keys: ' . implode(', ', array_keys($mapped_data)));
-        $this->log('info', 'mapped images: ' . print_r($mapped_data['images'] ?? 'NOT SET', true));
-        $this->log('info', 'mapped featured_image: ' . print_r($mapped_data['featured_image'] ?? 'NOT SET', true));
+        $this->log('debug', 'CREATE_PRODUCT: Starting image processing');
+        $this->log('debug', 'mapped_data keys: ' . implode(', ', array_keys($mapped_data)));
+        $this->log('debug', 'mapped images: ' . print_r($mapped_data['images'] ?? 'NOT SET', true));
+        $this->log('debug', 'mapped featured_image: ' . print_r($mapped_data['featured_image'] ?? 'NOT SET', true));
         
         if (!empty($mapped_data['images']) || !empty($mapped_data['featured_image'])) {
-            $this->log('info', 'Calling set_product_images...');
+            $this->log('debug', 'Calling set_product_images...');
             $this->set_product_images($product_id, $mapped_data);
         } else {
             $this->log('warning', 'Skipping images - both images and featured_image empty!');
@@ -2363,7 +2363,7 @@ class WC_XML_CSV_AI_Import_Importer {
             sort($new_categories);
             
             if ($current_categories !== $new_categories) {
-                $this->log('info', 'Categories changed');
+                $this->log('debug', 'Categories changed');
                 return true;
             }
         }
@@ -2378,7 +2378,7 @@ class WC_XML_CSV_AI_Import_Importer {
             sort($new_tags);
             
             if ($current_tags !== $new_tags) {
-                $this->log('info', 'Tags changed');
+                $this->log('debug', 'Tags changed');
                 return true;
             }
         }
@@ -2393,12 +2393,12 @@ class WC_XML_CSV_AI_Import_Importer {
             sort($new_brand);
             
             if ($current_brands !== $new_brand) {
-                $this->log('info', 'Brand changed');
+                $this->log('debug', 'Brand changed');
                 return true;
             }
         }
 
-        $this->log('info', 'No changes detected - all data identical');
+        $this->log('debug', 'No changes detected - all data identical');
         return false; // No changes detected
     }
 
@@ -2418,7 +2418,7 @@ class WC_XML_CSV_AI_Import_Importer {
         }
 
         // FREE version: always update all fields (selective update is PRO feature)
-        if (!WC_XML_CSV_AI_Import_License::can('selective_update')) {
+        if (!WC_XML_CSV_AI_Import_Features::is_available('update_existing')) {
             return true;
         }
 
@@ -2697,22 +2697,22 @@ class WC_XML_CSV_AI_Import_Importer {
         }
 
         // Handle brand
-        $this->log('info', 'UPDATE_PRODUCT: Checking brand in product_data: ' . print_r($product_data['brand'] ?? 'NOT SET', true));
+        $this->log('debug', 'UPDATE_PRODUCT: Checking brand in product_data: ' . print_r($product_data['brand'] ?? 'NOT SET', true));
         if ($this->should_update_field('brand', $product_data['brand'] ?? null, false)) {
-            $this->log('info', 'UPDATE_PRODUCT: Brand value: ' . print_r($product_data['brand'], true));
+            $this->log('debug', 'UPDATE_PRODUCT: Brand value: ' . print_r($product_data['brand'], true));
             $this->set_product_brand($product_id, $product_data['brand'] ?? '');
         } else {
             $this->log('warning', 'UPDATE_PRODUCT: No brand data found or update disabled');
         }
 
         // Handle images
-        $this->log('info', 'UPDATE_PRODUCT: Starting image processing');
-        $this->log('info', 'mapped_data keys: ' . implode(', ', array_keys($mapped_data)));
-        $this->log('info', 'mapped images: ' . print_r($mapped_data['images'] ?? 'NOT SET', true));
-        $this->log('info', 'mapped featured_image: ' . print_r($mapped_data['featured_image'] ?? 'NOT SET', true));
+        $this->log('debug', 'UPDATE_PRODUCT: Starting image processing');
+        $this->log('debug', 'mapped_data keys: ' . implode(', ', array_keys($mapped_data)));
+        $this->log('debug', 'mapped images: ' . print_r($mapped_data['images'] ?? 'NOT SET', true));
+        $this->log('debug', 'mapped featured_image: ' . print_r($mapped_data['featured_image'] ?? 'NOT SET', true));
         
         if ($this->should_update_field('images', $mapped_data['images'] ?? null, false)) {
-            $this->log('info', 'Calling set_product_images from update_product...');
+            $this->log('debug', 'Calling set_product_images from update_product...');
             $this->set_product_images($product_id, $mapped_data);
         } else {
             $this->log('warning', 'UPDATE: Skipping images - update disabled!');
@@ -3143,7 +3143,7 @@ class WC_XML_CSV_AI_Import_Importer {
         // Save primary identifier to WooCommerce standard field (_global_unique_id)
         if ($primary_value) {
             update_post_meta($product_id, '_global_unique_id', sanitize_text_field($primary_value));
-            $this->log('info', 'PRIMARY IDENTIFIER set for product ' . $product_id . ': ' . strtoupper($primary_identifier) . '=' . $primary_value);
+            $this->log('debug', 'PRIMARY IDENTIFIER set for product ' . $product_id . ': ' . strtoupper($primary_identifier) . '=' . $primary_value);
         } elseif (!empty($product_data['gtin'])) {
             // Fallback: if no primary selected, use GTIN
             update_post_meta($product_id, '_global_unique_id', sanitize_text_field($product_data['gtin']));
@@ -3152,7 +3152,7 @@ class WC_XML_CSV_AI_Import_Importer {
             update_post_meta($product_id, '_global_unique_id', sanitize_text_field($product_data['ean']));
         }
         
-        $this->log('info', 'IDENTIFIERS saved for product ' . $product_id . ': EAN=' . ($product_data['ean'] ?? 'N/A') . ', UPC=' . ($product_data['upc'] ?? 'N/A') . ', Primary=' . ($primary_identifier ?? 'auto'));
+        $this->log('debug', 'IDENTIFIERS saved for product ' . $product_id . ': EAN=' . ($product_data['ean'] ?? 'N/A') . ', UPC=' . ($product_data['upc'] ?? 'N/A') . ', Primary=' . ($primary_identifier ?? 'auto'));
     }
 
     /**
@@ -3163,15 +3163,15 @@ class WC_XML_CSV_AI_Import_Importer {
      * @param    mixed $brand Brand (string or array)
      */
     private function set_product_brand($product_id, $brand) {
-        $this->log('info', 'SET_PRODUCT_BRAND called with: ' . print_r($brand, true));
+        $this->log('debug', 'SET_PRODUCT_BRAND called with: ' . print_r($brand, true));
         
         if (is_string($brand)) {
             $brand = trim($brand);
         }
 
-        $this->log('info', 'SET_PRODUCT_BRAND wp_set_object_terms with brand: ' . print_r($brand, true));
+        $this->log('debug', 'SET_PRODUCT_BRAND wp_set_object_terms with brand: ' . print_r($brand, true));
         $result = wp_set_object_terms($product_id, $brand, 'product_brand');
-        $this->log('info', 'SET_PRODUCT_BRAND result: ' . print_r($result, true));
+        $this->log('debug', 'SET_PRODUCT_BRAND result: ' . print_r($result, true));
     }
 
     /**
@@ -3260,7 +3260,7 @@ class WC_XML_CSV_AI_Import_Importer {
         $image_related_keys = array_filter(array_keys($product_data), function($k) { 
             return stripos($k, 'image') !== false || stripos($k, 'bilde') !== false || stripos($k, 'attels') !== false;
         });
-        $this->log('info', "PARSE_IMAGE_PLACEHOLDERS: All image-related keys: " . implode(', ', $image_related_keys));
+        $this->log('debug', "PARSE_IMAGE_PLACEHOLDERS: All image-related keys: " . implode(', ', $image_related_keys));
         
         // Split by comma, space, or both to support multiple entries like "{image1} {image2},{image3}"
         $entries = array_filter(array_map('trim', preg_split('/[\s,]+/', $template)));
@@ -3595,8 +3595,8 @@ class WC_XML_CSV_AI_Import_Importer {
             return $values;
         }
         
-        $this->log('info', "get_all_field_values: Looking for field '$field_base'");
-        $this->log('info', "Available keys sample: " . implode(', ', array_slice(array_keys($product_data), 0, 30)));
+        $this->log('debug', "get_all_field_values: Looking for field '$field_base'");
+        $this->log('debug', "Available keys sample: " . implode(', ', array_slice(array_keys($product_data), 0, 30)));
         
         // ZERO: Handle nested path like "eans.ean" or "package_dimensions.width"
         if (strpos($field_base, '.') !== false && !preg_match('/\.\d+$/', $field_base)) {
@@ -3613,7 +3613,7 @@ class WC_XML_CSV_AI_Import_Importer {
             if ($current !== null) {
                 $extracted = $this->extract_text_value($current);
                 if ($extracted !== null && is_string($extracted)) {
-                    $this->log('info', "Found nested value for '$field_base': " . substr($extracted, 0, 50));
+                    $this->log('debug', "Found nested value for '$field_base': " . substr($extracted, 0, 50));
                     return [$extracted];
                 } elseif (is_array($current) && isset($current[0])) {
                     // Array of values
@@ -3635,7 +3635,7 @@ class WC_XML_CSV_AI_Import_Importer {
         if (isset($product_data[$field_base]) && is_array($product_data[$field_base])) {
             // Check if it's an indexed array [0, 1, 2...]
             if (isset($product_data[$field_base][0])) {
-                $this->log('info', "Found PHP indexed array for '$field_base' with " . count($product_data[$field_base]) . " items");
+                $this->log('debug', "Found PHP indexed array for '$field_base' with " . count($product_data[$field_base]) . " items");
                 foreach ($product_data[$field_base] as $index => $value) {
                     if (!empty($value)) {
                         // Handle XML elements with attributes: ['@attributes' => [...], '@content' => 'actual value']
@@ -3644,7 +3644,7 @@ class WC_XML_CSV_AI_Import_Importer {
                         
                         // Ensure extracted is a string for logging
                         $log_value = is_string($extracted) ? substr($extracted, 0, 100) : '[complex value]';
-                        $this->log('info', "  [$index] = " . $log_value);
+                        $this->log('debug', "  [$index] = " . $log_value);
                         
                         if (is_string($extracted) && !empty($extracted)) {
                             $values[$index] = $extracted;
@@ -3653,7 +3653,7 @@ class WC_XML_CSV_AI_Import_Importer {
                 }
             } else {
                 // Associative array - could be single element with attributes
-                $this->log('info', "Found associative array for '$field_base'");
+                $this->log('debug', "Found associative array for '$field_base'");
                 $extracted = $this->extract_text_value($product_data[$field_base]);
                 if (!empty($extracted) && is_string($extracted)) {
                     $values[0] = $extracted;
@@ -3662,25 +3662,25 @@ class WC_XML_CSV_AI_Import_Importer {
         }
         // SECOND: Check if field exists as simple value
         elseif (isset($product_data[$field_base]) && !is_array($product_data[$field_base])) {
-            $this->log('info', "Found simple value for '$field_base'");
+            $this->log('debug', "Found simple value for '$field_base'");
             $values[0] = $product_data[$field_base];
         }
         // THIRD: Legacy - try dot notation (field.0, field.1)
         else {
-            $this->log('info', "Trying legacy dot notation for '$field_base'");
+            $this->log('debug', "Trying legacy dot notation for '$field_base'");
             foreach ($product_data as $key => $value) {
                 if (preg_match('/^' . preg_quote($field_base, '/') . '\.(\d+)$/', $key, $matches)) {
                     $index = intval($matches[1]);
                     $extracted = $this->extract_text_value($value);
                     if (is_string($extracted)) {
-                        $this->log('info', "  Found: $key = " . substr($extracted, 0, 100));
+                        $this->log('debug', "  Found: $key = " . substr($extracted, 0, 100));
                         $values[$index] = $extracted;
                     }
                 }
             }
         }
         
-        $this->log('info', "get_all_field_values: Found " . count($values) . " values for '$field_base'");
+        $this->log('debug', "get_all_field_values: Found " . count($values) . " values for '$field_base'");
         
         // Sort by index and return values
         ksort($values);
@@ -3695,33 +3695,33 @@ class WC_XML_CSV_AI_Import_Importer {
      * @param    array $product_data Product data containing image URLs
      */
     private function set_product_images($product_id, $product_data) {
-        $this->log('info', '=== SET_PRODUCT_IMAGES CALLED ===');
-        $this->log('info', 'Product ID: ' . $product_id);
-        $this->log('info', 'images field: ' . print_r($product_data['images'] ?? 'NOT SET', true));
-        $this->log('info', 'featured_image field: ' . print_r($product_data['featured_image'] ?? 'NOT SET', true));
+        $this->log('debug', '=== SET_PRODUCT_IMAGES CALLED ===');
+        $this->log('debug', 'Product ID: ' . $product_id);
+        $this->log('debug', 'images field: ' . print_r($product_data['images'] ?? 'NOT SET', true));
+        $this->log('debug', 'featured_image field: ' . print_r($product_data['featured_image'] ?? 'NOT SET', true));
         
         $image_urls = array();
 
         // Process 'images' field with placeholder support
         if (!empty($product_data['images'])) {
-            $this->log('info', 'Processing images field...');
+            $this->log('debug', 'Processing images field...');
             if (is_string($product_data['images'])) {
-                $this->log('info', 'Images is string: ' . $product_data['images']);
+                $this->log('debug', 'Images is string: ' . $product_data['images']);
                 // DEBUG: Log current_raw_product_data image keys
                 $raw_image_keys = array_filter(array_keys($this->current_raw_product_data), function($k) { return strpos($k, 'image') !== false; });
-                $this->log('info', 'current_raw_product_data image keys: ' . implode(', ', $raw_image_keys));
-                $this->log('info', 'image1 value: ' . ($this->current_raw_product_data['image1'] ?? 'NOT SET'));
-                $this->log('info', 'image2 value: ' . ($this->current_raw_product_data['image2'] ?? 'NOT SET'));
-                $this->log('info', 'image3 value: ' . ($this->current_raw_product_data['image3'] ?? 'NOT SET'));
+                $this->log('debug', 'current_raw_product_data image keys: ' . implode(', ', $raw_image_keys));
+                $this->log('debug', 'image1 value: ' . ($this->current_raw_product_data['image1'] ?? 'NOT SET'));
+                $this->log('debug', 'image2 value: ' . ($this->current_raw_product_data['image2'] ?? 'NOT SET'));
+                $this->log('debug', 'image3 value: ' . ($this->current_raw_product_data['image3'] ?? 'NOT SET'));
                 // Parse placeholders like image*, image[1] against RAW product data
                 $parsed_images = $this->parse_image_placeholders($product_data['images'], $this->current_raw_product_data);
-                $this->log('info', 'Parsed ' . count($parsed_images) . ' images');
+                $this->log('debug', 'Parsed ' . count($parsed_images) . ' images');
                 if (!empty($parsed_images)) {
-                    $this->log('info', 'Parsed image URLs: ' . implode(', ', array_map(function($u) { return substr($u, 0, 60); }, $parsed_images)));
+                    $this->log('debug', 'Parsed image URLs: ' . implode(', ', array_map(function($u) { return substr($u, 0, 60); }, $parsed_images)));
                 }
                 $image_urls = array_merge($image_urls, $parsed_images);
             } else {
-                $this->log('info', 'Images is array');
+                $this->log('debug', 'Images is array');
                 $additional_images = (array)$product_data['images'];
                 $image_urls = array_merge($image_urls, $additional_images);
             }
@@ -3731,14 +3731,14 @@ class WC_XML_CSV_AI_Import_Importer {
 
         // Process 'featured_image' field with placeholder support
         if (!empty($product_data['featured_image'])) {
-            $this->log('info', 'Featured image present: ' . $product_data['featured_image']);
+            $this->log('debug', 'Featured image present: ' . $product_data['featured_image']);
             
             // Check if it's a placeholder template like {image2}
             if (is_string($product_data['featured_image']) && strpos($product_data['featured_image'], '{') !== false) {
-                $this->log('info', 'Featured image is placeholder template, parsing...');
+                $this->log('debug', 'Featured image is placeholder template, parsing...');
                 $parsed_featured = $this->parse_image_placeholders($product_data['featured_image'], $this->current_raw_product_data);
                 if (!empty($parsed_featured)) {
-                    $this->log('info', 'Parsed featured image URL: ' . $parsed_featured[0]);
+                    $this->log('debug', 'Parsed featured image URL: ' . $parsed_featured[0]);
                     // If featured_image is specified, it takes priority as first image
                     array_unshift($image_urls, $parsed_featured[0]);
                 } else {
@@ -3752,7 +3752,7 @@ class WC_XML_CSV_AI_Import_Importer {
             $this->log('warning', 'Featured image field is EMPTY!');
         }
         
-        $this->log('info', 'Total image URLs: ' . count($image_urls));
+        $this->log('debug', 'Total image URLs: ' . count($image_urls));
         
         // If no featured_image but we have images, first image becomes featured
         // (This is already handled by the order above)
@@ -3763,27 +3763,71 @@ class WC_XML_CSV_AI_Import_Importer {
         }
 
         // Use parallel download for better performance (5 concurrent downloads)
-        $this->log('info', 'Starting PARALLEL image download for ' . count($image_urls) . ' URLs');
+        $this->log('debug', 'Starting PARALLEL image download for ' . count($image_urls) . ' URLs');
         $attachment_ids = $this->download_images_parallel($image_urls, $product_id, 5);
 
         if (!empty($attachment_ids)) {
-            $this->log('info', 'Downloaded ' . count($attachment_ids) . ' images successfully');
+            $this->log('debug', 'Downloaded ' . count($attachment_ids) . ' images successfully');
             
             // Set featured image
             set_post_thumbnail($product_id, $attachment_ids[0]);
-            $this->log('info', 'Set featured image: ' . $attachment_ids[0]);
+            $this->log('debug', 'Set featured image: ' . $attachment_ids[0]);
 
             // Set gallery images
             if (count($attachment_ids) > 1) {
                 $gallery_ids = implode(',', array_slice($attachment_ids, 1));
                 update_post_meta($product_id, '_product_image_gallery', $gallery_ids);
-                $this->log('info', 'Set gallery images: ' . $gallery_ids);
+                $this->log('debug', 'Set gallery images: ' . $gallery_ids);
             } else {
-                $this->log('info', 'Only 1 image - no gallery');
+                $this->log('debug', 'Only 1 image - no gallery');
             }
         } else {
             $this->log('error', 'NO ATTACHMENTS downloaded!');
         }
+    }
+
+    /**
+     * Check if an image already exists in the media library by URL.
+     * This prevents re-downloading the same image multiple times.
+     *
+     * @since    1.0.0
+     * @param    string $image_url Image URL to check
+     * @return   int|false Attachment ID if exists, false otherwise
+     */
+    private function get_existing_attachment_by_url($image_url) {
+        global $wpdb;
+        
+        // Method 1: Check by _source_url meta (set during import)
+        $attachment_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_source_url' AND meta_value = %s LIMIT 1",
+            $image_url
+        ));
+        
+        if ($attachment_id) {
+            // Verify attachment still exists
+            if (get_post($attachment_id)) {
+                return intval($attachment_id);
+            }
+        }
+        
+        // Method 2: Check by filename in guid (less reliable but catches manual uploads)
+        $filename = sanitize_file_name(pathinfo($image_url, PATHINFO_FILENAME));
+        if (!empty($filename) && strlen($filename) > 3) {
+            $attachment_id = $wpdb->get_var($wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts} 
+                WHERE post_type = 'attachment' 
+                AND post_status = 'inherit'
+                AND guid LIKE %s 
+                LIMIT 1",
+                '%' . $wpdb->esc_like($filename) . '%'
+            ));
+            
+            if ($attachment_id && get_post($attachment_id)) {
+                return intval($attachment_id);
+            }
+        }
+        
+        return false;
     }
 
     /**
@@ -3804,24 +3848,42 @@ class WC_XML_CSV_AI_Import_Importer {
         
         $attachment_ids = array();
         $temp_files = array();
+        $urls_to_download = array();
         
-        // Filter valid URLs first
+        // Filter valid URLs and check for existing attachments first
         $valid_urls = array();
+        $skipped_count = 0;
+        
         foreach ($image_urls as $index => $url) {
             $url = trim($url);
             if (!empty($url) && filter_var($url, FILTER_VALIDATE_URL)) {
-                $valid_urls[$index] = $url;
+                // Check if this image already exists in media library
+                $existing_id = $this->get_existing_attachment_by_url($url);
+                if ($existing_id) {
+                    $attachment_ids[$index] = $existing_id;
+                    $skipped_count++;
+                    $this->log('debug', 'Image already exists (ID: ' . $existing_id . '), skipping download: ' . basename($url));
+                } else {
+                    $urls_to_download[$index] = $url;
+                }
             }
         }
         
-        if (empty($valid_urls)) {
-            return array();
+        if ($skipped_count > 0) {
+            $this->log('debug', 'Skipped ' . $skipped_count . ' images (already in media library)');
         }
         
-        $this->log('info', 'Parallel download starting for ' . count($valid_urls) . ' images (max ' . $max_concurrent . ' concurrent)');
+        // If all images already exist, just return them
+        if (empty($urls_to_download)) {
+            $this->log('debug', 'All ' . count($attachment_ids) . ' images already exist - no downloads needed!');
+            ksort($attachment_ids);
+            return array_values($attachment_ids);
+        }
+        
+        $this->log('debug', 'Parallel download starting for ' . count($urls_to_download) . ' NEW images (max ' . $max_concurrent . ' concurrent)');
         
         // Process in batches if more than max_concurrent
-        $url_chunks = array_chunk($valid_urls, $max_concurrent, true);
+        $url_chunks = array_chunk($urls_to_download, $max_concurrent, true);
         
         foreach ($url_chunks as $chunk) {
             $mh = curl_multi_init();
@@ -3933,8 +3995,11 @@ class WC_XML_CSV_AI_Import_Importer {
                         continue;
                     }
                     
+                    // Store source URL for future duplicate detection
+                    update_post_meta($attachment_id, '_source_url', $data['url']);
+                    
                     $attachment_ids[$index] = $attachment_id;
-                    $this->log('info', 'Parallel downloaded image ' . ($index + 1) . ', attachment ID: ' . $attachment_id);
+                    $this->log('debug', 'Parallel downloaded image ' . ($index + 1) . ', attachment ID: ' . $attachment_id);
                     
                 } catch (Exception $e) {
                     $this->log('warning', 'Error processing image ' . ($index + 1) . ': ' . $e->getMessage());
@@ -3946,7 +4011,7 @@ class WC_XML_CSV_AI_Import_Importer {
         // Sort by original index to preserve order
         ksort($attachment_ids);
         
-        $this->log('info', 'Parallel download completed: ' . count($attachment_ids) . '/' . count($valid_urls) . ' images');
+        $this->log('debug', 'Parallel download completed: ' . count($attachment_ids) . ' images (downloaded: ' . count($urls_to_download) . ', cached: ' . $skipped_count . ')');
         
         return array_values($attachment_ids);
     }
@@ -3994,6 +4059,9 @@ class WC_XML_CSV_AI_Import_Importer {
         if (is_wp_error($attachment_id)) {
             throw new Exception($attachment_id->get_error_message());
         }
+
+        // Store source URL for future duplicate detection
+        update_post_meta($attachment_id, '_source_url', $image_url);
 
         return $attachment_id;
     }
@@ -6644,6 +6712,15 @@ class WC_XML_CSV_AI_Import_Importer {
     private function log($type, $message, $sku = '') {
         global $wpdb;
 
+        // Don't save debug logs to database - they clutter the UI
+        // Debug logs only go to error_log when WP_DEBUG is enabled
+        if ($type === 'debug') {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('[WC Import Debug] ' . $message);
+            }
+            return;
+        }
+
         $wpdb->insert(
             $wpdb->prefix . 'wc_itp_import_logs',
             array(
@@ -6775,7 +6852,7 @@ class WC_XML_CSV_AI_Import_Importer {
      */
     private function execute_shipping_class_formula($formula, $weight, $length, $width, $height) {
         // PRO feature check - Shipping formulas require PRO license
-        if (!WC_XML_CSV_AI_Import_License::can('mode_php_formula')) {
+        if (!WC_XML_CSV_AI_Import_Features::is_available('php_processing')) {
             if (isset($this->logger) && $this->logger) {
                 $this->logger->log('info', 'Shipping formula blocked - PRO license required');
             }

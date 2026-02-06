@@ -110,6 +110,32 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
         <h2><?php _e('Import Progress', 'wc-xml-csv-import'); ?></h2>
         <p class="description"><?php printf(__('Importing "%s" - Please keep this page open until the import is complete.', 'wc-xml-csv-import'), esc_html($import->name)); ?></p>
         
+        <!-- Cron Info Box -->
+        <div class="cron-info-box" style="background: linear-gradient(135deg, #e8f4fd 0%, #f0f7ff 100%); border: 1px solid #0073aa; border-radius: 8px; padding: 15px; margin: 15px 0; display: flex; align-items: flex-start; gap: 12px;">
+            <span style="font-size: 24px;">💡</span>
+            <div>
+                <strong style="color: #0073aa;"><?php _e('Want to close this page?', 'wc-xml-csv-import'); ?></strong>
+                <p style="margin: 5px 0 10px; color: #555; font-size: 13px;">
+                    <?php _e('Set up a cron job to continue imports in the background, even when the browser is closed.', 'wc-xml-csv-import'); ?>
+                </p>
+                <details style="cursor: pointer;">
+                    <summary style="color: #0073aa; font-weight: 500;"><?php _e('Show cron setup instructions', 'wc-xml-csv-import'); ?></summary>
+                    <div style="background: #fff; border-radius: 4px; padding: 12px; margin-top: 10px; font-size: 12px;">
+                        <p style="margin: 0 0 8px;"><strong><?php _e('cPanel / Plesk:', 'wc-xml-csv-import'); ?></strong></p>
+                        <p style="margin: 0 0 5px;"><?php _e('Add a new Cron Job with:', 'wc-xml-csv-import'); ?></p>
+                        <ul style="margin: 0 0 10px; padding-left: 20px;">
+                            <li><?php _e('Schedule: Every minute', 'wc-xml-csv-import'); ?> (<code>* * * * *</code>)</li>
+                        </ul>
+                        <p style="margin: 0 0 5px;"><strong><?php _e('Command:', 'wc-xml-csv-import'); ?></strong></p>
+                        <code style="display: block; background: #f5f5f5; padding: 8px; border-radius: 4px; word-break: break-all; font-size: 11px;">wget -q -O /dev/null "<?php echo esc_url(site_url('/wp-cron.php')); ?>" &gt;/dev/null 2&gt;&amp;1</code>
+                        <p style="margin: 10px 0 0; color: #666; font-size: 11px;">
+                            <?php _e('Once configured, imports will continue automatically even if you close this page.', 'wc-xml-csv-import'); ?>
+                        </p>
+                    </div>
+                </details>
+            </div>
+        </div>
+        
         <!-- Import Status -->
         <div class="import-status <?php echo esc_attr($import->status); ?>">
             <?php 
@@ -223,9 +249,9 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
             </h3>
             <div class="import-logs" id="import-logs">
                 <?php
-                // Get recent logs
+                // Get recent logs - ordered by ID for consistency (no jumping)
                 $logs = $wpdb->get_results($wpdb->prepare(
-                    "SELECT * FROM {$wpdb->prefix}wc_itp_import_logs WHERE import_id = %d ORDER BY created_at DESC LIMIT 300",
+                    "SELECT * FROM {$wpdb->prefix}wc_itp_import_logs WHERE import_id = %d ORDER BY id DESC LIMIT 15",
                     $import_id
                 ));
 
@@ -628,45 +654,36 @@ jQuery(document).ready(function($) {
     
     function updateLiveLogs(logs) {
         var $logsContainer = $('#import-logs');
-        var existingLogIds = [];
         
-        // Get existing log IDs to avoid duplicates
-        $logsContainer.find('.log-entry').each(function() {
-            var logId = $(this).data('log-id');
-            if (logId) {
-                existingLogIds.push(logId);
-            }
-        });
+        // Logs come sorted by ID DESC (newest first)
+        // Simply replace all logs with fresh data to avoid jumping/flickering
+        // This is cleaner and more reliable than trying to merge
         
-        // Prepend new logs (newest first)
-        logs.forEach(function(log, index) {
-            // Skip if log already exists
-            if (existingLogIds.includes(log.id)) {
-                return;
-            }
-            
-            var timestamp = new Date(log.created_at).toLocaleTimeString();
-            var logHtml = '<div class="log-entry ' + log.level + '" data-log-id="' + log.id + '" style="animation: slideIn 0.3s ease-out;">';
-            logHtml += '[' + timestamp + '] ' + escapeHtml(log.message);
-            if (log.product_sku) {
-                logHtml += ' (SKU: ' + escapeHtml(log.product_sku) + ')';
-            }
-            logHtml += '</div>';
-            
-            // Prepend new log with animation
-            $logsContainer.prepend(logHtml);
-            
-            // Track last log ID
-            if (log.id > lastLogId) {
-                lastLogId = log.id;
-            }
-        });
-        
-        // Keep only last 20 logs to avoid cluttering
-        var $allLogs = $logsContainer.find('.log-entry');
-        if ($allLogs.length > 20) {
-            $allLogs.slice(20).remove();
+        if (!logs || logs.length === 0) {
+            return;
         }
+        
+        // Check if we have new logs by comparing the newest log ID
+        var newestLogId = parseInt(logs[0].id);
+        if (newestLogId <= lastLogId) {
+            return; // No new logs, don't update
+        }
+        lastLogId = newestLogId;
+        
+        // Build all log entries HTML at once
+        var logsHtml = '';
+        logs.forEach(function(log) {
+            var timestamp = new Date(log.created_at).toLocaleTimeString();
+            logsHtml += '<div class="log-entry ' + log.level + '" data-log-id="' + log.id + '">';
+            logsHtml += '[' + timestamp + '] ' + escapeHtml(log.message);
+            if (log.product_sku) {
+                logsHtml += ' (SKU: ' + escapeHtml(log.product_sku) + ')';
+            }
+            logsHtml += '</div>';
+        });
+        
+        // Replace all content at once (no flickering, no jumping)
+        $logsContainer.html(logsHtml);
     }
     
     function escapeHtml(text) {

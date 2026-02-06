@@ -95,7 +95,7 @@ class WC_XML_CSV_AI_Import_Processor {
      */
     private function process_php_formula($value, $config, $product_data = array()) {
         // PRO feature check - PHP formulas require PRO license
-        if (!WC_XML_CSV_AI_Import_License::can('mode_php_formula')) {
+        if (!WC_XML_CSV_AI_Import_Features::is_available('php_processing')) {
             $this->log_debug('PHP_FORMULA_BLOCKED: PRO license required for PHP formulas', array());
             return $this->process_direct($value); // Return direct value without formula processing
         }
@@ -470,26 +470,17 @@ class WC_XML_CSV_AI_Import_Processor {
             return 'return ' . $formula . ';';
         }
         
-        // Handle if statements - normalize common patterns
-        // Pattern: "if (condition) return value" or "if (condition)\nreturn value"
-        // Convert to: "if (condition) { return value; } return $value;"
+        // For complex formulas with control structures, keep the original formatting
+        // Only do minimal normalization to preserve multi-line code blocks
         
-        // First, normalize whitespace - replace newlines with spaces
-        $formula = preg_replace('/\s+/', ' ', $formula);
-        
-        // Pattern: if (...) return 'value' (without braces)
-        // Match: if (condition) return something
-        if (preg_match('/^if\s*\((.+?)\)\s*return\s+(.+?)(?:;?\s*)?$/i', $formula, $matches)) {
-            $condition = trim($matches[1]);
-            $return_value = rtrim(trim($matches[2]), ';');
-            return "if ({$condition}) { return {$return_value}; } return \$value;";
+        // If formula already ends with return statement, use as-is
+        if (preg_match('/return\s+[^;]+;\s*$/i', $formula)) {
+            return $formula;
         }
         
-        // Pattern: if (...) { return ... } (has braces but no else)
-        if (preg_match('/^if\s*\(.+?\)\s*\{.+?\}\s*$/i', $formula) && 
-            stripos($formula, 'else') === false) {
-            // Add default return at end
-            return $formula . ' return $value;';
+        // If formula has else block covering all cases, use as-is
+        if (stripos($formula, 'else {') !== false || stripos($formula, 'else{') !== false) {
+            return $formula;
         }
         
         // Pattern: condition ? true : false (ternary without return)
@@ -498,14 +489,12 @@ class WC_XML_CSV_AI_Import_Processor {
             return 'return ' . $formula . ';';
         }
         
-        // If formula already has return statements in all branches, use as-is
-        // Just ensure it ends with semicolon
-        if (stripos($formula, 'return') !== false) {
-            // Check if there's a final return for else case
-            if (stripos($formula, 'else') === false && !preg_match('/return\s+[^;]+;\s*$/i', $formula)) {
-                // No else and doesn't end with return - add default
-                $formula = rtrim($formula, ';') . '; return $value;';
-            }
+        // For simple single-line if without braces, normalize
+        $single_line = preg_replace('/\s+/', ' ', $formula);
+        if (preg_match('/^if\s*\((.+?)\)\s*return\s+(.+?)(?:;?\s*)?$/i', $single_line, $matches)) {
+            $condition = trim($matches[1]);
+            $return_value = rtrim(trim($matches[2]), ';');
+            return "if ({$condition}) { return {$return_value}; } return \$value;";
         }
         
         return $formula;
