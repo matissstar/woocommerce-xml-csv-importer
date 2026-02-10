@@ -30,7 +30,7 @@ class WC_XML_CSV_AI_Import_AI_Providers {
      * Constructor.
      */
     public function __construct() {
-        $this->settings = get_option('wc_xml_csv_ai_import_settings', array());
+        $this->settings = get_option('wc_xml_csv_ai_import_ai_settings', array());
     }
 
     /**

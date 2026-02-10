@@ -2120,10 +2120,11 @@ class WC_XML_CSV_AI_Import_Admin {
         
         // Check if AI mapping is available (ADVANCED tier)
         // For now, allow if any AI API key is configured
-        $settings = get_option('wc_xml_csv_ai_import_settings', array());
-        $has_ai_key = !empty($settings['ai_api_keys']['openai']) || 
-                      !empty($settings['ai_api_keys']['claude']) || 
-                      !empty($settings['ai_api_keys']['gemini']);
+        $ai_settings = get_option('wc_xml_csv_ai_import_ai_settings', array());
+        $has_ai_key = !empty($ai_settings['openai_api_key']) || 
+                      !empty($ai_settings['claude_api_key']) || 
+                      !empty($ai_settings['gemini_api_key']) ||
+                      !empty($ai_settings['grok_api_key']);
         
         if (!$has_ai_key) {
             wp_send_json_error(array(

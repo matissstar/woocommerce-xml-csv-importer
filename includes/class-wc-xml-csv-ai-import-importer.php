@@ -432,6 +432,14 @@ class WC_XML_CSV_AI_Import_Importer {
                 }
             }
             
+            // CRITICAL FIX: Save import start time when first chunk begins
+            // This is used by handle_missing_products() to correctly identify products not updated in THIS run
+            $import_start_option_key = 'wc_import_start_time_' . $this->import_id;
+            if ($offset == 0 && intval($current_import->processed_products ?? 0) == 0) {
+                update_option($import_start_option_key, current_time('mysql'), false);
+                if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ PROCESS_CHUNK: Saved import start time: ' . current_time('mysql')); }
+            }
+            
             $this->update_import_status('processing');
 
             // Extract products from file - determine type by file_type config
@@ -6566,8 +6574,18 @@ class WC_XML_CSV_AI_Import_Importer {
             return;
         }
         
-        // Use last_run or updated_at as the import start time marker
-        $import_start_time = $import->last_run ?? $import->updated_at ?? $import->created_at;
+        // CRITICAL FIX: Use the saved import start time from when this run began
+        // This fixes the bug where last_run was from the last chunk, not the import start
+        $import_start_option_key = 'wc_import_start_time_' . $this->import_id;
+        $import_start_time = get_option($import_start_option_key);
+        
+        // Fallback to created_at if no saved start time (shouldn't happen in normal flow)
+        if (empty($import_start_time)) {
+            $import_start_time = $import->created_at;
+            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ HANDLE_MISSING: WARNING - No saved start time found, using created_at: ' . $import_start_time); }
+        } else {
+            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ HANDLE_MISSING: Using saved import start time: ' . $import_start_time); }
+        }
         
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ HANDLE_MISSING: Import start time = ' . $import_start_time); }
         
@@ -6699,6 +6717,9 @@ class WC_XML_CSV_AI_Import_Importer {
         
         $this->log('info', sprintf(__('Missing products cleanup completed: %d processed, %d errors.', 'wc-xml-csv-import'), $processed, $errors));
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ HANDLE_MISSING: Completed - processed=' . $processed . ', errors=' . $errors); }
+        
+        // Clean up the import start time option after processing is complete
+        delete_option($import_start_option_key);
     }
 
     /**
