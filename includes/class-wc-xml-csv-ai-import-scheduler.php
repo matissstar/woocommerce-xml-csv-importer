@@ -440,6 +440,6 @@ class WC_XML_CSV_AI_Import_Scheduler {
             return;
         }
 
-        as_unschedule_all_actions(self::ACTION_CHECK_SCHEDULED, array(), 'wc-xml-csv-import');
+        as_unschedule_all_actions(self::ACTION_CHECK_SCHEDULED, array(), 'bootflow-woocommerce-xml-csv-importer');
     }
 }

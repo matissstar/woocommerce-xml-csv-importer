@@ -7,6 +7,10 @@
  * @subpackage WC_XML_CSV_AI_Import/includes
  */
 
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Fired during plugin activation.
  */
@@ -22,7 +26,7 @@ class WC_XML_CSV_AI_Import_Activator {
         // Check if WooCommerce is active
         if (!class_exists('WooCommerce')) {
             deactivate_plugins(plugin_basename(__FILE__));
-            wp_die(__('This plugin requires WooCommerce to be installed and active.', 'wc-xml-csv-import'));
+            wp_die(__('This plugin requires WooCommerce to be installed and active.', 'bootflow-woocommerce-xml-csv-importer'));
         }
 
         // Create database tables

@@ -7,6 +7,10 @@
  * @subpackage WC_XML_CSV_AI_Import/includes
  */
 
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Fired during plugin deactivation.
  */

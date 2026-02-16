@@ -98,6 +98,13 @@ In the Pro version, data is sent to AI services only if the user enables AI feat
 = Are variable products supported? =
 Yes. Variable products with attributes and variations are fully supported.
 
+== Requirements ==
+
+= WooCommerce Compatibility =
+* WooCommerce 6.0 or higher required
+* Tested up to WooCommerce 8.3
+* Compatible with WooCommerce HPOS (High-Performance Order Storage)
+
 == Screenshots ==
 
 1. Import wizard – file upload

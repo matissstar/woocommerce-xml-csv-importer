@@ -7,6 +7,10 @@
  * @subpackage WC_XML_CSV_AI_Import/includes
  */
 
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * XML Parser class.
  */
@@ -35,13 +39,13 @@ class WC_XML_CSV_AI_Import_XML_Parser {
 
             // Check if file exists
             if (!file_exists($file_path)) {
-                throw new Exception(__('XML file not found.', 'wc-xml-csv-import'));
+                throw new Exception(__('XML file not found.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             // Use XMLReader for memory-efficient parsing
             $reader = new XMLReader();
             if (!$reader->open($file_path)) {
-                throw new Exception(__('Unable to open XML file.', 'wc-xml-csv-import'));
+                throw new Exception(__('Unable to open XML file.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $product_count = 0;
@@ -159,12 +163,12 @@ class WC_XML_CSV_AI_Import_XML_Parser {
             $products = array();
             
             if (!file_exists($file_path)) {
-                throw new Exception(__('XML file not found.', 'wc-xml-csv-import'));
+                throw new Exception(__('XML file not found.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $reader = new XMLReader();
             if (!$reader->open($file_path)) {
-                throw new Exception(__('Unable to open XML file.', 'wc-xml-csv-import'));
+                throw new Exception(__('Unable to open XML file.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $product_count = 0;
@@ -664,20 +668,20 @@ class WC_XML_CSV_AI_Import_XML_Parser {
     public function validate_xml_file($file_path) {
         try {
             if (!file_exists($file_path)) {
-                throw new Exception(__('File does not exist.', 'wc-xml-csv-import'));
+                throw new Exception(__('File does not exist.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $file_size = filesize($file_path);
             $max_size = get_option('wc_xml_csv_ai_import_settings', array())['max_file_size'] ?? 100;
             
             if ($file_size > ($max_size * 1024 * 1024)) {
-                throw new Exception(sprintf(__('File size exceeds maximum limit of %dMB.', 'wc-xml-csv-import'), $max_size));
+                throw new Exception(sprintf(__('File size exceeds maximum limit of %dMB.', 'bootflow-woocommerce-xml-csv-importer'), $max_size));
             }
 
             // Try to parse XML
             $reader = new XMLReader();
             if (!$reader->open($file_path)) {
-                throw new Exception(__('Invalid XML file or unable to open file.', 'wc-xml-csv-import'));
+                throw new Exception(__('Invalid XML file or unable to open file.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             // Check for well-formed XML
@@ -692,14 +696,14 @@ class WC_XML_CSV_AI_Import_XML_Parser {
                 foreach ($errors as $error) {
                     $error_messages[] = trim($error->message);
                 }
-                throw new Exception(__('XML validation errors: ', 'wc-xml-csv-import') . implode(', ', $error_messages));
+                throw new Exception(__('XML validation errors: ', 'bootflow-woocommerce-xml-csv-importer') . implode(', ', $error_messages));
             }
 
             $reader->close();
 
             return array(
                 'valid' => true,
-                'message' => __('XML file is valid.', 'wc-xml-csv-import'),
+                'message' => __('XML file is valid.', 'bootflow-woocommerce-xml-csv-importer'),
                 'file_size' => $file_size
             );
 
@@ -729,12 +733,12 @@ class WC_XML_CSV_AI_Import_XML_Parser {
             @ignore_user_abort(true);
             
             if (!file_exists($file_path)) {
-                throw new Exception(__('XML file not found.', 'wc-xml-csv-import'));
+                throw new Exception(__('XML file not found.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $reader = new XMLReader();
             if (!$reader->open($file_path)) {
-                throw new Exception(__('Unable to open XML file.', 'wc-xml-csv-import'));
+                throw new Exception(__('Unable to open XML file.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $product_count = 0;

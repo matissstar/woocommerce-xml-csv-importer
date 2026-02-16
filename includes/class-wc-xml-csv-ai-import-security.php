@@ -43,7 +43,9 @@ class WC_XML_CSV_AI_Import_Security {
      * Add security headers
      */
     public static function add_security_headers() {
-        if (is_admin() && isset($_GET['page']) && strpos($_GET['page'], 'wc-xml-csv-import') !== false) {
+        // WP.org compliance: sanitize GET input
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+        if (is_admin() && strpos($page, 'wc-xml-csv-import') !== false) {
             // Only add headers if they haven't been sent yet
             if (!headers_sent()) {
                 header('X-Content-Type-Options: nosniff');
@@ -58,33 +60,27 @@ class WC_XML_CSV_AI_Import_Security {
      * Validate AJAX requests
      */
     public static function validate_ajax_request() {
-        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ SECURITY validate_ajax_request CALLED! ★★★'); }
-        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Action: ' . ($_POST['action'] ?? 'no action')); }
-        
         // Check if user is logged in
         if (!is_user_logged_in()) {
-            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ SECURITY FAILED: not logged in ★★★'); }
-            wp_die(__('You must be logged in to perform this action.', 'wc-xml-csv-import'));
+            wp_die(esc_html__('You must be logged in to perform this action.', 'bootflow-woocommerce-xml-csv-importer'));
         }
 
         // Check user capabilities
         if (!current_user_can('manage_woocommerce')) {
-            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ SECURITY FAILED: no manage_woocommerce capability ★★★'); }
-            wp_die(__('You do not have permission to perform this action.', 'wc-xml-csv-import'));
+            wp_die(esc_html__('You do not have permission to perform this action.', 'bootflow-woocommerce-xml-csv-importer'));
         }
 
-        // Verify nonce - support both standard POST and FormData
-        $nonce = isset($_POST['nonce']) ? $_POST['nonce'] : (isset($_REQUEST['nonce']) ? $_REQUEST['nonce'] : '');
-        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ SECURITY nonce: ' . ($nonce ? substr($nonce, 0, 10) . '...' : 'EMPTY')); }
-        
-        if (empty($nonce) || !wp_verify_nonce($nonce, 'wc_xml_csv_ai_import_nonce')) {
-            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ SECURITY FAILED: nonce check failed ★★★'); }
-            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Nonce empty: ' . (empty($nonce) ? 'YES' : 'NO')); }
-            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Nonce verify: ' . (wp_verify_nonce($nonce, 'wc_xml_csv_ai_import_nonce') ? 'PASS' : 'FAIL')); }
-            wp_die(__('Security check failed.', 'wc-xml-csv-import'));
+        // WP.org compliance: sanitize nonce input
+        $nonce = '';
+        if (isset($_POST['nonce'])) {
+            $nonce = sanitize_key(wp_unslash($_POST['nonce']));
+        } elseif (isset($_REQUEST['nonce'])) {
+            $nonce = sanitize_key(wp_unslash($_REQUEST['nonce']));
         }
         
-        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('★★★ SECURITY PASSED! ★★★'); }
+        if (empty($nonce) || !wp_verify_nonce($nonce, 'wc_xml_csv_ai_import_nonce')) {
+            wp_die(esc_html__('Security check failed.', 'bootflow-woocommerce-xml-csv-importer'));
+        }
 
         // Rate limiting
         $user_id = get_current_user_id();
@@ -92,7 +88,7 @@ class WC_XML_CSV_AI_Import_Security {
         $current_count = get_transient($rate_limit_key) ?: 0;
         
         if ($current_count >= 60) { // 60 requests per minute
-            wp_die(__('Rate limit exceeded. Please wait before making another request.', 'wc-xml-csv-import'));
+            wp_die(esc_html__('Rate limit exceeded. Please wait before making another request.', 'bootflow-woocommerce-xml-csv-importer'));
         }
         
         set_transient($rate_limit_key, $current_count + 1, 60);
@@ -105,7 +101,7 @@ class WC_XML_CSV_AI_Import_Security {
         $errors = array();
         
         if (!$file || !is_array($file)) {
-            $errors[] = __('No file uploaded.', 'wc-xml-csv-import');
+            $errors[] = __('No file uploaded.', 'bootflow-woocommerce-xml-csv-importer');
             return array('file' => null, 'errors' => $errors);
         }
 
@@ -114,17 +110,17 @@ class WC_XML_CSV_AI_Import_Security {
             switch ($file['error']) {
                 case UPLOAD_ERR_INI_SIZE:
                 case UPLOAD_ERR_FORM_SIZE:
-                    $errors[] = __('File is too large.', 'wc-xml-csv-import');
+                    $errors[] = __('File is too large.', 'bootflow-woocommerce-xml-csv-importer');
                     break;
                 case UPLOAD_ERR_PARTIAL:
-                    $errors[] = __('File upload was incomplete.', 'wc-xml-csv-import');
+                    $errors[] = __('File upload was incomplete.', 'bootflow-woocommerce-xml-csv-importer');
                     break;
                 case UPLOAD_ERR_NO_TMP_DIR:
                 case UPLOAD_ERR_CANT_WRITE:
-                    $errors[] = __('Server error during upload.', 'wc-xml-csv-import');
+                    $errors[] = __('Server error during upload.', 'bootflow-woocommerce-xml-csv-importer');
                     break;
                 default:
-                    $errors[] = __('Unknown upload error.', 'wc-xml-csv-import');
+                    $errors[] = __('Unknown upload error.', 'bootflow-woocommerce-xml-csv-importer');
                     break;
             }
             return array('file' => null, 'errors' => $errors);
@@ -133,7 +129,7 @@ class WC_XML_CSV_AI_Import_Security {
         // Validate file name
         $filename = sanitize_file_name($file['name']);
         if (empty($filename)) {
-            $errors[] = __('Invalid file name.', 'wc-xml-csv-import');
+            $errors[] = __('Invalid file name.', 'bootflow-woocommerce-xml-csv-importer');
             return array('file' => null, 'errors' => $errors);
         }
 
@@ -142,14 +138,14 @@ class WC_XML_CSV_AI_Import_Security {
         $file_extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         
         if (!in_array($file_extension, $allowed_extensions)) {
-            $errors[] = __('File type not allowed. Only XML and CSV files are supported.', 'wc-xml-csv-import');
+            $errors[] = __('File type not allowed. Only XML and CSV files are supported.', 'bootflow-woocommerce-xml-csv-importer');
             return array('file' => null, 'errors' => $errors);
         }
 
         // Check file size
         $max_size = 100 * 1024 * 1024; // 100MB
         if ($file['size'] > $max_size) {
-            $errors[] = __('File is too large. Maximum size is 100MB.', 'wc-xml-csv-import');
+            $errors[] = __('File is too large. Maximum size is 100MB.', 'bootflow-woocommerce-xml-csv-importer');
             return array('file' => null, 'errors' => $errors);
         }
 
@@ -161,13 +157,13 @@ class WC_XML_CSV_AI_Import_Security {
 
         $file_mime = mime_content_type($file['tmp_name']);
         if (!in_array($file_mime, $allowed_mimes[$file_extension])) {
-            $errors[] = __('File MIME type does not match extension.', 'wc-xml-csv-import');
+            $errors[] = __('File MIME type does not match extension.', 'bootflow-woocommerce-xml-csv-importer');
             return array('file' => null, 'errors' => $errors);
         }
 
         // Scan for malicious content
         if (self::scan_file_for_threats($file['tmp_name'], $file_extension)) {
-            $errors[] = __('File contains potentially malicious content.', 'wc-xml-csv-import');
+            $errors[] = __('File contains potentially malicious content.', 'bootflow-woocommerce-xml-csv-importer');
             return array('file' => null, 'errors' => $errors);
         }
 
@@ -482,6 +478,55 @@ class WC_XML_CSV_AI_Import_Security {
         }
 
         return true;
+    }
+
+    /**
+     * Validate remote URL for SSRF protection
+     * WP.org compliance: prevent requests to internal/private networks
+     *
+     * @param string $url The URL to validate
+     * @return array Array with 'valid' boolean and 'error' message if invalid
+     */
+    public static function validate_remote_url($url) {
+        // Must be a valid URL
+        if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+            return array('valid' => false, 'error' => __('Invalid URL format.', 'bootflow-woocommerce-xml-csv-importer'));
+        }
+
+        $parsed = wp_parse_url($url);
+        
+        // Must use http or https
+        if (!isset($parsed['scheme']) || !in_array(strtolower($parsed['scheme']), array('http', 'https'), true)) {
+            return array('valid' => false, 'error' => __('URL must use HTTP or HTTPS protocol.', 'bootflow-woocommerce-xml-csv-importer'));
+        }
+
+        if (!isset($parsed['host']) || empty($parsed['host'])) {
+            return array('valid' => false, 'error' => __('URL must contain a valid host.', 'bootflow-woocommerce-xml-csv-importer'));
+        }
+
+        $host = strtolower($parsed['host']);
+
+        // Block localhost and loopback
+        $blocked_hosts = array('localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]');
+        if (in_array($host, $blocked_hosts, true)) {
+            return array('valid' => false, 'error' => __('Localhost URLs are not allowed.', 'bootflow-woocommerce-xml-csv-importer'));
+        }
+
+        // Block .local domains
+        if (preg_match('/\.local$/i', $host)) {
+            return array('valid' => false, 'error' => __('Local domain URLs are not allowed.', 'bootflow-woocommerce-xml-csv-importer'));
+        }
+
+        // Resolve hostname to IP and check for private networks
+        $ip = gethostbyname($host);
+        if ($ip !== $host) { // gethostbyname returns the hostname if resolution fails
+            // Block private IP ranges (SSRF protection)
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+                return array('valid' => false, 'error' => __('URLs pointing to private or reserved IP ranges are not allowed.', 'bootflow-woocommerce-xml-csv-importer'));
+            }
+        }
+
+        return array('valid' => true, 'error' => '');
     }
 }
 

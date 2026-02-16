@@ -10,6 +10,10 @@
  * @subpackage WC_XML_CSV_AI_Import/includes
  */
 
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * The core plugin class.
  */
@@ -96,13 +100,13 @@ class WC_XML_CSV_AI_Import {
         // Every 15 minutes
         $schedules['15min'] = array(
             'interval' => 15 * 60,
-            'display'  => __('Every 15 Minutes', 'wc-xml-csv-import')
+            'display'  => __('Every 15 Minutes', 'bootflow-woocommerce-xml-csv-importer')
         );
         
         // Every 6 hours
         $schedules['6hours'] = array(
             'interval' => 6 * 60 * 60,
-            'display'  => __('Every 6 Hours', 'wc-xml-csv-import')
+            'display'  => __('Every 6 Hours', 'bootflow-woocommerce-xml-csv-importer')
         );
         
         return $schedules;

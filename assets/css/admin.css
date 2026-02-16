@@ -183,6 +183,29 @@
     color: #666;
 }
 
+/* PRO Feature Badge */
+.pro-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    text-transform: uppercase;
+}
+
+/* Disabled PRO Feature */
+.upload-method-option.pro-feature-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    position: relative;
+}
+
+.upload-method-option.pro-feature-disabled:hover {
+    border-color: #ddd;
+}
+
 /* File Upload */
 .file-upload-area {
     border: 2px dashed #ddd;

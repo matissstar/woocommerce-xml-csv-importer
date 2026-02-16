@@ -25,8 +25,11 @@ if (!defined('ABSPATH')) {
  * Plugin Edition Flag
  * Set to true for PRO version, false for FREE version
  * This is the MASTER switch for all PRO features
+ * NOTE: This constant is now defined in the main plugin file only
  */
-define('WC_XML_CSV_AI_IMPORT_IS_PRO', true);
+if (!defined('WC_XML_CSV_AI_IMPORT_IS_PRO')) {
+    define('WC_XML_CSV_AI_IMPORT_IS_PRO', true);
+}
 
 /**
  * Check if running PRO version

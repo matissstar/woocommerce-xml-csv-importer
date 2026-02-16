@@ -7,6 +7,10 @@
  * @subpackage WC_XML_CSV_AI_Import/includes
  */
 
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Define the internationalization functionality.
  */
@@ -18,8 +22,9 @@ class WC_XML_CSV_AI_Import_i18n {
      * @since    1.0.0
      */
     public function load_plugin_textdomain() {
+        // WP.org compliance: text domain must match plugin slug
         load_plugin_textdomain(
-            'wc-xml-csv-import',
+            'bootflow-woocommerce-xml-csv-importer',
             false,
             dirname(dirname(plugin_basename(__FILE__))) . '/languages/'
         );

@@ -6,13 +6,11 @@
  * Version:     0.9.0
  * Author:      Bootflow
  * Author URI:  https://bootflow.io
- * Text Domain: wc-xml-csv-import
+ * Text Domain: bootflow-woocommerce-xml-csv-importer
  * Domain Path: /languages
  * Requires at least: 5.8
  * Tested up to: 6.4
  * Requires PHP: 7.4
- * WC requires at least: 6.0
- * WC tested up to: 8.3
  * License:     GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
@@ -31,7 +29,7 @@ if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get
 function wc_xml_csv_ai_import_woocommerce_missing_notice() {
     ?>
     <div class="notice notice-error">
-        <p><?php _e('WooCommerce XML/CSV Smart AI Import requires WooCommerce to be installed and active.', 'wc-xml-csv-import'); ?></p>
+        <p><?php esc_html_e('WooCommerce XML/CSV Smart Import requires WooCommerce to be installed and active.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
     </div>
     <?php
 }
@@ -40,7 +38,9 @@ function wc_xml_csv_ai_import_woocommerce_missing_notice() {
  * Suppress debug output on plugin pages
  */
 function wc_xml_csv_ai_import_suppress_debug_output() {
-    if (is_admin() && isset($_GET['page']) && strpos($_GET['page'], 'wc-xml-csv-import') !== false) {
+    // WP.org compliance: sanitize input
+    $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+    if (is_admin() && strpos($page, 'bootflow-woocommerce-xml-csv-importer') !== false) {
         if (!WC_XML_CSV_AI_IMPORT_DEBUG) {
             ini_set('display_errors', 0);
             ini_set('log_errors', 1);
@@ -61,7 +61,7 @@ define('WC_XML_CSV_AI_IMPORT_VERSION', '0.9.1-test-2033');
 define('WC_XML_CSV_AI_IMPORT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WC_XML_CSV_AI_IMPORT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WC_XML_CSV_AI_IMPORT_PLUGIN_BASENAME', plugin_basename(__FILE__));
-define('WC_XML_CSV_AI_IMPORT_TEXT_DOMAIN', 'wc-xml-csv-import');
+define('WC_XML_CSV_AI_IMPORT_TEXT_DOMAIN', 'bootflow-woocommerce-xml-csv-importer'); // WP.org compliance: text domain must match plugin slug
 
 /**
  * Pro/Free edition flag
@@ -148,8 +148,9 @@ function wc_xml_csv_ai_import_check_db_version() {
 add_filter('plugin_action_links_' . WC_XML_CSV_AI_IMPORT_PLUGIN_BASENAME, 'wc_xml_csv_ai_import_action_links');
 
 function wc_xml_csv_ai_import_action_links($links) {
-    $settings_link = '<a href="' . admin_url('admin.php?page=wc-xml-csv-import') . '">' . __('Import', 'wc-xml-csv-import') . '</a>';
-    $settings_link .= ' | <a href="' . admin_url('admin.php?page=wc-xml-csv-import-settings') . '">' . __('Settings', 'wc-xml-csv-import') . '</a>';
+    // WP.org compliance: proper escaping for URLs and text
+    $settings_link = '<a href="' . esc_url(admin_url('admin.php?page=wc-xml-csv-import')) . '">' . esc_html__('Import', 'bootflow-woocommerce-xml-csv-importer') . '</a>';
+    $settings_link .= ' | <a href="' . esc_url(admin_url('admin.php?page=wc-xml-csv-import-settings')) . '">' . esc_html__('Settings', 'bootflow-woocommerce-xml-csv-importer') . '</a>';
     array_unshift($links, $settings_link);
     return $links;
 }

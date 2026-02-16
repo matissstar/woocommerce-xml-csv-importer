@@ -7,6 +7,10 @@
  * @subpackage WC_XML_CSV_AI_Import/includes
  */
 
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Field Processor class.
  */
@@ -264,18 +268,19 @@ class WC_XML_CSV_AI_Import_Processor {
             $settings = get_option('wc_xml_csv_ai_import_settings', array());
             if (empty($settings['enable_php_formulas'])) {
                 if (defined('WP_DEBUG') && WP_DEBUG) { error_log('[PHP_FORMULA_EXEC] DISABLED in settings!'); }
-                throw new Exception(__('PHP formulas are disabled in settings.', 'wc-xml-csv-import'));
+                throw new Exception(__('PHP formulas are disabled in settings.', 'bootflow-woocommerce-xml-csv-importer'));
             }
             
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log("[PHP_FORMULA_EXEC] PHP formulas enabled: YES"); }
 
             // Whitelist of allowed functions
+            // WP.org compliance: preg_replace removed as it can execute code with /e modifier in older PHP
             $allowed_functions = array(
                 // Math functions
                 'abs', 'ceil', 'floor', 'round', 'max', 'min', 'number_format', 'pow', 'sqrt', 'log', 'exp', 'fmod',
                 // String functions
                 'trim', 'strlen', 'substr', 'strtolower', 'strtoupper', 'ucwords', 'ucfirst',
-                'str_replace', 'str_ireplace', 'preg_replace', 'htmlspecialchars', 'strip_tags', 'nl2br', 'wordwrap',
+                'str_replace', 'str_ireplace', 'htmlspecialchars', 'strip_tags', 'nl2br', 'wordwrap',
                 'ltrim', 'rtrim', 'str_pad', 'str_repeat', 'strrev', 'chunk_split',
                 // Multibyte string functions (UTF-8 support)
                 'mb_strtolower', 'mb_strtoupper', 'mb_strlen', 'mb_substr', 'mb_convert_case',
@@ -301,17 +306,21 @@ class WC_XML_CSV_AI_Import_Processor {
 
             foreach ($dangerous_patterns as $pattern) {
                 if (preg_match($pattern, $formula)) {
-                    throw new Exception(__('Formula contains disallowed constructs.', 'wc-xml-csv-import'));
+                    throw new Exception(__('Formula contains disallowed constructs.', 'bootflow-woocommerce-xml-csv-importer'));
                 }
             }
 
             // Extract function calls and validate
-            if (preg_match_all('/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/i', $formula, $matches)) {
+            // First, remove all string literals from formula to avoid false positives
+            // (e.g., "'Akumulatori' => 'Akumulators'" should not be detected as function call)
+            $formula_without_strings = preg_replace('/([\'"])(?:\\\\.|(?!\1).)*\1/', '', $formula);
+            
+            if (preg_match_all('/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/i', $formula_without_strings, $matches)) {
                 if (defined('WP_DEBUG') && WP_DEBUG) { error_log("Found function calls in formula: " . json_encode($matches[1])); }
                 foreach ($matches[1] as $function_name) {
                     if (!in_array(strtolower($function_name), $allowed_functions)) {
                         if (defined('WP_DEBUG') && WP_DEBUG) { error_log("Blocked function: " . $function_name); }
-                        throw new Exception(sprintf(__('Function "%s" is not allowed.', 'wc-xml-csv-import'), $function_name));
+                        throw new Exception(sprintf(__('Function "%s" is not allowed.', 'bootflow-woocommerce-xml-csv-importer'), $function_name));
                     }
                 }
             }
@@ -436,11 +445,11 @@ class WC_XML_CSV_AI_Import_Processor {
         } catch (ParseError $e) {
             ob_end_clean();
             error_reporting($old_error_reporting);
-            throw new Exception(__('PHP formula syntax error: ', 'wc-xml-csv-import') . $e->getMessage());
+            throw new Exception(__('PHP formula syntax error: ', 'bootflow-woocommerce-xml-csv-importer') . $e->getMessage());
         } catch (Error $e) {
             ob_end_clean();
             error_reporting($old_error_reporting);
-            throw new Exception(__('PHP formula execution error: ', 'wc-xml-csv-import') . $e->getMessage());
+            throw new Exception(__('PHP formula execution error: ', 'bootflow-woocommerce-xml-csv-importer') . $e->getMessage());
         }
     }
 

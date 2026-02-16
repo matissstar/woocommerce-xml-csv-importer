@@ -50,8 +50,19 @@ mkdir -p "$FREE_BUILD_DIR"
 # Copy all files except those in exclude list
 rsync -av \
     --exclude-from="$SCRIPT_DIR/build-config/free-exclude.txt" \
+    --exclude=".git" \
+    --exclude=".git/" \
     --exclude="dist/" \
+    --exclude="dist" \
     --exclude="build-temp/" \
+    --exclude="build-temp" \
+    --exclude="build-config/" \
+    --exclude="build-config" \
+    --exclude="build.sh" \
+    --exclude="sample-data/" \
+    --exclude="sample-data" \
+    --exclude="PRO-features-list.html" \
+    --exclude="PRO-features-list.odt" \
     "$SRC_DIR/" "$FREE_BUILD_DIR/"
 
 # Modify main plugin file for FREE version
@@ -104,12 +115,24 @@ if [ -f "$FREE_BUILD_DIR/includes/admin/class-wc-xml-csv-ai-import-admin.php" ];
     sed -i 's/\$ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();/\$ai_providers = null; \/\/ AI disabled in FREE version/g' "$FREE_BUILD_DIR/includes/admin/class-wc-xml-csv-ai-import-admin.php"
 fi
 
-# Remove AI Providers tab and Scheduler references from settings-page.php
+# Remove AI Providers tab, Scheduler, Security, and Logging references from settings-page.php
 if [ -f "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php" ]; then
     # Remove AI Providers tab link
     sed -i '/<a href="#ai-providers".*AI Providers/d' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
     # Comment out Scheduler::is_action_scheduler_available calls
     sed -i 's/WC_XML_CSV_AI_Import_Scheduler::is_action_scheduler_available()/true \/\/ Scheduler disabled in FREE/g' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
+    # Remove Security tab from navigation (PHP Formula is PRO-only feature)
+    sed -i '/<a href="#security".*Security/d' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
+    # Remove Logging tab from navigation (Logging is PRO-only feature)
+    sed -i '/<a href="#logging".*Logging/d' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
+    # Remove Scheduling tab from navigation (Scheduling is PRO-only feature)
+    sed -i '/<a href="#scheduling".*Scheduling/d' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
+    # Remove entire Scheduling tab content (from Scheduling Tab to before Files Tab)
+    sed -i '/<!-- Scheduling Tab -->/,/<!-- Files Tab -->/{ /<!-- Files Tab -->/!d; }' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
+    # Remove entire Logging tab content (from Logging Tab to before Security Tab)
+    sed -i '/<!-- Logging Tab -->/,/<!-- Security Tab -->/{ /<!-- Security Tab -->/!d; }' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
+    # Remove entire Security tab content (from Security Tab to submit_button)
+    sed -i '/<!-- Security Tab -->/,/<?php submit_button/{ /<?php submit_button/!d; }' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
 fi
 
 # Remove AI/Hybrid/PHP_formula options from import-edit.php
@@ -192,8 +215,17 @@ mkdir -p "$PRO_BUILD_DIR"
 # Copy all files except those in exclude list
 rsync -av \
     --exclude-from="$SCRIPT_DIR/build-config/pro-exclude.txt" \
+    --exclude=".git" \
+    --exclude=".git/" \
     --exclude="dist/" \
+    --exclude="dist" \
     --exclude="build-temp/" \
+    --exclude="build-temp" \
+    --exclude="build-config/" \
+    --exclude="build-config" \
+    --exclude="build.sh" \
+    --exclude="PRO-features-list.html" \
+    --exclude="PRO-features-list.odt" \
     "$SRC_DIR/" "$PRO_BUILD_DIR/"
 
 # Modify main plugin file for PRO version
@@ -254,6 +286,44 @@ if unzip -l "$DIST_DIR/$PLUGIN_SLUG.zip" | grep -q "scheduler"; then
     exit 1
 else
     echo -e "${GREEN}  ✓ No scheduler in FREE version${NC}"
+fi
+
+# Check for .git directory (should not be in any distribution)
+if unzip -l "$DIST_DIR/$PLUGIN_SLUG.zip" | grep -q "\.git"; then
+    echo -e "${RED}  ✗ ERROR: FREE version contains .git directory!${NC}"
+    exit 1
+else
+    echo -e "${GREEN}  ✓ No .git directory in FREE version${NC}"
+fi
+
+if unzip -l "$DIST_DIR/$PRO_SLUG.zip" | grep -q "\.git"; then
+    echo -e "${RED}  ✗ ERROR: PRO version contains .git directory!${NC}"
+    exit 1
+else
+    echo -e "${GREEN}  ✓ No .git directory in PRO version${NC}"
+fi
+
+# Check for sample-data (should not be in FREE version)
+if unzip -l "$DIST_DIR/$PLUGIN_SLUG.zip" | grep -q "sample-data"; then
+    echo -e "${RED}  ✗ ERROR: FREE version contains sample-data directory!${NC}"
+    exit 1
+else
+    echo -e "${GREEN}  ✓ No sample-data in FREE version${NC}"
+fi
+
+# Check for build-config (should not be in any distribution)
+if unzip -l "$DIST_DIR/$PLUGIN_SLUG.zip" | grep -q "build-config"; then
+    echo -e "${RED}  ✗ ERROR: FREE version contains build-config directory!${NC}"
+    exit 1
+else
+    echo -e "${GREEN}  ✓ No build-config in FREE version${NC}"
+fi
+
+if unzip -l "$DIST_DIR/$PRO_SLUG.zip" | grep -q "build-config"; then
+    echo -e "${RED}  ✗ ERROR: PRO version contains build-config directory!${NC}"
+    exit 1
+else
+    echo -e "${GREEN}  ✓ No build-config in PRO version${NC}"
 fi
 
 # ========================================

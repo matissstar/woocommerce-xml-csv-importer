@@ -1,0 +1,15 @@
+type,sku,parent_sku,name,description,short_description,regular_price,sale_price,categories,tags,images,stock_quantity,weight,attributes,attribute_color,attribute_size
+variable,FREE-VAR-001,,Premium Hoodie,High-quality cotton blend hoodie with kangaroo pocket and adjustable drawstring hood. Perfect for cool weather.,Premium cotton blend hoodie,,,Clothing > Hoodies,hoodie;cotton;casual,https://picsum.photos/seed/hoodie1/800/800,,,Color|Size,,
+variation,FREE-VAR-001-BLK-S,FREE-VAR-001,Premium Hoodie - Black S,,,59.99,49.99,,,https://picsum.photos/seed/hoodie-black/800/800,15,0.4,,Black,S
+variation,FREE-VAR-001-BLK-M,FREE-VAR-001,Premium Hoodie - Black M,,,59.99,49.99,,,https://picsum.photos/seed/hoodie-black/800/800,20,0.4,,Black,M
+variation,FREE-VAR-001-BLK-L,FREE-VAR-001,Premium Hoodie - Black L,,,59.99,49.99,,,https://picsum.photos/seed/hoodie-black/800/800,18,0.45,,Black,L
+variation,FREE-VAR-001-GRY-S,FREE-VAR-001,Premium Hoodie - Gray S,,,59.99,54.99,,,https://picsum.photos/seed/hoodie-gray/800/800,12,0.4,,Gray,S
+variation,FREE-VAR-001-GRY-M,FREE-VAR-001,Premium Hoodie - Gray M,,,59.99,54.99,,,https://picsum.photos/seed/hoodie-gray/800/800,25,0.4,,Gray,M
+variation,FREE-VAR-001-GRY-L,FREE-VAR-001,Premium Hoodie - Gray L,,,59.99,54.99,,,https://picsum.photos/seed/hoodie-gray/800/800,22,0.45,,Gray,L
+variable,FREE-VAR-002,,Casual Polo Shirt,Classic polo shirt made from breathable cotton pique fabric. Features ribbed collar and two-button placket.,Classic cotton pique polo shirt,,,Clothing > Shirts > Polo,polo;cotton;casual,https://picsum.photos/seed/polo1/800/800,,,Color|Size,,
+variation,FREE-VAR-002-WHT-M,FREE-VAR-002,Casual Polo - White M,,,39.99,,,,https://picsum.photos/seed/polo-white/800/800,30,0.25,,White,M
+variation,FREE-VAR-002-WHT-L,FREE-VAR-002,Casual Polo - White L,,,39.99,,,,https://picsum.photos/seed/polo-white/800/800,28,0.25,,White,L
+variation,FREE-VAR-002-NVY-M,FREE-VAR-002,Casual Polo - Navy M,,,39.99,,,,https://picsum.photos/seed/polo-navy/800/800,35,0.25,,Navy,M
+variation,FREE-VAR-002-NVY-L,FREE-VAR-002,Casual Polo - Navy L,,,39.99,,,,https://picsum.photos/seed/polo-navy/800/800,32,0.25,,Navy,L
+simple,FREE-SIMPLE-006,,Canvas Backpack,Durable canvas backpack with laptop compartment and multiple pockets. Perfect for school or work.,Durable canvas backpack with laptop sleeve,69.99,59.99,Bags > Backpacks,canvas;laptop;school,https://picsum.photos/seed/backpack1/800/800,40,0.6,"Color:Olive|Material:Canvas",,
+simple,FREE-SIMPLE-007,,Stainless Steel Watch,Elegant stainless steel watch with Japanese quartz movement and water resistance up to 50m.,Elegant stainless steel quartz watch,129.99,,Accessories > Watches,watch;stainless;elegant,https://picsum.photos/seed/watch1/800/800,15,0.15,"Color:Silver|Material:Stainless Steel",,

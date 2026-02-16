@@ -7,6 +7,10 @@
  * @subpackage WC_XML_CSV_AI_Import/includes
  */
 
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * CSV Parser class.
  */
@@ -24,7 +28,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
     public function parse_structure($file_path, $page = 1, $per_page = 5) {
         try {
             if (!file_exists($file_path)) {
-                throw new Exception(__('CSV file not found.', 'wc-xml-csv-import'));
+                throw new Exception(__('CSV file not found.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             // Auto-detect CSV format
@@ -32,13 +36,13 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             
             $handle = fopen($file_path, 'r');
             if (!$handle) {
-                throw new Exception(__('Unable to open CSV file.', 'wc-xml-csv-import'));
+                throw new Exception(__('Unable to open CSV file.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             // Get headers
             $headers = fgetcsv($handle, 0, $csv_format['delimiter'], $csv_format['enclosure'], $csv_format['escape']);
             if (!$headers) {
-                throw new Exception(__('Unable to read CSV headers.', 'wc-xml-csv-import'));
+                throw new Exception(__('Unable to read CSV headers.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $headers = array_map('trim', $headers);
@@ -113,14 +117,14 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             $products = array();
             
             if (!file_exists($file_path)) {
-                throw new Exception(__('CSV file not found.', 'wc-xml-csv-import'));
+                throw new Exception(__('CSV file not found.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $csv_format = $this->detect_csv_format($file_path);
             $handle = fopen($file_path, 'r');
             
             if (!$handle) {
-                throw new Exception(__('Unable to open CSV file.', 'wc-xml-csv-import'));
+                throw new Exception(__('Unable to open CSV file.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             // Get headers
@@ -333,7 +337,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
     public function validate_csv_file($file_path) {
         try {
             if (!file_exists($file_path)) {
-                throw new Exception(__('File does not exist.', 'wc-xml-csv-import'));
+                throw new Exception(__('File does not exist.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $file_size = filesize($file_path);
@@ -341,18 +345,18 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             $max_size = isset($settings['max_file_size']) ? $settings['max_file_size'] : 100;
             
             if ($file_size > ($max_size * 1024 * 1024)) {
-                throw new Exception(sprintf(__('File size exceeds maximum limit of %dMB.', 'wc-xml-csv-import'), $max_size));
+                throw new Exception(sprintf(__('File size exceeds maximum limit of %dMB.', 'bootflow-woocommerce-xml-csv-importer'), $max_size));
             }
 
             // Try to read first line
             $handle = fopen($file_path, 'r');
             if (!$handle) {
-                throw new Exception(__('Unable to open CSV file.', 'wc-xml-csv-import'));
+                throw new Exception(__('Unable to open CSV file.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $first_line = fgets($handle);
             if ($first_line === false) {
-                throw new Exception(__('CSV file appears to be empty.', 'wc-xml-csv-import'));
+                throw new Exception(__('CSV file appears to be empty.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             // Check if we can parse the CSV
@@ -361,14 +365,14 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             
             $headers = fgetcsv($handle, 0, $csv_format['delimiter'], $csv_format['enclosure'], $csv_format['escape']);
             if (!$headers || empty($headers)) {
-                throw new Exception(__('Unable to parse CSV headers.', 'wc-xml-csv-import'));
+                throw new Exception(__('Unable to parse CSV headers.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             fclose($handle);
 
             return array(
                 'valid' => true,
-                'message' => sprintf(__('CSV file is valid with %d columns.', 'wc-xml-csv-import'), count($headers)),
+                'message' => sprintf(__('CSV file is valid with %d columns.', 'bootflow-woocommerce-xml-csv-importer'), count($headers)),
                 'file_size' => $file_size,
                 'column_count' => count($headers),
                 'csv_format' => $csv_format
@@ -398,12 +402,12 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             @ignore_user_abort(true);
 
             if (!file_exists($file_path)) {
-                throw new Exception(__('CSV file not found.', 'wc-xml-csv-import'));
+                throw new Exception(__('CSV file not found.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $handle = fopen($file_path, 'r');
             if (!$handle) {
-                throw new Exception(__('Unable to open CSV file.', 'wc-xml-csv-import'));
+                throw new Exception(__('Unable to open CSV file.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             // Detect delimiter
@@ -413,7 +417,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             $headers = fgetcsv($handle, 0, $csv_format['delimiter'], $csv_format['enclosure']);
             if (!$headers) {
                 fclose($handle);
-                throw new Exception(__('CSV file has no headers.', 'wc-xml-csv-import'));
+                throw new Exception(__('CSV file has no headers.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $structure = array();
@@ -465,14 +469,14 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
     public function extract_products_grouped($file_path, $parent_sku_column, $type_column = '', $offset = 0, $limit = 50) {
         try {
             if (!file_exists($file_path)) {
-                throw new Exception(__('CSV file not found.', 'wc-xml-csv-import'));
+                throw new Exception(__('CSV file not found.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             $csv_format = $this->detect_csv_format($file_path);
             $handle = fopen($file_path, 'r');
             
             if (!$handle) {
-                throw new Exception(__('Unable to open CSV file.', 'wc-xml-csv-import'));
+                throw new Exception(__('Unable to open CSV file.', 'bootflow-woocommerce-xml-csv-importer'));
             }
 
             // Get headers
@@ -485,7 +489,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             
             if ($parent_sku_index === false) {
                 fclose($handle);
-                throw new Exception(sprintf(__('Parent SKU column "%s" not found in CSV.', 'wc-xml-csv-import'), $parent_sku_column));
+                throw new Exception(sprintf(__('Parent SKU column "%s" not found in CSV.', 'bootflow-woocommerce-xml-csv-importer'), $parent_sku_column));
             }
             
             // Read all rows and group by parent SKU

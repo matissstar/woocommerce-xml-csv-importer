@@ -4326,11 +4326,53 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
     }
 
     /**
-     * Update progress display
+     * Update progress display - separated into progress stats and product logs
      */
     function updateProgressDisplay(data) {
-        // Update progress circle
         var percentage = data.percentage || 0;
+        var processed = data.processed_products || 0;
+        var total = data.total_products || 0;
+        var remaining = total - processed;
+        
+        // === Update Live Progress Section (fixed at top) ===
+        $('#live-progress-bar').css('width', percentage + '%');
+        $('#live-progress-text').text(percentage + '%');
+        $('#live-processed').text(processed);
+        $('#live-total').text(total);
+        
+        // Calculate speed and ETA
+        if (data.start_time && processed > 0) {
+            var elapsed = (Date.now() / 1000) - data.start_time;
+            var speed = elapsed > 0 ? Math.round((processed / elapsed) * 60) : 0;
+            $('#live-speed').text(speed > 0 ? speed : '-');
+            
+            if (speed > 0 && remaining > 0) {
+                var etaMinutes = Math.round(remaining / speed);
+                if (etaMinutes < 60) {
+                    $('#live-eta').text(etaMinutes + 'm');
+                } else {
+                    var hours = Math.floor(etaMinutes / 60);
+                    var mins = etaMinutes % 60;
+                    $('#live-eta').text(hours + 'h ' + mins + 'm');
+                }
+            } else if (remaining === 0) {
+                $('#live-eta').text('✓');
+            }
+        }
+        
+        // Update current action text - check completed status FIRST
+        if (data.status === 'completed') {
+            $('#live-chunk-info').find('.dashicons').removeClass('dashicons-update').addClass('dashicons-yes-alt').css('animation', 'none').css('color', '#28a745');
+            $('#live-current-action').html('<strong style="color: #28a745;">Import completed successfully!</strong>');
+            $('#live-eta').text('✓').css('color', '#28a745');
+        } else if (data.status === 'failed') {
+            $('#live-chunk-info').find('.dashicons').removeClass('dashicons-update').addClass('dashicons-warning').css('animation', 'none').css('color', '#dc3545');
+            $('#live-current-action').html('<strong style="color: #dc3545;">Import failed!</strong>');
+        } else if (data.current_chunk && data.total_chunks) {
+            $('#live-current-action').html('Processing chunk <strong>' + data.current_chunk + '</strong> of <strong>' + data.total_chunks + '</strong>');
+        }
+        
+        // Update legacy progress circle (if exists)
         $('.progress-circle').css('background', 'conic-gradient(#0073aa ' + percentage + '%, #f0f0f0 0%)');
         $('.progress-percentage').text(percentage + '%');
 
@@ -4339,47 +4381,96 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         $status.text(data.status.charAt(0).toUpperCase() + data.status.slice(1));
         $status.removeClass('processing completed failed').addClass(data.status);
 
-        // Update stats
-        $('.stat-item').eq(0).find('.stat-value').text(data.total_products || 0);
-        $('.stat-item').eq(1).find('.stat-value').text(data.processed_products || 0);
-        $('.stat-item').eq(2).find('.stat-value').text(data.total_products - data.processed_products || 0);
+        // Update legacy stats (if exists)
+        $('.stat-item').eq(0).find('.stat-value').text(total);
+        $('.stat-item').eq(1).find('.stat-value').text(processed);
+        $('.stat-item').eq(2).find('.stat-value').text(remaining);
 
-        // Update logs - append new entries instead of replacing all
+        // === Update Product Activity Log (only product-related logs) ===
         if (data.logs && data.logs.length > 0) {
-            var $logsContainer = $('.import-logs');
+            var $logsContainer = $('#import-logs');
             var existingIds = [];
             
             // Collect existing log entry IDs
             $logsContainer.find('.log-entry').each(function() {
                 var id = $(this).data('log-id');
-                if (id) existingIds.push(id);
+                if (id) existingIds.push(String(id));
             });
             
-            // Add only new logs
+            // Filter out progress/chunk logs and add only product logs
             var newLogsAdded = false;
             data.logs.forEach(function(log) {
-                var logId = log.id || (log.created_at + '_' + log.message.substring(0, 20));
+                var logId = String(log.id || (log.created_at + '_' + log.message.substring(0, 20)));
+                
+                // Skip progress-related logs (they go to the fixed progress section)
+                var msg = log.message || '';
+                if (msg.indexOf('Chunk ') === 0 || 
+                    msg.indexOf('Processing chunk ') === 0 || 
+                    msg.indexOf('Processed ') === 0 && msg.indexOf('/') !== -1 ||
+                    msg.indexOf('Starting import') === 0 ||
+                    msg.indexOf('Import completed') === 0) {
+                    return; // Skip this log entry
+                }
+                
                 if (existingIds.indexOf(logId) === -1) {
+                    // Determine icon
+                    var icon = '📝';
+                    if (msg.indexOf('Created') !== -1 || msg.indexOf('created') !== -1) {
+                        icon = '✅';
+                    } else if (msg.indexOf('Updated') !== -1 || msg.indexOf('updated') !== -1) {
+                        icon = '🔄';
+                    } else if (msg.indexOf('Skipped') !== -1 || msg.indexOf('skipped') !== -1) {
+                        icon = '⏭️';
+                    } else if (msg.indexOf('Error') !== -1 || log.level === 'error') {
+                        icon = '❌';
+                    } else if (msg.indexOf('Warning') !== -1 || log.level === 'warning') {
+                        icon = '⚠️';
+                    }
+                    
                     var logClass = 'log-entry';
-                    if (log.log_type) logClass += ' ' + log.log_type;
-                    if (log.level) logClass += ' log-' + log.level;
+                    if (log.level) logClass += ' ' + log.level;
                     
                     var $entry = $('<div class="' + logClass + '" data-log-id="' + logId + '"></div>');
-                    $entry.text('[' + log.created_at + '] ' + log.message);
+                    $entry.html(
+                        '<span class="log-icon">' + icon + '</span> ' +
+                        '<span class="log-time">[' + log.created_at + ']</span> ' +
+                        '<span class="log-message">' + escapeHtml(msg) + '</span>' +
+                        (log.product_sku ? ' <span class="log-sku">(SKU: ' + escapeHtml(log.product_sku) + ')</span>' : '')
+                    );
                     $entry.hide();
                     $logsContainer.append($entry);
                     $entry.fadeIn(200);
                     newLogsAdded = true;
+                    existingIds.push(logId);
                 }
             });
             
-            // Smooth scroll to bottom if new logs added
-            if (newLogsAdded) {
+            // Auto-scroll to bottom if enabled and new logs added
+            if (newLogsAdded && $('#auto-scroll-logs').is(':checked')) {
                 $logsContainer.stop().animate({
                     scrollTop: $logsContainer[0].scrollHeight
                 }, 300);
             }
+            
+            // Limit visible logs to prevent memory issues (keep last 100)
+            var $entries = $logsContainer.find('.log-entry');
+            if ($entries.length > 100) {
+                $entries.slice(0, $entries.length - 100).remove();
+            }
         }
+    }
+    
+    /**
+     * Escape HTML to prevent XSS
+     */
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     /**
@@ -5488,9 +5579,10 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             }
         });
         
-        // Click on autocomplete item
-        $(document).on('click', '.field-autocomplete-item', function(e) {
+        // Mousedown on autocomplete item (use mousedown instead of click to fire before blur)
+        $(document).on('mousedown', '.field-autocomplete-item', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             var $item = $(this);
             var fieldPath = $item.data('field-path');
             var $wrapper = $item.closest('.textarea-mapping-wrapper');
