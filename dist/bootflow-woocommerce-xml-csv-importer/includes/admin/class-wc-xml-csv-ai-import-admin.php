@@ -506,7 +506,7 @@ class WC_XML_CSV_AI_Import_Admin {
         
         // Get imports
         $imports = $wpdb->get_results(
-            $wpdb->prepare( "SELECT * FROM %i ORDER BY created_at DESC", $wpdb->prefix . 'wc_itp_imports' ), // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnquotedComplexPlaceholder
+            "SELECT * FROM {$wpdb->prefix}wc_itp_imports ORDER BY created_at DESC",
             ARRAY_A
         );
         
@@ -2152,7 +2152,7 @@ class WC_XML_CSV_AI_Import_Admin {
                 });
             }
             
-            $ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();
+            $ai_providers = null; // AI disabled in FREE version
             $result = $ai_providers->auto_map_fields($source_fields, $provider, $file_type, $sample_data);
             
             // Get stats
@@ -2329,7 +2329,7 @@ class WC_XML_CSV_AI_Import_Admin {
                 }
             }
             
-            $ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();
+            $ai_providers = null; // AI disabled in FREE version
             $result = $ai_providers->process_field($test_value, $test_prompt, array('provider' => $provider), $context);
             
             wp_send_json_success(array(
@@ -2401,7 +2401,7 @@ class WC_XML_CSV_AI_Import_Admin {
                 return \$func();
             ";
             
-            $result = eval($wrapped_formula);
+            $result = $test_value; // eval disabled in FREE version
             
             // Format result for display
             $formatted_result = is_array($result) ? json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $result;
@@ -2614,7 +2614,7 @@ class WC_XML_CSV_AI_Import_Admin {
                 return \$func();
             ";
             
-            $result = eval($wrapped_formula);
+            $result = $test_value; // eval disabled in FREE version
             
             wp_send_json_success(array(
                 'result' => $result,
@@ -3093,7 +3093,7 @@ class WC_XML_CSV_AI_Import_Admin {
             <?php
             // Get imports for dropdown
             $table = $wpdb->prefix . 'wc_itp_imports';
-            $imports = $wpdb->get_results( $wpdb->prepare( "SELECT id, name FROM %i ORDER BY id DESC LIMIT 20", $table ) );
+            $imports = $wpdb->get_results("SELECT id, name FROM {$table} ORDER BY id DESC LIMIT 20");
             
             // Handle import selection
             $selected_import = isset($_GET['import_id']) ? intval($_GET['import_id']) : ($imports[0]->id ?? 0);

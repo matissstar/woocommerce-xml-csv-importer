@@ -1,6 +1,6 @@
 === Bootflow – WooCommerce XML & CSV Importer ===
-Contributors: bootflow
-Tags: woocommerce, import, xml, csv, products, mapping, bootflow
+Contributors: bootflow.io
+Tags: woocommerce, import, xml, csv, products, mapping
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4

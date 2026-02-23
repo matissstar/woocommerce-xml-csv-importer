@@ -509,8 +509,10 @@ class WC_XML_CSV_AI_Import_License {
 
         // Handle connection errors
         if (is_wp_error($response)) {
-            // Fallback: accept key locally for offline activation (will verify later)
-            return self::activate_license_offline($license_key);
+            return array(
+                'success' => false,
+                'message' => __('Could not connect to the license server. Please check your internet connection and try again.', 'bootflow-woocommerce-xml-csv-importer'),
+            );
         }
 
         $code = wp_remote_retrieve_response_code($response);
@@ -548,46 +550,6 @@ class WC_XML_CSV_AI_Import_License {
             'lifetime' => $is_lifetime,
             'message' => sprintf(
                 __('License activated successfully! Your plan: %s', 'bootflow-woocommerce-xml-csv-importer'),
-                self::get_tier_name($tier)
-            ),
-        );
-    }
-
-    /**
-     * Offline license activation (fallback when API unavailable)
-     *
-     * @since    1.0.0
-     * @param    string $license_key License key
-     * @return   array  Result
-     */
-    private static function activate_license_offline($license_key) {
-        // Determine tier based on license key prefix (fallback logic)
-        // All paid licenses map to 'pro' (legacy agency keys also become pro)
-        $tier = 'free';
-        if (stripos($license_key, 'PRO-') === 0 || 
-            stripos($license_key, 'LTD-') === 0 ||
-            stripos($license_key, 'AGENCY-') === 0 || 
-            stripos($license_key, 'AGN-') === 0) {
-            $tier = 'pro';
-        }
-
-        // Save locally - will verify with API later
-        $settings = get_option('wc_xml_csv_ai_import_settings', array());
-        $settings['license_key'] = $license_key;
-        $settings['license_tier'] = $tier;
-        $settings['license_activated'] = current_time('mysql');
-        $settings['license_pending_verification'] = true;
-        update_option('wc_xml_csv_ai_import_settings', $settings);
-
-        // Reset cached tier
-        self::$current_tier = null;
-
-        return array(
-            'success' => true,
-            'tier' => $tier,
-            'offline' => true,
-            'message' => sprintf(
-                __('License saved locally (offline mode). Will verify when connection is available. Tier: %s', 'bootflow-woocommerce-xml-csv-importer'),
                 self::get_tier_name($tier)
             ),
         );

@@ -179,11 +179,11 @@ class WC_XML_CSV_AI_Import_License {
     }
     
     public static function activate_license($license_key) {
-        return array('success' => false, 'message' => __('License activation is only available in the Pro version.', 'wc-xml-csv-import'));
+        return array('success' => false, 'message' => __('License activation is only available in the Pro version.', 'bootflow-woocommerce-xml-csv-importer'));
     }
     
     public static function deactivate_license() {
-        return array('success' => false, 'message' => __('License deactivation is only available in the Pro version.', 'wc-xml-csv-import'));
+        return array('success' => false, 'message' => __('License deactivation is only available in the Pro version.', 'bootflow-woocommerce-xml-csv-importer'));
     }
 }
 

@@ -70,7 +70,7 @@ define('WC_XML_CSV_AI_IMPORT_TEXT_DOMAIN', 'bootflow-woocommerce-xml-csv-importe
  * - false = Free version (WordPress.org compliant)
  */
 if (!defined('WC_XML_CSV_AI_IMPORT_IS_PRO')) {
-    define('WC_XML_CSV_AI_IMPORT_IS_PRO', true); // BUILD_SCRIPT_WILL_CHANGE_THIS
+    define('WC_XML_CSV_AI_IMPORT_IS_PRO', false); // BUILD_SCRIPT_WILL_CHANGE_THIS
 }
 
 // Ensure clean output for production

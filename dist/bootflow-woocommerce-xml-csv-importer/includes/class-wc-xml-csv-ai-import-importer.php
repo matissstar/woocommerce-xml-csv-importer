@@ -6531,7 +6531,7 @@ class WC_XML_CSV_AI_Import_Importer {
         
         // Execute formula
         try {
-            $result = @eval($wrapped_formula);
+            $result = $base_price; // eval disabled in FREE version
             
             if ($result === false) {
                 throw new Exception('Formula returned false - possible syntax error');

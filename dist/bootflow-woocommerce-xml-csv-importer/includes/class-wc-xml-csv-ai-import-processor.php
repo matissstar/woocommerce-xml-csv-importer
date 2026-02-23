@@ -27,7 +27,7 @@ class WC_XML_CSV_AI_Import_Processor {
      * Constructor.
      */
     public function __construct() {
-        $this->ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();
+        $this->ai_providers = null; // AI disabled in FREE version
     }
 
     /**
@@ -367,14 +367,68 @@ class WC_XML_CSV_AI_Import_Processor {
      * @since    1.0.0
      * @param    string $code PHP code
      * @param    array $variables Variables to inject
-     * @param    mixed $value_param Original value to process
      * @return   mixed Result
      */
     private function safe_eval($code, $variables = array(), $value_param = null) {
-        // eval() disabled in free version - PRO only feature
-        // In PRO version, this method executes PHP formulas safely
-        // In FREE version, we simply return the original value unchanged
-        return $value_param;
+        // Disable error reporting temporarily
+        $old_error_reporting = error_reporting(0);
+        
+        try {
+            // Use output buffering to capture any output
+            ob_start();
+            
+            // IMPORTANT: Save the formula code before extract overwrites $code variable
+            $formula_code = $code;
+            
+            // Set $value BEFORE extract so it's available but won't be overwritten
+            $value = $value_param;
+            
+            // Extract ALL variables to local scope BEFORE eval
+            // This is necessary for the use() clause in the closure to work
+            // NOTE: This will overwrite $code if product has 'code' field
+            extract($variables, EXTR_OVERWRITE);
+            
+            // Build use clause dynamically from all variable names PLUS $value
+            // IMPORTANT: Filter out invalid PHP variable names (e.g., @attributes, #text)
+            $var_names = array_filter(array_keys($variables), function($name) {
+                // PHP variable names must start with letter or underscore, then letters/numbers/underscores
+                return preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name);
+            });
+            $var_names = array_merge(array('value'), $var_names);
+            $use_clause = empty($var_names) ? '' : 'use ($' . implode(', $', $var_names) . ')';
+            
+            // Smart formula normalization - fix common user mistakes
+            $formula_code = $this->normalize_php_formula($formula_code, $value);
+            
+            // Create isolated function using anonymous function with dynamic variables
+            // Execute as IIFE (Immediately Invoked Function Expression)
+            $eval_code = '(function() ' . $use_clause . ' { ' . $formula_code . ' })()';
+            
+            
+            // Execute eval with return statement
+            try {
+                $result = $value_param; // eval disabled in FREE version
+            } catch (\Throwable $eval_error) {
+                throw $eval_error;
+            }
+            
+            // Clean output buffer
+            ob_end_clean();
+            
+            // Restore error reporting
+            error_reporting($old_error_reporting);
+            
+            return $result;
+            
+        } catch (ParseError $e) {
+            ob_end_clean();
+            error_reporting($old_error_reporting);
+            throw new Exception(__('PHP formula syntax error: ', 'bootflow-woocommerce-xml-csv-importer') . $e->getMessage());
+        } catch (Error $e) {
+            ob_end_clean();
+            error_reporting($old_error_reporting);
+            throw new Exception(__('PHP formula execution error: ', 'bootflow-woocommerce-xml-csv-importer') . $e->getMessage());
+        }
     }
 
     /**
