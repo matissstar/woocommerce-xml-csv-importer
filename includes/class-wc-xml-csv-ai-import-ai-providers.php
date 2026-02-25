@@ -80,7 +80,8 @@ class WC_XML_CSV_AI_Import_AI_Providers {
                     $result = $this->process_with_copilot($full_prompt, $config);
                     break;
                 default:
-                    throw new Exception(sprintf(__('Unknown AI provider: %s', 'bootflow-woocommerce-xml-csv-importer'), $provider));
+                    // translators: placeholder values
+                    throw new Exception(sprintf(__('Unknown AI provider: %s', 'bootflow-product-importer'), $provider));
             }
 
             // Check if result is empty
@@ -113,7 +114,7 @@ class WC_XML_CSV_AI_Import_AI_Providers {
     private function process_with_openai($prompt, $config = array()) {
         $api_key = $this->get_api_key('openai');
         if (empty($api_key)) {
-            throw new Exception(__('OpenAI API key not configured.', 'bootflow-woocommerce-xml-csv-importer'));
+            throw new Exception(__('OpenAI API key not configured.', 'bootflow-product-importer'));
         }
 
         $model = isset($config['model']) ? $config['model'] : 'gpt-3.5-turbo';
@@ -187,7 +188,7 @@ class WC_XML_CSV_AI_Import_AI_Providers {
     private function process_with_gemini($prompt, $config = array()) {
         $api_key = $this->get_api_key('gemini');
         if (empty($api_key)) {
-            throw new Exception(__('Google Gemini API key not configured.', 'bootflow-woocommerce-xml-csv-importer'));
+            throw new Exception(__('Google Gemini API key not configured.', 'bootflow-product-importer'));
         }
 
         $model = isset($config['model']) ? $config['model'] : 'gemini-pro';
@@ -244,10 +245,10 @@ class WC_XML_CSV_AI_Import_AI_Providers {
     private function process_with_claude($prompt, $config = array()) {
         $api_key = $this->get_api_key('claude');
         if (empty($api_key)) {
-            throw new Exception(__('Anthropic Claude API key not configured.', 'bootflow-woocommerce-xml-csv-importer'));
+            throw new Exception(__('Anthropic Claude API key not configured.', 'bootflow-product-importer'));
         }
 
-        $model = isset($config['model']) ? $config['model'] : 'claude-3-haiku-20240307';
+        $model = isset($config['model']) ? $config['model'] : 'claude-opus-4-20250514';
         $max_tokens = isset($config['max_tokens']) ? $config['max_tokens'] : 1000;
 
         $data = array(
@@ -299,7 +300,7 @@ class WC_XML_CSV_AI_Import_AI_Providers {
     private function process_with_grok($prompt, $config = array()) {
         $api_key = $this->get_api_key('grok');
         if (empty($api_key)) {
-            throw new Exception(__('xAI Grok API key not configured.', 'bootflow-woocommerce-xml-csv-importer'));
+            throw new Exception(__('xAI Grok API key not configured.', 'bootflow-product-importer'));
         }
 
         // Note: Grok API might have different endpoints/structure
@@ -359,7 +360,7 @@ class WC_XML_CSV_AI_Import_AI_Providers {
         $endpoint = $this->settings['copilot_endpoint'] ?? '';
         
         if (empty($api_key) || empty($endpoint)) {
-            throw new Exception(__('Microsoft Copilot API key or endpoint not configured.', 'bootflow-woocommerce-xml-csv-importer'));
+            throw new Exception(__('Microsoft Copilot API key or endpoint not configured.', 'bootflow-product-importer'));
         }
 
         $deployment_name = isset($config['deployment']) ? $config['deployment'] : 'gpt-35-turbo';
@@ -500,14 +501,16 @@ class WC_XML_CSV_AI_Import_AI_Providers {
             return array(
                 'success' => true,
                 'result' => $result,
-                'message' => sprintf(__('%s API connection successful.', 'bootflow-woocommerce-xml-csv-importer'), ucfirst($provider))
+                // translators: placeholder values
+                'message' => sprintf(__('%s API connection successful.', 'bootflow-product-importer'), ucfirst($provider))
             );
 
         } catch (Exception $e) {
             return array(
                 'success' => false,
                 'result' => '',
-                'message' => sprintf(__('%s API test failed: %s', 'bootflow-woocommerce-xml-csv-importer'), ucfirst($provider), $e->getMessage())
+                // translators: placeholder values
+                'message' => sprintf(__('%s API test failed: %s', 'bootflow-product-importer'), ucfirst($provider), $e->getMessage())
             );
         }
     }
@@ -532,7 +535,7 @@ class WC_XML_CSV_AI_Import_AI_Providers {
             ),
             'claude' => array(
                 'name' => 'Anthropic Claude',
-                'models' => array('claude-3-haiku-20240307', 'claude-3-sonnet-20240229', 'claude-3-opus-20240229'),
+                'models' => array('claude-opus-4-20250514', 'claude-sonnet-4-20250514', 'claude-3-7-sonnet-20250219'),
                 'configured' => !empty($this->get_api_key('claude'))
             ),
             'grok' => array(

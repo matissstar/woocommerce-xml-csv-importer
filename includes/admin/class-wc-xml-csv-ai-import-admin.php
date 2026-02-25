@@ -93,13 +93,13 @@ class WC_XML_CSV_AI_Import_Admin {
                 'ajax_url' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('wc_xml_csv_ai_import_nonce'),
                 'strings' => array(
-                    'uploading' => __('Uploading file...', 'bootflow-woocommerce-xml-csv-importer'),
-                    'parsing' => __('Parsing file structure...', 'bootflow-woocommerce-xml-csv-importer'),
-                    'importing' => __('Importing products...', 'bootflow-woocommerce-xml-csv-importer'),
-                    'complete' => __('Import complete!', 'bootflow-woocommerce-xml-csv-importer'),
-                    'error' => __('An error occurred:', 'bootflow-woocommerce-xml-csv-importer'),
-                    'confirm_import' => __('Are you sure you want to start the import?', 'bootflow-woocommerce-xml-csv-importer'),
-                    'test_ai' => __('Testing AI provider...', 'bootflow-woocommerce-xml-csv-importer')
+                    'uploading' => __('Uploading file...', 'bootflow-product-importer'),
+                    'parsing' => __('Parsing file structure...', 'bootflow-product-importer'),
+                    'importing' => __('Importing products...', 'bootflow-product-importer'),
+                    'complete' => __('Import complete!', 'bootflow-product-importer'),
+                    'error' => __('An error occurred:', 'bootflow-product-importer'),
+                    'confirm_import' => __('Are you sure you want to start the import?', 'bootflow-product-importer'),
+                    'test_ai' => __('Testing AI provider...', 'bootflow-product-importer')
                 )
             )
         );
@@ -112,15 +112,16 @@ class WC_XML_CSV_AI_Import_Admin {
                 'ajax_url' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('wc_xml_csv_ai_import_nonce'),
                 'i18n' => array(
-                    'deleting_products' => __('Deleting Products', 'bootflow-woocommerce-xml-csv-importer'),
-                    'products_deleted' => __('products deleted', 'bootflow-woocommerce-xml-csv-importer'),
-                    'cancel' => __('Cancel', 'bootflow-woocommerce-xml-csv-importer'),
-                    'close' => __('Close', 'bootflow-woocommerce-xml-csv-importer'),
-                    'confirm_delete_products' => __('Are you sure you want to delete all products from this import?', 'bootflow-woocommerce-xml-csv-importer'),
-                    'counting_products' => __('Counting products...', 'bootflow-woocommerce-xml-csv-importer'),
-                    'deleting' => __('Deleting...', 'bootflow-woocommerce-xml-csv-importer'),
-                    'no_products_found' => __('No products found to delete.', 'bootflow-woocommerce-xml-csv-importer'),
-                    'all_products_deleted' => __('All %d products deleted successfully!', 'bootflow-woocommerce-xml-csv-importer'),
+                    'deleting_products' => __('Deleting Products', 'bootflow-product-importer'),
+                    'products_deleted' => __('products deleted', 'bootflow-product-importer'),
+                    'cancel' => __('Cancel', 'bootflow-product-importer'),
+                    'close' => __('Close', 'bootflow-product-importer'),
+                    'confirm_delete_products' => __('Are you sure you want to delete all products from this import?', 'bootflow-product-importer'),
+                    'counting_products' => __('Counting products...', 'bootflow-product-importer'),
+                    'deleting' => __('Deleting...', 'bootflow-product-importer'),
+                    'no_products_found' => __('No products found to delete.', 'bootflow-product-importer'),
+                    // translators: %d is the number of products deleted
+                    'all_products_deleted' => __('All %d products deleted successfully!', 'bootflow-product-importer'),
                 )
             )
         );
@@ -153,7 +154,7 @@ class WC_XML_CSV_AI_Import_Admin {
                 }
             }
             
-            wp_redirect($redirect_url);
+            wp_safe_redirect($redirect_url);
             exit;
         }
     }
@@ -166,8 +167,8 @@ class WC_XML_CSV_AI_Import_Admin {
     public function add_admin_menu() {
         // Add top-level menu with icon
         add_menu_page(
-            __('Bootflow Importer', 'bootflow-woocommerce-xml-csv-importer'),
-            __('Bootflow Import', 'bootflow-woocommerce-xml-csv-importer'),
+            __('Bootflow Importer', 'bootflow-product-importer'),
+            __('Bootflow Import', 'bootflow-product-importer'),
             'manage_options',
             'wc-xml-csv-import',
             array($this, 'display_import_page'),
@@ -178,8 +179,8 @@ class WC_XML_CSV_AI_Import_Admin {
         // Add submenu pages
         add_submenu_page(
             'wc-xml-csv-import',
-            __('New Import', 'bootflow-woocommerce-xml-csv-importer'),
-            __('New Import', 'bootflow-woocommerce-xml-csv-importer'),
+            __('New Import', 'bootflow-product-importer'),
+            __('New Import', 'bootflow-product-importer'),
             'manage_options',
             'wc-xml-csv-import',
             array($this, 'display_import_page')
@@ -187,8 +188,8 @@ class WC_XML_CSV_AI_Import_Admin {
 
         add_submenu_page(
             'wc-xml-csv-import',
-            __('Import History', 'bootflow-woocommerce-xml-csv-importer'),
-            __('History', 'bootflow-woocommerce-xml-csv-importer'),
+            __('Import History', 'bootflow-product-importer'),
+            __('History', 'bootflow-product-importer'),
             'manage_options',
             'wc-xml-csv-import-history',
             array($this, 'display_history_page')
@@ -196,8 +197,8 @@ class WC_XML_CSV_AI_Import_Admin {
 
         add_submenu_page(
             'wc-xml-csv-import',
-            __('Import Settings', 'bootflow-woocommerce-xml-csv-importer'),
-            __('Settings', 'bootflow-woocommerce-xml-csv-importer'),
+            __('Import Settings', 'bootflow-product-importer'),
+            __('Settings', 'bootflow-product-importer'),
             'manage_options',
             'wc-xml-csv-import-settings',
             array($this, 'display_settings_page')
@@ -205,8 +206,8 @@ class WC_XML_CSV_AI_Import_Admin {
 
         add_submenu_page(
             'wc-xml-csv-import',
-            __('Import Logs', 'bootflow-woocommerce-xml-csv-importer'),
-            __('Logs', 'bootflow-woocommerce-xml-csv-importer'),
+            __('Import Logs', 'bootflow-product-importer'),
+            __('Logs', 'bootflow-product-importer'),
             'manage_options',
             'wc-xml-csv-import-logs',
             array($this, 'display_logs_page')
@@ -251,7 +252,7 @@ class WC_XML_CSV_AI_Import_Admin {
         $step = isset($_GET['step']) ? intval($_GET['step']) : 1;
         
         echo '<div class="wrap wc-xml-csv-import-wrap">';
-        echo '<h1>' . __('Bootflow – WooCommerce XML & CSV Importer', 'bootflow-woocommerce-xml-csv-importer') . '</h1>';
+        echo '<h1>' . esc_html__('Bootflow – WooCommerce XML & CSV Importer', 'bootflow-product-importer') . '</h1>';
         
         // Progress indicator
         $this->display_progress_indicator($step);
@@ -282,9 +283,9 @@ class WC_XML_CSV_AI_Import_Admin {
      */
     private function display_progress_indicator($current_step) {
         $steps = array(
-            1 => __('Upload File', 'bootflow-woocommerce-xml-csv-importer'),
-            2 => __('Map Fields', 'bootflow-woocommerce-xml-csv-importer'),
-            3 => __('Import Progress', 'bootflow-woocommerce-xml-csv-importer')
+            1 => __('Upload File', 'bootflow-product-importer'),
+            2 => __('Map Fields', 'bootflow-product-importer'),
+            3 => __('Import Progress', 'bootflow-product-importer')
         );
         
         echo '<div class="wc-ai-import-progress-indicator">';
@@ -330,13 +331,6 @@ class WC_XML_CSV_AI_Import_Admin {
         
         // HANDLE POST SUBMISSION FIRST (before any output)
         if ($import_id > 0 && isset($_POST['update_import'])) {
-            // VISUAL DEBUG
-            echo '<div style="position:fixed; top:50px; right:20px; background:yellow; padding:20px; z-index:9999; border:3px solid red;">';
-            echo '<h3>DEBUG: POST DETECTED!</h3>';
-            echo 'Import ID: ' . $import_id . '<br>';
-            echo 'Calling display_import_details()...<br>';
-            echo '</div>';
-            
             // Redirect to display_import_details for POST handling
             $this->display_import_details($import_id);
             return;
@@ -393,8 +387,8 @@ class WC_XML_CSV_AI_Import_Admin {
                 update_existing: '<?php echo esc_js($update_existing); ?>',
                 skip_unchanged: '<?php echo esc_js($skip_unchanged); ?>',
                 batch_size: <?php echo intval($batch_size ?? 50); ?>,
-                ajax_url: '<?php echo admin_url('admin-ajax.php'); ?>',
-                nonce: '<?php echo wp_create_nonce('wc_xml_csv_ai_import_nonce'); ?>'
+                ajax_url: '<?php echo esc_url(admin_url('admin-ajax.php')); ?>',
+                nonce: '<?php echo esc_attr(wp_create_nonce('wc_xml_csv_ai_import_nonce')); ?>'
             };
             console.log('wcAiImportData defined:', wcAiImportData);
             </script>
@@ -433,6 +427,49 @@ class WC_XML_CSV_AI_Import_Admin {
             return;
         }
         
+        // Handle STOP action - stop the import immediately
+        if (isset($_GET['action']) && $_GET['action'] === 'stop' && isset($_GET['import_id'])) {
+            $import_id = intval($_GET['import_id']);
+            $table = $wpdb->prefix . 'wc_itp_imports';
+            
+            // Update status to stopped/failed
+            $wpdb->update($table, array('status' => 'failed'), array('id' => $import_id), array('%s'), array('%d'));
+            
+            // Clear ALL scheduled cron jobs for this import
+            $hooks = array('wc_xml_csv_ai_import_process_chunk', 'wc_xml_csv_ai_import_retry_chunk', 'wc_xml_csv_ai_import_single_chunk');
+            foreach ($hooks as $hook) {
+                // Clear with import_id as first argument
+                wp_clear_scheduled_hook($hook, array($import_id));
+                // Also try clearing with just import_id
+                $crons = _get_cron_array();
+                if (!empty($crons)) {
+                    foreach ($crons as $timestamp => $cron) {
+                        if (isset($cron[$hook])) {
+                            foreach ($cron[$hook] as $key => $data) {
+                                if (!empty($data['args']) && isset($data['args'][0]) && intval($data['args'][0]) === $import_id) {
+                                    wp_unschedule_event($timestamp, $hook, $data['args']);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Clear transient locks to stop any running batch immediately
+            delete_transient('wc_import_lock_' . $import_id);
+            delete_transient('wc_import_lock_time_' . $import_id);
+            
+            // Create kill flag file to stop any currently running process
+            $kill_flag = WC_XML_CSV_AI_IMPORT_PLUGIN_DIR . 'IMPORT_KILLED_' . $import_id . '.flag';
+            file_put_contents($kill_flag, time());
+            
+            // Also create global kill flag
+            $global_kill_flag = WC_XML_CSV_AI_IMPORT_PLUGIN_DIR . 'IMPORT_KILLED.flag';
+            file_put_contents($global_kill_flag, $import_id . ':' . time());
+            
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Import stopped successfully.', 'bootflow-product-importer') . '</p></div>';
+        }
+        
         // Handle delete import action
         if (isset($_GET['action']) && $_GET['action'] === 'delete_import' && isset($_GET['import_id'])) {
             $import_id = intval($_GET['import_id']);
@@ -447,7 +484,7 @@ class WC_XML_CSV_AI_Import_Admin {
                 
                 // Delete the file if it exists
                 if ($import && !empty($import['file_path']) && file_exists($import['file_path'])) {
-                    @unlink($import['file_path']);
+                    @wp_delete_file($import['file_path']);
                 }
                 
                 // Delete database record
@@ -458,9 +495,9 @@ class WC_XML_CSV_AI_Import_Admin {
                 );
                 
                 if ($deleted) {
-                    echo '<div class="notice notice-success is-dismissible"><p>' . __('Import and file deleted successfully.', 'bootflow-woocommerce-xml-csv-importer') . '</p></div>';
+                    echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Import and file deleted successfully.', 'bootflow-product-importer') . '</p></div>';
                 } else {
-                    echo '<div class="notice notice-error is-dismissible"><p>' . __('Failed to delete import.', 'bootflow-woocommerce-xml-csv-importer') . '</p></div>';
+                    echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__('Failed to delete import.', 'bootflow-product-importer') . '</p></div>';
                 }
             }
         }
@@ -494,36 +531,38 @@ class WC_XML_CSV_AI_Import_Admin {
                 );
                 
                 if ($deleted_count > 0) {
-                    echo '<div class="notice notice-success is-dismissible"><p>' . sprintf(__('%d products deleted successfully.', 'bootflow-woocommerce-xml-csv-importer'), $deleted_count) . '</p></div>';
+                    // translators: %d is the number of deleted products
+                    echo '<div class="notice notice-success is-dismissible"><p>' . sprintf(esc_html__('%d products deleted successfully.', 'bootflow-product-importer'), intval($deleted_count)) . '</p></div>';
                 } else {
-                    echo '<div class="notice notice-warning is-dismissible"><p>' . __('No products found to delete.', 'bootflow-woocommerce-xml-csv-importer') . '</p></div>';
+                    echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html__('No products found to delete.', 'bootflow-product-importer') . '</p></div>';
                 }
             }
         }
         
         echo '<div class="wrap">';
-        echo '<h1>' . __('Import History', 'bootflow-woocommerce-xml-csv-importer') . '</h1>';
+        echo '<h1>' . esc_html__('Import History', 'bootflow-product-importer') . '</h1>';
         
         // Get imports
         $imports = $wpdb->get_results(
-            $wpdb->prepare( "SELECT * FROM %i ORDER BY created_at DESC", $wpdb->prefix . 'wc_itp_imports' ), // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnquotedComplexPlaceholder
+            // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnsupportedIdentifierPlaceholder -- %i requires WP 6.2+
+            $wpdb->prepare( "SELECT * FROM %i ORDER BY created_at DESC", $wpdb->prefix . 'wc_itp_imports' ),
             ARRAY_A
         );
         
         if (empty($imports)) {
-            echo '<p>' . __('No imports found.', 'bootflow-woocommerce-xml-csv-importer') . '</p>';
+            echo '<p>' . esc_html__('No imports found.', 'bootflow-product-importer') . '</p>';
         } else {
             echo '<table class="wp-list-table widefat fixed striped">';
             echo '<thead>';
             echo '<tr>';
-            echo '<th>' . __('Name', 'bootflow-woocommerce-xml-csv-importer') . '</th>';
-            echo '<th>' . __('File Type', 'bootflow-woocommerce-xml-csv-importer') . '</th>';
-            echo '<th>' . __('Products', 'bootflow-woocommerce-xml-csv-importer') . '</th>';
-            echo '<th>' . __('Status', 'bootflow-woocommerce-xml-csv-importer') . '</th>';
-            echo '<th>' . __('Schedule', 'bootflow-woocommerce-xml-csv-importer') . '</th>';
-            echo '<th>' . __('Created', 'bootflow-woocommerce-xml-csv-importer') . '</th>';
-            echo '<th>' . __('Last Run', 'bootflow-woocommerce-xml-csv-importer') . '</th>';
-            echo '<th>' . __('Actions', 'bootflow-woocommerce-xml-csv-importer') . '</th>';
+            echo '<th>' . esc_html__('Name', 'bootflow-product-importer') . '</th>';
+            echo '<th>' . esc_html__('File Type', 'bootflow-product-importer') . '</th>';
+            echo '<th>' . esc_html__('Products', 'bootflow-product-importer') . '</th>';
+            echo '<th>' . esc_html__('Status', 'bootflow-product-importer') . '</th>';
+            echo '<th>' . esc_html__('Schedule', 'bootflow-product-importer') . '</th>';
+            echo '<th>' . esc_html__('Created', 'bootflow-product-importer') . '</th>';
+            echo '<th>' . esc_html__('Last Run', 'bootflow-product-importer') . '</th>';
+            echo '<th>' . esc_html__('Actions', 'bootflow-product-importer') . '</th>';
             echo '</tr>';
             echo '</thead>';
             echo '<tbody>';
@@ -538,12 +577,12 @@ class WC_XML_CSV_AI_Import_Admin {
                 $schedule_label = 'Disabled';
                 if (!empty($import['schedule_type']) && $import['schedule_type'] !== 'none' && $import['schedule_type'] !== 'disabled') {
                     $schedule_labels = array(
-                        '15min' => __('Every 15 min', 'bootflow-woocommerce-xml-csv-importer'),
-                        'hourly' => __('Hourly', 'bootflow-woocommerce-xml-csv-importer'),
-                        '6hours' => __('Every 6h', 'bootflow-woocommerce-xml-csv-importer'),
-                        'daily' => __('Daily', 'bootflow-woocommerce-xml-csv-importer'),
-                        'weekly' => __('Weekly', 'bootflow-woocommerce-xml-csv-importer'),
-                        'monthly' => __('Monthly', 'bootflow-woocommerce-xml-csv-importer')
+                        '15min' => __('Every 15 min', 'bootflow-product-importer'),
+                        'hourly' => __('Hourly', 'bootflow-product-importer'),
+                        '6hours' => __('Every 6h', 'bootflow-product-importer'),
+                        'daily' => __('Daily', 'bootflow-product-importer'),
+                        'weekly' => __('Weekly', 'bootflow-product-importer'),
+                        'monthly' => __('Monthly', 'bootflow-product-importer')
                     );
                     $schedule_label = $schedule_labels[$import['schedule_type']] ?? $import['schedule_type'];
                 }
@@ -551,34 +590,34 @@ class WC_XML_CSV_AI_Import_Admin {
                 echo '<tr>';
                 echo '<td>' . esc_html($import['name']) . '</td>';
                 echo '<td>' . esc_html(strtoupper($import['file_type'])) . '</td>';
-                // Show actual products in DB / processed from file / total in file
-                echo '<td title="' . esc_attr(sprintf(__('In database: %d, Processed: %d, In file: %d', 'bootflow-woocommerce-xml-csv-importer'), $actual_product_count, $import['processed_products'], $import['total_products'])) . '">' . esc_html($actual_product_count) . ' <small style="color:#666;">(' . esc_html($import['processed_products']) . '/' . esc_html($import['total_products']) . ')</small></td>';
+                // translators: %1$d is the database count, %2$d is processed count, %3$d is total in file - Show actual products in DB / processed from file / total in file
+                echo '<td title="' . esc_attr(sprintf(__('In database: %1$d, Processed: %2$d, In file: %3$d', 'bootflow-product-importer'), $actual_product_count, $import['processed_products'], $import['total_products'])) . '">' . esc_html($actual_product_count) . ' <small style="color:#666;">(' . esc_html($import['processed_products']) . '/' . esc_html($import['total_products']) . ')</small></td>';
                 echo '<td>' . esc_html(ucfirst($import['status'])) . '</td>';
                 echo '<td>' . esc_html($schedule_label) . '</td>';
                 echo '<td>' . esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import['created_at']))) . '</td>';
-                echo '<td>' . ($import['last_run'] ? esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import['last_run']))) : __('Never', 'bootflow-woocommerce-xml-csv-importer')) . '</td>';
+                echo '<td>' . ($import['last_run'] ? esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import['last_run']))) : esc_html__('Never', 'bootflow-product-importer')) . '</td>';
                 echo '<td>';
                 
                 // Edit button
-                echo '<a href="' . admin_url('admin.php?page=wc-xml-csv-import-history&action=edit&import_id=' . $import['id']) . '" class="button button-small button-primary">' . __('Edit', 'bootflow-woocommerce-xml-csv-importer') . '</a> ';
+                echo '<a href="' . esc_url(admin_url('admin.php?page=wc-xml-csv-import-history&action=edit&import_id=' . $import['id'])) . '" class="button button-small button-primary">' . esc_html__('Edit', 'bootflow-product-importer') . '</a> ';
                 
                 // Stop button - only show if import is processing
                 if ($import['status'] === 'processing') {
-                    echo '<a href="' . admin_url('admin.php?page=wc-xml-csv-import-history&action=stop&import_id=' . $import['id']) . '" class="button button-small">' . __('Stop', 'bootflow-woocommerce-xml-csv-importer') . '</a> ';
+                    echo '<a href="' . esc_url(admin_url('admin.php?page=wc-xml-csv-import-history&action=stop&import_id=' . $import['id'])) . '" class="button button-small">' . esc_html__('Stop', 'bootflow-product-importer') . '</a> ';
                 }
                 
                 // Re-run button
-                echo '<a href="' . admin_url('admin.php?page=wc-xml-csv-import&action=rerun&import_id=' . $import['id']) . '" class="button button-small">' . __('Re-run', 'bootflow-woocommerce-xml-csv-importer') . '</a> ';
+                echo '<a href="' . esc_url(admin_url('admin.php?page=wc-xml-csv-import&action=rerun&import_id=' . $import['id'])) . '" class="button button-small">' . esc_html__('Re-run', 'bootflow-product-importer') . '</a> ';
                 
                 // Delete import button
                 $delete_import_url = wp_nonce_url(
                     admin_url('admin.php?page=wc-xml-csv-import-history&action=delete_import&import_id=' . $import['id']),
                     'delete_import_' . $import['id']
                 );
-                echo '<a href="' . esc_url($delete_import_url) . '" class="button button-small button-link-delete" onclick="return confirm(\'' . esc_js(__('Are you sure you want to delete this import and its file?', 'bootflow-woocommerce-xml-csv-importer')) . '\')">' . __('Delete import', 'bootflow-woocommerce-xml-csv-importer') . '</a> ';
+                echo '<a href="' . esc_url($delete_import_url) . '" class="button button-small button-link-delete" onclick="return confirm(\'' . esc_js(__('Are you sure you want to delete this import and its file?', 'bootflow-product-importer')) . '\')">' . esc_html__('Delete import', 'bootflow-product-importer') . '</a> ';
                 
                 // Delete products button (AJAX with progress)
-                echo '<button type="button" class="button button-small button-link-delete delete-products-ajax" data-import-id="' . esc_attr($import['id']) . '" data-nonce="' . wp_create_nonce('wc_xml_csv_ai_import_nonce') . '">' . __('Delete products', 'bootflow-woocommerce-xml-csv-importer') . '</button>';
+                echo '<button type="button" class="button button-small button-link-delete delete-products-ajax" data-import-id="' . esc_attr($import['id']) . '" data-nonce="' . esc_attr(wp_create_nonce('wc_xml_csv_ai_import_nonce')) . '">' . esc_html__('Delete products', 'bootflow-product-importer') . '</button>';
                 
                 echo '</td>';
                 echo '</tr>';
@@ -604,8 +643,8 @@ class WC_XML_CSV_AI_Import_Admin {
 
         if (!$import) {
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Import not found in database for ID: ' . $import_id); }
-            echo '<div class="wrap"><h1>' . __('Import Not Found', 'bootflow-woocommerce-xml-csv-importer') . '</h1>';
-            echo '<p><a href="' . admin_url('admin.php?page=wc-xml-csv-import-history') . '" class="button">Back</a></p></div>';
+            echo '<div class="wrap"><h1>' . esc_html__('Import Not Found', 'bootflow-product-importer') . '</h1>';
+            echo '<p><a href="' . esc_url(admin_url('admin.php?page=wc-xml-csv-import-history')) . '" class="button">Back</a></p></div>';
             return;
         }
 
@@ -648,7 +687,7 @@ class WC_XML_CSV_AI_Import_Admin {
             // Verify nonce
             if (!check_admin_referer('update_import_' . $import_id, '_wpnonce', false)) {
                 if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Nonce check FAILED for RUN IMPORT NOW'); }
-                wp_die(__('Security check failed. Please try again.', 'bootflow-woocommerce-xml-csv-importer'));
+                wp_die(esc_html__('Security check failed. Please try again.', 'bootflow-product-importer'));
             }
             
             // First, save the mappings (same as update_import)
@@ -674,7 +713,7 @@ class WC_XML_CSV_AI_Import_Admin {
             // Verify nonce only for POST submissions
             if (!check_admin_referer('update_import_' . $import_id, '_wpnonce', false)) {
                 if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Nonce check FAILED for POST submission'); }
-                wp_die(__('Security check failed. Please try again.', 'bootflow-woocommerce-xml-csv-importer'));
+                wp_die(esc_html__('Security check failed. Please try again.', 'bootflow-product-importer'));
             }
             
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Nonce check: VALID'); }
@@ -771,10 +810,27 @@ class WC_XML_CSV_AI_Import_Admin {
                 $import_id
             ), ARRAY_A);
             
+            // Prepare custom_fields array with full data (including ai_prompt, ai_provider, php_formula etc.)
+            $custom_fields_to_save = array();
+            
+            // DEBUG: Log raw custom_fields from POST
+            error_log('=== CUSTOM FIELDS SAVE DEBUG ===');
+            error_log('Raw $_POST[custom_fields]: ' . print_r($custom_fields, true));
+            
+            foreach ($custom_fields as $cf) {
+                if (!empty($cf['name']) && !empty($cf['source'])) {
+                    $custom_fields_to_save[] = $cf;  // Save full custom field data
+                    error_log('Saving custom field: ' . print_r($cf, true));
+                }
+            }
+            
+            error_log('Final custom_fields_to_save: ' . print_r($custom_fields_to_save, true));
+            
             $update_data = array(
                 'file_path' => $existing_import['file_path'],  // Preserve file path
                 'file_url' => $existing_import['file_url'],    // Preserve file URL
                 'field_mappings' => json_encode($all_mappings),
+                'custom_fields' => json_encode($custom_fields_to_save),  // Save custom fields separately too
                 'import_filters' => json_encode($import_filters),
                 'filter_logic' => $filter_logic,
                 'draft_non_matching' => $draft_non_matching,
@@ -868,11 +924,11 @@ class WC_XML_CSV_AI_Import_Admin {
                 
                 // Redirect to progress page (step 3)
                 $redirect_url = admin_url('admin.php?page=wc-xml-csv-import&step=3&import_id=' . $import_id);
-                wp_redirect($redirect_url);
+                wp_safe_redirect($redirect_url);
                 exit;
             }
             
-            echo '<div class="notice notice-success is-dismissible"><p>' . __('Import updated successfully.', 'bootflow-woocommerce-xml-csv-importer') . '</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Import updated successfully.', 'bootflow-product-importer') . '</p></div>';
             $import = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}wc_itp_imports WHERE id = %d", $import_id), ARRAY_A);
             
             // DEBUG: Log reloaded batch_size
@@ -893,17 +949,48 @@ class WC_XML_CSV_AI_Import_Admin {
             $existing_mappings = array();
         }
         
+        // Load saved custom fields from BOTH sources:
+        // 1. From field_mappings with '_custom_' prefix (new format)
+        // 2. From dedicated custom_fields column (old format)
+        $saved_custom_fields = array();
+        
+        // FORCE DEBUG - always log
+        error_log('=== ADMIN CLASS DEBUG ===');
+        error_log('Import ID: ' . $import_id);
+        error_log('Import custom_fields column: ' . print_r($import['custom_fields'] ?? 'NOT SET', true));
+        
+        // First, check field_mappings for _custom_ prefixed keys
+        foreach ($existing_mappings as $key => $mapping) {
+            if (strpos($key, '_custom_') === 0 && is_array($mapping)) {
+                $saved_custom_fields[] = $mapping;
+            }
+        }
+        
+        // If no custom fields found in field_mappings, check custom_fields column
+        if (empty($saved_custom_fields) && !empty($import['custom_fields'])) {
+            $legacy_custom_fields = json_decode($import['custom_fields'], true);
+            error_log('Decoded custom_fields: ' . print_r($legacy_custom_fields, true));
+            if (is_array($legacy_custom_fields)) {
+                $saved_custom_fields = $legacy_custom_fields;
+            }
+        }
+        
+        error_log('Final saved_custom_fields count: ' . count($saved_custom_fields));
+        error_log('Final saved_custom_fields: ' . print_r($saved_custom_fields, true));
+        
         if (!empty($existing_mappings)) {
-            echo '<!-- DEBUG: Loaded ' . count($existing_mappings) . ' existing mappings from ' . $mapping_source . ' -->';
-            echo '<!-- DEBUG: First mapping keys: ' . implode(', ', array_slice(array_keys($existing_mappings), 0, 5)) . ' -->';
-            echo '<!-- DEBUG: SKU mapping: ' . (isset($existing_mappings['sku']) ? json_encode($existing_mappings['sku']) : 'NOT SET') . ' -->';
-            echo '<!-- DEBUG: Name mapping: ' . (isset($existing_mappings['name']) ? json_encode($existing_mappings['name']) : 'NOT SET') . ' -->';
-            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Import Edit - Loaded ' . count($existing_mappings) . ' existing mappings from ' . $mapping_source); }
-            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Import Edit - Sample mapping: ' . print_r(array_slice($existing_mappings, 0, 2, true), true)); }
+            if (defined('WP_DEBUG') && WP_DEBUG) { 
+                error_log('Import Edit - Loaded ' . count($existing_mappings) . ' existing mappings from ' . $mapping_source); 
+                error_log('Import Edit - Sample mapping: ' . print_r(array_slice($existing_mappings, 0, 2, true), true)); 
+            }
         } else {
-            echo '<!-- DEBUG: No field_mappings data found -->';
-            echo '<!-- DEBUG: Import field_mappings value: ' . var_export($import['field_mappings'] ?? 'NOT SET', true) . ' -->';
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Import Edit - No field_mappings data found in import record'); }
+        }
+        
+        if (!empty($saved_custom_fields)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) { 
+                error_log('Import Edit - Loaded ' . count($saved_custom_fields) . ' custom fields'); 
+            }
         }
         
         // Generate secret key
@@ -941,80 +1028,84 @@ class WC_XML_CSV_AI_Import_Admin {
         // WooCommerce fields structure
         $woocommerce_fields = array(
             'basic' => array(
-                'title' => __('Basic Product Fields', 'bootflow-woocommerce-xml-csv-importer'),
+                'title' => __('Basic Product Fields', 'bootflow-product-importer'),
                 'fields' => array(
-                    'sku' => array('label' => __('Product Code (SKU)', 'bootflow-woocommerce-xml-csv-importer'), 'required' => true),
-                    'name' => array('label' => __('Product Name', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'description' => array('label' => __('Description', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'short_description' => array('label' => __('Short Description', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'status' => array('label' => __('Product Status', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
+                    'sku' => array('label' => __('Product Code (SKU)', 'bootflow-product-importer'), 'required' => true),
+                    'name' => array('label' => __('Product Name', 'bootflow-product-importer'), 'required' => false),
+                    'description' => array('label' => __('Description', 'bootflow-product-importer'), 'required' => false),
+                    'short_description' => array('label' => __('Short Description', 'bootflow-product-importer'), 'required' => false),
+                    'status' => array('label' => __('Product Status', 'bootflow-product-importer'), 'required' => false),
                 )
             ),
             'pricing' => array(
-                'title' => __('Pricing Fields', 'bootflow-woocommerce-xml-csv-importer'),
+                'title' => __('Pricing Fields', 'bootflow-product-importer'),
                 'fields' => array(
-                    'regular_price' => array('label' => __('Regular Price', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'sale_price' => array('label' => __('Sale Price', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'tax_status' => array('label' => __('Tax Status', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'tax_class' => array('label' => __('Tax Class', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
+                    'regular_price' => array('label' => __('Regular Price', 'bootflow-product-importer'), 'required' => false),
+                    'sale_price' => array('label' => __('Sale Price', 'bootflow-product-importer'), 'required' => false),
+                    'tax_status' => array('label' => __('Tax Status', 'bootflow-product-importer'), 'required' => false),
+                    'tax_class' => array('label' => __('Tax Class', 'bootflow-product-importer'), 'required' => false),
                 )
             ),
             'inventory' => array(
-                'title' => __('Inventory Fields', 'bootflow-woocommerce-xml-csv-importer'),
+                'title' => __('Inventory Fields', 'bootflow-product-importer'),
                 'fields' => array(
-                    'manage_stock' => array('label' => __('Manage Stock', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'stock_quantity' => array('label' => __('Stock Quantity', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'stock_status' => array('label' => __('Stock Status', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'backorders' => array('label' => __('Allow Backorders', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
+                    'manage_stock' => array('label' => __('Manage Stock', 'bootflow-product-importer'), 'required' => false),
+                    'stock_quantity' => array('label' => __('Stock Quantity', 'bootflow-product-importer'), 'required' => false),
+                    'stock_status' => array('label' => __('Stock Status', 'bootflow-product-importer'), 'required' => false),
+                    'backorders' => array('label' => __('Allow Backorders', 'bootflow-product-importer'), 'required' => false),
                 )
             ),
             'physical' => array(
-                'title' => __('Physical Properties', 'bootflow-woocommerce-xml-csv-importer'),
+                'title' => __('Physical Properties', 'bootflow-product-importer'),
                 'fields' => array(
-                    'weight' => array('label' => __('Weight', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'length' => array('label' => __('Length', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'width' => array('label' => __('Width', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'height' => array('label' => __('Height', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
+                    'weight' => array('label' => __('Weight', 'bootflow-product-importer'), 'required' => false),
+                    'length' => array('label' => __('Length', 'bootflow-product-importer'), 'required' => false),
+                    'width' => array('label' => __('Width', 'bootflow-product-importer'), 'required' => false),
+                    'height' => array('label' => __('Height', 'bootflow-product-importer'), 'required' => false),
                 )
             ),
             'shipping_class_assignment' => array(
-                'title' => __('Shipping Class Assignment', 'bootflow-woocommerce-xml-csv-importer'),
+                'title' => __('Shipping Class Assignment', 'bootflow-product-importer'),
                 'fields' => array(
-                    'shipping_class_formula' => array('label' => __('Shipping Class Formula', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
+                    'shipping_class_formula' => array('label' => __('Shipping Class Formula', 'bootflow-product-importer'), 'required' => false),
                 )
             ),
             'media' => array(
-                'title' => __('Media Fields', 'bootflow-woocommerce-xml-csv-importer'),
+                'title' => __('Media Fields', 'bootflow-product-importer'),
                 'fields' => array(
                     'images' => array(
-                        'label' => __('Product Images', 'bootflow-woocommerce-xml-csv-importer'), 
+                        'label' => __('Product Images', 'bootflow-product-importer'), 
                         'required' => false,
                         'type' => 'textarea',
-                        'description' => __('Enter image URLs or use placeholders: {image} = first image, {image[1]} = first, {image[2]} = second, {image*} = all images. Separate multiple values with commas.', 'bootflow-woocommerce-xml-csv-importer')
+                        'description' => __('Enter image URLs or use placeholders: {image} = first image, {image[1]} = first, {image[2]} = second, {image*} = all images. Separate multiple values with commas.', 'bootflow-product-importer')
                     ),
-                    'featured_image' => array('label' => __('Featured Image', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
+                    'featured_image' => array('label' => __('Featured Image', 'bootflow-product-importer'), 'required' => false),
                 )
             ),
             'taxonomy' => array(
-                'title' => __('Categories & Tags', 'bootflow-woocommerce-xml-csv-importer'),
+                'title' => __('Categories & Tags', 'bootflow-product-importer'),
                 'fields' => array(
-                    'categories' => array('label' => __('Product Categories', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'tags' => array('label' => __('Product Tags', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'brand' => array('label' => __('Brand', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
+                    'categories' => array('label' => __('Product Categories', 'bootflow-product-importer'), 'required' => false),
+                    'tags' => array('label' => __('Product Tags', 'bootflow-product-importer'), 'required' => false),
+                    'brand' => array('label' => __('Brand', 'bootflow-product-importer'), 'required' => false),
                 )
             ),
             'seo' => array(
-                'title' => __('SEO Fields', 'bootflow-woocommerce-xml-csv-importer'),
+                'title' => __('SEO Fields', 'bootflow-product-importer'),
                 'fields' => array(
-                    'meta_title' => array('label' => __('Meta Title', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'meta_description' => array('label' => __('Meta Description', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
-                    'meta_keywords' => array('label' => __('Meta Keywords', 'bootflow-woocommerce-xml-csv-importer'), 'required' => false),
+                    'meta_title' => array('label' => __('Meta Title', 'bootflow-product-importer'), 'required' => false),
+                    'meta_description' => array('label' => __('Meta Description', 'bootflow-product-importer'), 'required' => false),
+                    'meta_keywords' => array('label' => __('Meta Keywords', 'bootflow-product-importer'), 'required' => false),
                 )
             )
         );
         
         $settings = get_option('wc_xml_csv_ai_import_settings', array());
         $ai_providers = array('openai' => 'OpenAI GPT', 'gemini' => 'Google Gemini', 'claude' => 'Anthropic Claude', 'grok' => 'xAI Grok', 'copilot' => 'Microsoft Copilot');
+        
+        // HTML DEBUG - will show on page
+        echo '<!-- ADMIN DEBUG: saved_custom_fields count=' . count($saved_custom_fields) . ' -->';
+        echo '<!-- ADMIN DEBUG: import[custom_fields]=' . htmlspecialchars($import['custom_fields'] ?? 'NULL') . ' -->';
         
         // Output HTML
         include_once WC_XML_CSV_AI_IMPORT_PLUGIN_DIR . 'includes/admin/partials/import-edit.php';
@@ -1031,22 +1122,24 @@ class WC_XML_CSV_AI_Import_Admin {
         $remaining = $import['total_products'] - $import['processed_products'];
         
         echo '<div class="wrap wc-xml-csv-import-wrap">';
-        echo '<h1>' . __('Resume Import?', 'bootflow-woocommerce-xml-csv-importer') . '</h1>';
+        echo '<h1>' . esc_html__('Resume Import?', 'bootflow-product-importer') . '</h1>';
         
         echo '<div class="card" style="max-width: 600px; padding: 20px; margin: 20px 0;">';
         echo '<h2 style="margin-top: 0;">' . esc_html($import['name']) . '</h2>';
         
         echo '<div class="import-progress-summary" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 20px;">';
         echo '<p style="font-size: 16px; margin: 0 0 10px 0;">';
-        echo '<strong>' . __('Current Progress:', 'bootflow-woocommerce-xml-csv-importer') . '</strong> ';
-        echo '<span style="color: #0073aa; font-size: 20px;">' . $percentage . '%</span>';
+        echo '<strong>' . esc_html__('Current Progress:', 'bootflow-product-importer') . '</strong> ';
+        echo '<span style="color: #0073aa; font-size: 20px;">' . esc_html($percentage) . '%</span>';
         echo '</p>';
-        echo '<p style="margin: 5px 0;">' . sprintf(__('%d of %d products processed', 'bootflow-woocommerce-xml-csv-importer'), 
-            $import['processed_products'], $import['total_products']) . '</p>';
-        echo '<p style="margin: 5px 0; color: #666;">' . sprintf(__('%d products remaining', 'bootflow-woocommerce-xml-csv-importer'), $remaining) . '</p>';
+        // translators: %1$d is processed products count, %2$d is total products count
+        echo '<p style="margin: 5px 0;">' . sprintf(esc_html__('%1$d of %2$d products processed', 'bootflow-product-importer'), 
+            intval($import['processed_products']), intval($import['total_products'])) . '</p>';
+        // translators: %d is remaining products count
+        echo '<p style="margin: 5px 0; color: #666;">' . sprintf(esc_html__('%d products remaining', 'bootflow-product-importer'), intval($remaining)) . '</p>';
         echo '</div>';
         
-        echo '<p style="font-size: 14px; color: #555;">' . __('This import was previously started. Would you like to:', 'bootflow-woocommerce-xml-csv-importer') . '</p>';
+        echo '<p style="font-size: 14px; color: #555;">' . esc_html__('This import was previously started. Would you like to:', 'bootflow-product-importer') . '</p>';
         
         echo '<div class="resume-actions" style="display: flex; gap: 15px; margin-top: 20px;">';
         
@@ -1055,18 +1148,19 @@ class WC_XML_CSV_AI_Import_Admin {
         echo '<a href="' . esc_url($resume_url) . '" class="button button-primary button-hero" style="display: flex; align-items: center; gap: 8px;">';
         echo '<span class="dashicons dashicons-controls-play" style="margin-top: 5px;"></span>';
         echo '<span>';
-        echo '<strong>' . __('Continue Import', 'bootflow-woocommerce-xml-csv-importer') . '</strong><br>';
-        echo '<small style="font-weight: normal;">' . sprintf(__('Resume from product %d', 'bootflow-woocommerce-xml-csv-importer'), $import['processed_products'] + 1) . '</small>';
+        echo '<strong>' . esc_html__('Continue Import', 'bootflow-product-importer') . '</strong><br>';
+        // translators: %d is the product number to resume from
+        echo '<small style="font-weight: normal;">' . sprintf(esc_html__('Resume from product %d', 'bootflow-product-importer'), intval($import['processed_products']) + 1) . '</small>';
         echo '</span>';
         echo '</a>';
         
         // Start Over button
         $restart_url = admin_url('admin.php?page=wc-xml-csv-import&action=rerun&import_id=' . $import['id'] . '&resume_action=restart');
-        echo '<a href="' . esc_url($restart_url) . '" class="button button-secondary button-hero" style="display: flex; align-items: center; gap: 8px;" onclick="return confirm(\'' . esc_js(__('Are you sure? This will reset progress and start from the beginning.', 'bootflow-woocommerce-xml-csv-importer')) . '\')">';
+        echo '<a href="' . esc_url($restart_url) . '" class="button button-secondary button-hero" style="display: flex; align-items: center; gap: 8px;" onclick="return confirm(\'' . esc_js(__('Are you sure? This will reset progress and start from the beginning.', 'bootflow-product-importer')) . '\')">';
         echo '<span class="dashicons dashicons-update" style="margin-top: 5px;"></span>';
         echo '<span>';
-        echo '<strong>' . __('Start Over', 'bootflow-woocommerce-xml-csv-importer') . '</strong><br>';
-        echo '<small style="font-weight: normal;">' . __('Reset and import all products', 'bootflow-woocommerce-xml-csv-importer') . '</small>';
+        echo '<strong>' . esc_html__('Start Over', 'bootflow-product-importer') . '</strong><br>';
+        echo '<small style="font-weight: normal;">' . esc_html__('Reset and import all products', 'bootflow-product-importer') . '</small>';
         echo '</span>';
         echo '</a>';
         
@@ -1074,7 +1168,7 @@ class WC_XML_CSV_AI_Import_Admin {
         
         // Cancel link
         echo '<p style="margin-top: 20px;">';
-        echo '<a href="' . admin_url('admin.php?page=wc-xml-csv-import-history') . '">' . __('← Back to Import History', 'bootflow-woocommerce-xml-csv-importer') . '</a>';
+        echo '<a href="' . esc_url(admin_url('admin.php?page=wc-xml-csv-import-history')) . '">' . esc_html__('← Back to Import History', 'bootflow-product-importer') . '</a>';
         echo '</p>';
         
         echo '</div>'; // .card
@@ -1097,9 +1191,22 @@ class WC_XML_CSV_AI_Import_Admin {
         $import = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}wc_itp_imports WHERE id = %d", $import_id), ARRAY_A);
         
         if (!$import) {
-            wp_die(__('Import not found.', 'bootflow-woocommerce-xml-csv-importer'));
+            wp_die(esc_html__('Import not found.', 'bootflow-product-importer'));
         }
         
+        // CRITICAL: Clear any kill flags that might have been set by Stop action
+        $kill_flag_specific = WC_XML_CSV_AI_IMPORT_PLUGIN_DIR . 'IMPORT_KILLED_' . $import_id . '.flag';
+        $kill_flag_global = WC_XML_CSV_AI_IMPORT_PLUGIN_DIR . 'IMPORT_KILLED.flag';
+        if (file_exists($kill_flag_specific)) {
+            @unlink($kill_flag_specific);
+        }
+        if (file_exists($kill_flag_global)) {
+            @unlink($kill_flag_global);
+        }
+        
+        // Clear transient locks from previous run
+        delete_transient('wc_import_lock_' . $import_id);
+        delete_transient('wc_import_lock_time_' . $import_id);
         
         // Prepare update data
         $update_data = array(
@@ -1130,7 +1237,7 @@ class WC_XML_CSV_AI_Import_Admin {
         
         // Just redirect to progress page - kickstart will start the import
         $redirect_url = admin_url('admin.php?page=wc-xml-csv-import&step=3&import_id=' . $import_id);
-        wp_redirect($redirect_url);
+        wp_safe_redirect($redirect_url);
         exit;
     }
 
@@ -1217,7 +1324,7 @@ class WC_XML_CSV_AI_Import_Admin {
      */
     private function detect_file_type_from_url($url) {
         // First check file extension
-        $path = parse_url($url, PHP_URL_PATH);
+        $path = wp_parse_url($url, PHP_URL_PATH);
         $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         
         if (in_array($extension, array('xml', 'csv'))) {
@@ -1236,7 +1343,7 @@ class WC_XML_CSV_AI_Import_Admin {
         }
         
         // Check query parameters
-        $query = parse_url($url, PHP_URL_QUERY);
+        $query = wp_parse_url($url, PHP_URL_QUERY);
         if ($query) {
             parse_str($query, $params);
             foreach ($params as $key => $value) {
@@ -1267,12 +1374,15 @@ class WC_XML_CSV_AI_Import_Admin {
         }
         
         // Read first 4KB of file
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for binary file type detection
         $handle = fopen($file_path, 'r');
         if (!$handle) {
             return 'xml';
         }
         
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
         $sample = fread($handle, 4096);
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
         fclose($handle);
         
         if (empty($sample)) {
@@ -1344,7 +1454,7 @@ class WC_XML_CSV_AI_Import_Admin {
         update_option('wc_xml_csv_ai_import_settings', $settings);
         
         echo '<div class="notice notice-success is-dismissible">';
-        echo '<p>' . __('Settings saved successfully.', 'bootflow-woocommerce-xml-csv-importer') . '</p>';
+        echo '<p>' . esc_html__('Settings saved successfully.', 'bootflow-product-importer') . '</p>';
         echo '</div>';
     }
 
@@ -1359,12 +1469,12 @@ class WC_XML_CSV_AI_Import_Admin {
         // Verify nonce - support both standard POST and FormData
         $nonce = isset($_POST['nonce']) ? $_POST['nonce'] : (isset($_REQUEST['nonce']) ? $_REQUEST['nonce'] : '');
         if (!wp_verify_nonce($nonce, 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-product-importer')));
             return;
         }
         
@@ -1385,11 +1495,11 @@ class WC_XML_CSV_AI_Import_Admin {
             
             // Validate required fields
             if (empty($import_name)) {
-                throw new Exception(__('Import name is required.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('Import name is required.', 'bootflow-product-importer'));
             }
             
             if (empty($upload_method)) {
-                throw new Exception(__('Upload method is required.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('Upload method is required.', 'bootflow-product-importer'));
             }
             
             $file_path = '';
@@ -1400,14 +1510,14 @@ class WC_XML_CSV_AI_Import_Admin {
                 $uploaded_file = $_FILES['file'];
                 
                 if ($uploaded_file['error'] !== UPLOAD_ERR_OK) {
-                    throw new Exception(__('File upload error.', 'bootflow-woocommerce-xml-csv-importer'));
+                    throw new Exception(__('File upload error.', 'bootflow-product-importer'));
                 }
                 
                 $file_type = strtolower(pathinfo($uploaded_file['name'], PATHINFO_EXTENSION));
                 
                 // Allow files without extension (from URLs) or with xml/csv extension
                 if (!empty($file_type) && !in_array($file_type, array('xml', 'csv'))) {
-                    throw new Exception(__('Invalid file type. Only XML and CSV files are allowed.', 'bootflow-woocommerce-xml-csv-importer'));
+                    throw new Exception(__('Invalid file type. Only XML and CSV files are allowed.', 'bootflow-product-importer'));
                 }
                 
                 // Apply force file type if set
@@ -1430,8 +1540,9 @@ class WC_XML_CSV_AI_Import_Admin {
                 
                 $file_path = $plugin_upload_dir . time() . '_' . sanitize_file_name($uploaded_file['name']);
                 
+                // phpcs:ignore Generic.PHP.ForbiddenFunctions.Found -- move_uploaded_file is required for secure file uploads
                 if (!move_uploaded_file($uploaded_file['tmp_name'], $file_path)) {
-                    throw new Exception(__('Failed to upload file.', 'bootflow-woocommerce-xml-csv-importer'));
+                    throw new Exception(esc_html__('Failed to upload file.', 'bootflow-product-importer'));
                 }
                 
             } elseif ($upload_method === 'url') {
@@ -1439,7 +1550,7 @@ class WC_XML_CSV_AI_Import_Admin {
                 $file_url = esc_url_raw(wp_unslash($_POST['file_url'] ?? ''));
                 
                 if (empty($file_url)) {
-                    throw new Exception(__('File URL is required.', 'bootflow-woocommerce-xml-csv-importer'));
+                    throw new Exception(__('File URL is required.', 'bootflow-product-importer'));
                 }
 
                 // WP.org compliance: validate URL for SSRF protection
@@ -1468,9 +1579,10 @@ class WC_XML_CSV_AI_Import_Admin {
                 $file_path = $plugin_upload_dir . time() . '_' . $base_filename;
 
                 // Download with streaming for large files
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for streaming large file downloads
                 $temp_file = fopen($file_path, 'w');
                 if (!$temp_file) {
-                    throw new Exception(__('Failed to create temporary file.', 'bootflow-woocommerce-xml-csv-importer'));
+                    throw new Exception(esc_html__('Failed to create temporary file.', 'bootflow-product-importer'));
                 }
                 
                 // WP.org compliance: use wp_safe_remote_get with proper timeout and user-agent
@@ -1484,22 +1596,25 @@ class WC_XML_CSV_AI_Import_Admin {
                 ));
                 
                 if (is_wp_error($response)) {
+                    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
                     fclose($temp_file);
-                    if (file_exists($file_path)) unlink($file_path);
-                    throw new Exception(__('Failed to download file from URL: ', 'bootflow-woocommerce-xml-csv-importer') . $response->get_error_message());
+                    if (file_exists($file_path)) wp_delete_file($file_path);
+                    throw new Exception(esc_html__('Failed to download file from URL: ', 'bootflow-product-importer') . esc_html($response->get_error_message()));
                 }
 
                 $response_code = wp_remote_retrieve_response_code($response);
                 if ($response_code !== 200) {
+                    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
                     fclose($temp_file);
-                    if (file_exists($file_path)) unlink($file_path);
-                    throw new Exception(__('Failed to download file from URL. HTTP Status: ', 'bootflow-woocommerce-xml-csv-importer') . $response_code);
+                    if (file_exists($file_path)) wp_delete_file($file_path);
+                    throw new Exception(esc_html__('Failed to download file from URL. HTTP Status: ', 'bootflow-product-importer') . esc_html($response_code));
                 }
                 
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
                 fclose($temp_file);
                 
                 if (!file_exists($file_path) || filesize($file_path) === 0) {
-                    throw new Exception(__('Downloaded file is empty or failed to save.', 'bootflow-woocommerce-xml-csv-importer'));
+                    throw new Exception(esc_html__('Downloaded file is empty or failed to save.', 'bootflow-product-importer'));
                 }
                 
                 // Wait for file to fully download - check file size stability
@@ -1541,19 +1656,19 @@ class WC_XML_CSV_AI_Import_Admin {
                 }
                 
             } else {
-                throw new Exception(__('No file provided.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('No file provided.', 'bootflow-product-importer'));
             }
             
             // Validate file exists
             if (!file_exists($file_path)) {
-                throw new Exception(__('File upload failed - file does not exist.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('File upload failed - file does not exist.', 'bootflow-product-importer'));
             }
             
             // Validate file size
             $file_size = filesize($file_path);
             if ($file_size === 0) {
-                unlink($file_path);
-                throw new Exception(__('File is empty.', 'bootflow-woocommerce-xml-csv-importer'));
+                wp_delete_file($file_path);
+                throw new Exception(__('File is empty.', 'bootflow-product-importer'));
             }
             
             // Load parser classes if not already loaded
@@ -1573,7 +1688,7 @@ class WC_XML_CSV_AI_Import_Admin {
             
             if (!$validation['valid']) {
                 if (file_exists($file_path)) {
-                    unlink($file_path);
+                    wp_delete_file($file_path);
                 }
                 throw new Exception($validation['message']);
             }
@@ -1627,7 +1742,7 @@ class WC_XML_CSV_AI_Import_Admin {
             $import_id = $wpdb->insert_id;
             
             wp_send_json_success(array(
-                'message' => __('File uploaded successfully.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => __('File uploaded successfully.', 'bootflow-product-importer'),
                 'total_products' => $total_products,
                 'import_id' => $import_id,
                 'redirect_url' => admin_url('admin.php?page=wc-xml-csv-import&step=2&import_id=' . $import_id)
@@ -1651,12 +1766,12 @@ class WC_XML_CSV_AI_Import_Admin {
     public function handle_parse_structure() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-product-importer')));
             return;
         }
         
@@ -1688,8 +1803,10 @@ class WC_XML_CSV_AI_Import_Admin {
                     if ($file_size > 0) {
                         // Try to open and read file to ensure it's not locked
                         clearstatcache(true, $file_path);
+                        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Checking file lock status
                         $handle = @fopen($file_path, 'r');
                         if ($handle) {
+                            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
                             fclose($handle);
                             $file_ready = true;
                             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import - File ready after ' . ($i + 1) . ' attempts'); }
@@ -1703,7 +1820,7 @@ class WC_XML_CSV_AI_Import_Admin {
             }
             
             if (!$file_ready) {
-                throw new Exception(__('File is not ready yet. Please refresh the page and try again.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('File is not ready yet. Please refresh the page and try again.', 'bootflow-product-importer'));
             }
             
             if ($file_type === 'xml') {
@@ -1744,13 +1861,13 @@ class WC_XML_CSV_AI_Import_Admin {
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Nonce check: ' . ($nonce ? 'exists' : 'missing')); }
         
         if (!wp_verify_nonce($nonce, 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Nonce verified successfully'); }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-product-importer')));
             return;
         }
         
@@ -1814,7 +1931,7 @@ class WC_XML_CSV_AI_Import_Admin {
             
             wp_send_json_success(array(
                 'import_id' => $import_id,
-                'message' => __('Import started successfully.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => __('Import started successfully.', 'bootflow-product-importer'),
                 'debug' => 'Import ID: ' . $import_id . ', File: ' . $import_data['file_path']
             ));
             
@@ -1837,12 +1954,12 @@ class WC_XML_CSV_AI_Import_Admin {
     public function handle_kickstart_import() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-product-importer')));
             return;
         }
         
@@ -1859,33 +1976,53 @@ class WC_XML_CSV_AI_Import_Admin {
             ));
             
             if (!$import) {
-                wp_send_json_error(array('message' => __('Import not found.', 'bootflow-woocommerce-xml-csv-importer')));
+                wp_send_json_error(array('message' => __('Import not found.', 'bootflow-product-importer')));
                 return;
             }
             
-            // Don't kickstart if already completed or if products already processed
+            // Don't kickstart if already completed
             if ($import->status === 'completed') {
                 wp_send_json_success(array(
-                    'message' => __('Import already completed.', 'bootflow-woocommerce-xml-csv-importer'),
+                    'message' => __('Import already completed.', 'bootflow-product-importer'),
                     'skipped' => true
                 ));
                 return;
             }
             
-            if (intval($import->processed_products) > 0) {
-                wp_send_json_success(array(
-                    'message' => __('Import already in progress.', 'bootflow-woocommerce-xml-csv-importer'),
-                    'skipped' => true
-                ));
-                return;
+            // For processing status with products already done, check if actively processing
+            // (Don't skip for pending status - that means we need to resume/restart)
+            if ($import->status === 'processing' && intval($import->processed_products) > 0) {
+                // Check if there's a lock (meaning it's actively running)
+                $lock = get_transient('wc_import_lock_' . $import_id);
+                if ($lock !== false) {
+                    wp_send_json_success(array(
+                        'message' => __('Import already in progress.', 'bootflow-product-importer'),
+                        'skipped' => true
+                    ));
+                    return;
+                }
             }
             
-            // Trigger import chunk processing directly
-            do_action('wc_xml_csv_ai_import_process_chunk', $import_id, 0, 5);
+            // Set status to processing before triggering
+            $wpdb->update(
+                $wpdb->prefix . 'wc_itp_imports',
+                array('status' => 'processing'),
+                array('id' => $import_id),
+                array('%s'),
+                array('%d')
+            );
+            
+            // Determine correct offset - for Resume, start from where we left off
+            $offset = intval($import->processed_products);
+            $batch_size = intval($import->batch_size) ?: 5;
+            
+            // Trigger import chunk processing directly with correct offset
+            do_action('wc_xml_csv_ai_import_process_chunk', $import_id, $offset, $batch_size);
             
             
             wp_send_json_success(array(
-                'message' => __('Import processing started.', 'bootflow-woocommerce-xml-csv-importer')
+                'message' => __('Import processing started.', 'bootflow-product-importer'),
+                'offset' => $offset
             ));
             
         } catch (Exception $e) {
@@ -1978,12 +2115,12 @@ class WC_XML_CSV_AI_Import_Admin {
         // WP.org compliance: sanitize nonce
         $nonce = isset($_POST['nonce']) ? sanitize_key(wp_unslash($_POST['nonce'])) : '';
         if (!wp_verify_nonce($nonce, 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions.', 'bootflow-product-importer')));
             return;
         }
         
@@ -1991,7 +2128,7 @@ class WC_XML_CSV_AI_Import_Admin {
         $url = esc_url_raw(wp_unslash($_POST['url'] ?? ''));
         
         if (empty($url)) {
-            wp_send_json_error(array('message' => __('URL is required.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('URL is required.', 'bootflow-product-importer')));
             return;
         }
 
@@ -2020,11 +2157,13 @@ class WC_XML_CSV_AI_Import_Admin {
             
             if ($response_code === 200) {
                 wp_send_json_success(array(
-                    'message' => sprintf(__('URL is accessible (HTTP %d).', 'bootflow-woocommerce-xml-csv-importer'), $response_code)
+                    // translators: placeholder values
+                    'message' => sprintf(__('URL is accessible (HTTP %d).', 'bootflow-product-importer'), $response_code)
                 ));
             } else {
                 wp_send_json_error(array(
-                    'message' => sprintf(__('URL returned HTTP %d. Expected 200.', 'bootflow-woocommerce-xml-csv-importer'), $response_code)
+                    // translators: placeholder values
+                    'message' => sprintf(__('URL returned HTTP %d. Expected 200.', 'bootflow-product-importer'), $response_code)
                 ));
             }
         } catch (Exception $e) {
@@ -2040,12 +2179,12 @@ class WC_XML_CSV_AI_Import_Admin {
     public function handle_get_progress() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-product-importer')));
             return;
         }
         
@@ -2059,20 +2198,26 @@ class WC_XML_CSV_AI_Import_Admin {
         );
         
         if (!$import) {
-            wp_send_json_error(array('message' => __('Import not found.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Import not found.', 'bootflow-product-importer')));
         }
         
         // Get only the 50 most recent logs, ordered by ID (more reliable than timestamp)
         // Exclude progress logs - only product-related logs
+        $chunk_pattern = $wpdb->esc_like('Chunk ') . '%';
+        $processing_pattern = $wpdb->esc_like('Processing chunk ') . '%';
+        $processed_pattern = $wpdb->esc_like('Processed ') . '%/%';
         $logs = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM {$wpdb->prefix}wc_itp_import_logs 
                  WHERE import_id = %d 
-                 AND message NOT LIKE 'Chunk %%' 
-                 AND message NOT LIKE 'Processing chunk %%'
-                 AND message NOT LIKE 'Processed %%/%%'
+                 AND message NOT LIKE %s 
+                 AND message NOT LIKE %s
+                 AND message NOT LIKE %s
                  ORDER BY id DESC LIMIT 50",
-                $import_id
+                $import_id,
+                $chunk_pattern,
+                $processing_pattern,
+                $processed_pattern
             ),
             ARRAY_A
         );
@@ -2108,12 +2253,12 @@ class WC_XML_CSV_AI_Import_Admin {
     public function handle_ai_auto_mapping() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions.', 'bootflow-product-importer')));
             return;
         }
         
@@ -2127,7 +2272,7 @@ class WC_XML_CSV_AI_Import_Admin {
         
         if (!$has_ai_key) {
             wp_send_json_error(array(
-                'message' => __('AI auto-mapping requires an AI API key. Please configure one in Settings.', 'bootflow-woocommerce-xml-csv-importer')
+                'message' => __('AI auto-mapping requires an AI API key. Please configure one in Settings.', 'bootflow-product-importer')
             ));
             return;
         }
@@ -2139,7 +2284,7 @@ class WC_XML_CSV_AI_Import_Admin {
             $sample_data = isset($_POST['sample_data']) ? $_POST['sample_data'] : array();
             
             if (empty($source_fields)) {
-                wp_send_json_error(array('message' => __('No source fields provided.', 'bootflow-woocommerce-xml-csv-importer')));
+                wp_send_json_error(array('message' => __('No source fields provided.', 'bootflow-product-importer')));
                 return;
             }
             
@@ -2150,6 +2295,12 @@ class WC_XML_CSV_AI_Import_Admin {
                         $value = wp_kses_post($value);
                     }
                 });
+            }
+            
+            // Check if AI Providers class exists (PRO feature)
+            if (!class_exists('WC_XML_CSV_AI_Import_AI_Providers')) {
+                wp_send_json_error(array('message' => __('AI auto-mapping is a PRO feature.', 'bootflow-product-importer')));
+                return;
             }
             
             $ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();
@@ -2173,7 +2324,8 @@ class WC_XML_CSV_AI_Import_Admin {
                 'provider' => $result['provider'],
                 'stats' => $stats,
                 'message' => sprintf(
-                    __('AI mapped %d fields, auto-filled %d fields. Total: %d of %d fields mapped.', 'bootflow-woocommerce-xml-csv-importer'),
+                    // translators: %1$d is AI mapped count, %2$d is auto-filled count, %3$d is total mapped, %4$d is total fields
+                    __('AI mapped %1$d fields, auto-filled %2$d fields. Total: %3$d of %4$d fields mapped.', 'bootflow-product-importer'),
                     $stats['ai_mapped'],
                     $stats['auto_filled'],
                     count($result['mappings']),
@@ -2184,7 +2336,8 @@ class WC_XML_CSV_AI_Import_Admin {
             // Add warning if some fields are still unmapped
             if ($stats['unmapped'] > 0) {
                 $response['message'] .= ' ' . sprintf(
-                    __('Warning: %d fields could not be mapped automatically.', 'bootflow-woocommerce-xml-csv-importer'),
+                    // translators: %d is the number of unmapped fields
+                    __('Warning: %d fields could not be mapped automatically.', 'bootflow-product-importer'),
                     $stats['unmapped']
                 );
             }
@@ -2195,12 +2348,13 @@ class WC_XML_CSV_AI_Import_Admin {
                 
                 // Update message if variable product detected
                 if (!empty($result['product_structure']['has_variations'])) {
-                    $response['message'] .= ' ' . __('Variable product structure detected.', 'bootflow-woocommerce-xml-csv-importer');
+                    $response['message'] .= ' ' . esc_html__('Variable product structure detected.', 'bootflow-product-importer');
                     
                     if (!empty($result['product_structure']['detected_attributes'])) {
                         $attr_count = count($result['product_structure']['detected_attributes']);
                         $response['message'] .= ' ' . sprintf(
-                            _n('%d attribute found.', '%d attributes found.', $attr_count, 'bootflow-woocommerce-xml-csv-importer'),
+                            // translators: %d is the number of attributes found
+                            _n('%d attribute found.', '%d attributes found.', $attr_count, 'bootflow-product-importer'),
                             $attr_count
                         );
                     }
@@ -2224,19 +2378,19 @@ class WC_XML_CSV_AI_Import_Admin {
     public function handle_activate_license() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions.', 'bootflow-product-importer')));
             return;
         }
         
         $license_key = sanitize_text_field($_POST['license_key'] ?? '');
         
         if (empty($license_key)) {
-            wp_send_json_error(array('message' => __('Please enter a license key.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Please enter a license key.', 'bootflow-product-importer')));
             return;
         }
         
@@ -2263,12 +2417,12 @@ class WC_XML_CSV_AI_Import_Admin {
     public function handle_deactivate_license() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions.', 'bootflow-product-importer')));
             return;
         }
         
@@ -2294,19 +2448,55 @@ class WC_XML_CSV_AI_Import_Admin {
     public function handle_test_ai() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-product-importer')));
             return;
         }
         
         try {
-            $provider = sanitize_text_field($_POST['provider']);
-            $test_prompt = wp_unslash($_POST['test_prompt']); // Don't sanitize - may contain HTML
-            $test_value = wp_unslash($_POST['test_value']); // Don't sanitize - may contain HTML
+            $provider = sanitize_text_field($_POST['provider'] ?? '');
+            
+            // Check if AI Providers class exists (PRO feature)
+            if (!class_exists('WC_XML_CSV_AI_Import_AI_Providers')) {
+                wp_send_json_error(array('message' => __('AI processing is a PRO feature.', 'bootflow-product-importer')));
+                return;
+            }
+            
+            // Simple connection test mode (from Settings page)
+            if (!empty($_POST['api_key']) && !empty($provider)) {
+                // Temporarily set API key for test
+                $ai_settings = get_option('wc_xml_csv_ai_import_ai_settings', array());
+                $original_key = $ai_settings[$provider . '_api_key'] ?? '';
+                $ai_settings[$provider . '_api_key'] = sanitize_text_field($_POST['api_key']);
+                if (!empty($_POST['model'])) {
+                    $ai_settings[$provider . '_model'] = sanitize_text_field($_POST['model']);
+                }
+                update_option('wc_xml_csv_ai_import_ai_settings', $ai_settings);
+                
+                $ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();
+                $result = $ai_providers->test_provider($provider);
+                
+                // Restore original key if it was different
+                if ($original_key !== $ai_settings[$provider . '_api_key']) {
+                    $ai_settings[$provider . '_api_key'] = $original_key;
+                    update_option('wc_xml_csv_ai_import_ai_settings', $ai_settings);
+                }
+                
+                if ($result['success']) {
+                    wp_send_json_success(array('message' => $result['message']));
+                } else {
+                    wp_send_json_error(array('message' => $result['message']));
+                }
+                return;
+            }
+            
+            // Full field test mode (from Mapping page)
+            $test_prompt = wp_unslash($_POST['test_prompt'] ?? ''); // Don't sanitize - may contain HTML
+            $test_value = wp_unslash($_POST['test_value'] ?? ''); // Don't sanitize - may contain HTML
             
             // Build test context from sample data if available
             $context = array();
@@ -2329,12 +2519,18 @@ class WC_XML_CSV_AI_Import_Admin {
                 }
             }
             
+            // Check if AI Providers class exists (PRO feature)
+            if (!class_exists('WC_XML_CSV_AI_Import_AI_Providers')) {
+                wp_send_json_error(array('message' => __('AI processing is a PRO feature.', 'bootflow-product-importer')));
+                return;
+            }
+            
             $ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();
             $result = $ai_providers->process_field($test_value, $test_prompt, array('provider' => $provider), $context);
             
             wp_send_json_success(array(
                 'result' => $result,
-                'message' => __('AI test completed successfully.', 'bootflow-woocommerce-xml-csv-importer')
+                'message' => __('AI test completed successfully.', 'bootflow-product-importer')
             ));
             
         } catch (Exception $e) {
@@ -2352,19 +2548,19 @@ class WC_XML_CSV_AI_Import_Admin {
     public function handle_test_php() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-product-importer')));
             return;
         }
         
         // PRO feature check - PHP formulas require PRO license
         if (!WC_XML_CSV_AI_Import_Features::is_available('php_processing')) {
             wp_send_json_error(array(
-                'message' => __('PHP Formula processing is a PRO feature. Please upgrade to use this functionality.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => __('PHP Formula processing is a PRO feature. Please upgrade to use this functionality.', 'bootflow-product-importer'),
                 'upgrade_required' => true,
                 'upgrade_url' => WC_XML_CSV_AI_Import_License::get_upgrade_url()
             ));
@@ -2409,7 +2605,7 @@ class WC_XML_CSV_AI_Import_Admin {
             wp_send_json_success(array(
                 'result' => $formatted_result,
                 'raw_result' => $result,
-                'message' => __('PHP formula test completed successfully.', 'bootflow-woocommerce-xml-csv-importer')
+                'message' => __('PHP formula test completed successfully.', 'bootflow-product-importer')
             ));
             
         } catch (ParseError $e) {
@@ -2435,12 +2631,12 @@ class WC_XML_CSV_AI_Import_Admin {
         
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-product-importer')));
             return;
         }
         
@@ -2450,7 +2646,7 @@ class WC_XML_CSV_AI_Import_Admin {
             $mapping_data = json_decode($mapping_data_json, true);
             
             if (!$import_id || !$mapping_data) {
-                wp_send_json_error(array('message' => __('Invalid import ID or mapping data.', 'bootflow-woocommerce-xml-csv-importer')));
+                wp_send_json_error(array('message' => __('Invalid import ID or mapping data.', 'bootflow-product-importer')));
                 return;
             }
             
@@ -2464,19 +2660,23 @@ class WC_XML_CSV_AI_Import_Admin {
             
             // Process custom fields - save as array, not individual fields
             if (isset($mapping_data['custom_fields']) && is_array($mapping_data['custom_fields'])) {
-                // Add each custom field with a unique key
+                // Add each custom field with a unique key (use _custom_ prefix for consistency)
                 $cf_index = 0;
                 foreach ($mapping_data['custom_fields'] as $field_config) {
                     if (is_array($field_config) && !empty($field_config['name'])) {
-                        $field_mappings['custom_' . $cf_index] = $field_config;
+                        $field_mappings['_custom_' . $cf_index] = $field_config;
                         $cf_index++;
                     }
                 }
             }
             
+            // Also save custom_fields in separate column for backward compatibility
+            $custom_fields_array = isset($mapping_data['custom_fields']) ? $mapping_data['custom_fields'] : array();
+            
             // Prepare update data
             $update_data = array(
-                'field_mappings' => json_encode($field_mappings, JSON_UNESCAPED_UNICODE)
+                'field_mappings' => json_encode($field_mappings, JSON_UNESCAPED_UNICODE),
+                'custom_fields' => json_encode($custom_fields_array, JSON_UNESCAPED_UNICODE)
             );
             
             // Add filters if present
@@ -2556,12 +2756,12 @@ class WC_XML_CSV_AI_Import_Admin {
             );
             
             if ($result === false) {
-                wp_send_json_error(array('message' => __('Database error: ', 'bootflow-woocommerce-xml-csv-importer') . $wpdb->last_error));
+                wp_send_json_error(array('message' => __('Database error: ', 'bootflow-product-importer') . $wpdb->last_error));
                 return;
             }
             
             wp_send_json_success(array(
-                'message' => __('Mapping configuration saved successfully.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => __('Mapping configuration saved successfully.', 'bootflow-product-importer'),
                 'updated_fields' => count($field_mappings)
             ));
             
@@ -2580,19 +2780,19 @@ class WC_XML_CSV_AI_Import_Admin {
     public function handle_test_shipping() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions to access this page.', 'bootflow-product-importer')));
             return;
         }
         
         // PRO feature check - Shipping formulas require PRO license
         if (!WC_XML_CSV_AI_Import_Features::is_available('php_processing')) {
             wp_send_json_error(array(
-                'message' => __('Shipping formula processing is a PRO feature. Please upgrade to use this functionality.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => __('Shipping formula processing is a PRO feature. Please upgrade to use this functionality.', 'bootflow-product-importer'),
                 'upgrade_required' => true,
                 'upgrade_url' => WC_XML_CSV_AI_Import_License::get_upgrade_url()
             ));
@@ -2618,7 +2818,7 @@ class WC_XML_CSV_AI_Import_Admin {
             
             wp_send_json_success(array(
                 'result' => $result,
-                'message' => __('Shipping formula test completed successfully.', 'bootflow-woocommerce-xml-csv-importer')
+                'message' => __('Shipping formula test completed successfully.', 'bootflow-product-importer')
             ));
             
         } catch (ParseError $e) {
@@ -2847,7 +3047,7 @@ class WC_XML_CSV_AI_Import_Admin {
                     
                     // Delete old XML file if URL changed or new file downloaded
                     if (!empty($old_file) && $old_file !== $new_file_path && file_exists($old_file)) {
-                        unlink($old_file);
+                        wp_delete_file($old_file);
                         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import: Deleted old file: ' . $old_file); }
                     }
                     
@@ -2874,15 +3074,15 @@ class WC_XML_CSV_AI_Import_Admin {
             if ($result['completed']) {
                 $wpdb->update($table_name, array('status'=>'completed'), array('id'=>$import_id), array('%s'), array('%d'));
                 if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import: Completed import #' . $import_id); }
-                echo 'Import completed successfully';
+                echo esc_html__('Import completed successfully', 'bootflow-product-importer');
             } else {
                 if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import: Partial import #' . $import_id . ' - ' . $result['processed'] . '/' . $result['total']); }
-                echo 'Processing: ' . $result['processed'] . '/' . $result['total'];
+                echo 'Processing: ' . intval($result['processed']) . '/' . intval($result['total']);
             }
         } catch (Exception $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import: Error in import #' . $import_id . ': ' . $e->getMessage()); }
             $wpdb->update($table_name, array('status'=>'error'), array('id'=>$import_id), array('%s'), array('%d'));
-            echo 'Error: ' . $e->getMessage();
+            echo 'Error: ' . esc_html($e->getMessage());
         }
         
         exit;
@@ -3076,7 +3276,7 @@ class WC_XML_CSV_AI_Import_Admin {
     public function display_logs_page() {
         // Check user permissions
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'bootflow-woocommerce-xml-csv-importer'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'bootflow-product-importer'));
         }
         
         // Check if PRO feature is available
@@ -3088,11 +3288,12 @@ class WC_XML_CSV_AI_Import_Admin {
         global $wpdb;
         ?>
         <div class="wrap wc-xml-csv-import">
-            <h1><?php echo esc_html__('Import Logs', 'bootflow-woocommerce-xml-csv-importer'); ?></h1>
+            <h1><?php echo esc_html__('Import Logs', 'bootflow-product-importer'); ?></h1>
             
             <?php
             // Get imports for dropdown
             $table = $wpdb->prefix . 'wc_itp_imports';
+            // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnsupportedIdentifierPlaceholder -- %i requires WP 6.2+
             $imports = $wpdb->get_results( $wpdb->prepare( "SELECT id, name FROM %i ORDER BY id DESC LIMIT 20", $table ) );
             
             // Handle import selection
@@ -3119,18 +3320,18 @@ class WC_XML_CSV_AI_Import_Admin {
                 <form method="get" style="display: inline-block; margin-right: 20px;">
                     <input type="hidden" name="page" value="wc-xml-csv-import-logs">
                     
-                    <label for="view-select"><?php _e('View:', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
+                    <label for="view-select"><?php esc_html_e('View:', 'bootflow-product-importer'); ?></label>
                     <select name="view" id="view-select" onchange="this.form.submit()" style="margin-right: 20px;">
                         <option value="database" <?php selected(!$show_file_log); ?>>Database Logs</option>
                         <option value="file" <?php selected($show_file_log); ?>>Debug File (import_debug.log)</option>
                     </select>
                     
                     <?php if (!$show_file_log && !empty($imports)): ?>
-                        <label for="import-select"><?php _e('Import:', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
+                        <label for="import-select"><?php esc_html_e('Import:', 'bootflow-product-importer'); ?></label>
                         <select name="import_id" id="import-select" onchange="this.form.submit()">
                             <?php foreach ($imports as $import): ?>
                                 <option value="<?php echo esc_attr($import->id); ?>" <?php selected($selected_import, $import->id); ?>>
-                                    #<?php echo $import->id; ?> - <?php echo esc_html($import->name); ?>
+                                    #<?php echo esc_html($import->id); ?> - <?php echo esc_html($import->name); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -3138,17 +3339,17 @@ class WC_XML_CSV_AI_Import_Admin {
                 </form>
                 
                 <button type="button" class="button" onclick="location.reload()">
-                    <?php _e('Refresh', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Refresh', 'bootflow-product-importer'); ?>
                 </button>
                 
                 <label style="margin-left: 20px;">
                     <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh(this.checked)">
-                    <?php _e('Auto-refresh (5s)', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Auto-refresh (5s)', 'bootflow-product-importer'); ?>
                 </label>
                 
                 <?php if ($show_file_log && file_exists($debug_log)): ?>
-                    <a href="?page=wc-xml-csv-import-logs&view=file&action=clear" class="button" onclick="return confirm('<?php _e('Clear debug log file?', 'bootflow-woocommerce-xml-csv-importer'); ?>')" style="margin-left: 10px;">
-                        <?php _e('Clear Log', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <a href="?page=wc-xml-csv-import-logs&view=file&action=clear" class="button" onclick="return confirm('<?php esc_html_e('Clear debug log file?', 'bootflow-product-importer'); ?>')" style="margin-left: 10px;">
+                        <?php esc_html_e('Clear Log', 'bootflow-product-importer'); ?>
                     </a>
                 <?php endif; ?>
             </div>
@@ -3158,13 +3359,13 @@ class WC_XML_CSV_AI_Import_Admin {
                 if ($show_file_log) {
                     // Show import_debug.log file
                     if (isset($_GET['action']) && $_GET['action'] === 'clear' && file_exists($debug_log)) {
-                        echo '<div class="notice notice-success"><p>' . __('Debug log cleared.', 'bootflow-woocommerce-xml-csv-importer') . '</p></div>';
+                        echo '<div class="notice notice-success"><p>' . esc_html__('Debug log cleared.', 'bootflow-product-importer') . '</p></div>';
                     }
                     
                     if (file_exists($debug_log)) {
                         $log_content = file_get_contents($debug_log);
                         if (empty($log_content)) {
-                            echo '<div style="color: #888;">' . __('Log file is empty.', 'bootflow-woocommerce-xml-csv-importer') . '</div>';
+                            echo '<div style="color: #888;">' . esc_html__('Log file is empty.', 'bootflow-product-importer') . '</div>';
                         } else {
                             // Show last 500 lines
                             $lines = explode("\n", $log_content);
@@ -3178,15 +3379,16 @@ class WC_XML_CSV_AI_Import_Admin {
                             $log_content = preg_replace('/(CATEGORY_CREATED|CATEGORY_EXISTS|TAGS_ASSIGNED)/', '<span style="color: #4caf50; font-weight: bold;">$1</span>', $log_content);
                             $log_content = preg_replace('/(CATEGORY_HIERARCHY|CREATE_CATEGORY_HIERARCHY)/', '<span style="color: #2196f3; font-weight: bold;">$1</span>', $log_content);
                             
+                            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $log_content is already escaped with htmlspecialchars above
                             echo '<pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">' . $log_content . '</pre>';
                         }
                     } else {
-                        echo '<div style="color: #f44336;">' . __('Debug log file not found.', 'bootflow-woocommerce-xml-csv-importer') . '</div>';
+                        echo '<div style="color: #f44336;">' . esc_html__('Debug log file not found.', 'bootflow-product-importer') . '</div>';
                     }
                 } else {
                     // Show database logs
                     if (empty($logs)) {
-                        echo '<div style="color: #888;">' . __('No logs found for this import.', 'bootflow-woocommerce-xml-csv-importer') . '</div>';
+                        echo '<div style="color: #888;">' . esc_html__('No logs found for this import.', 'bootflow-product-importer') . '</div>';
                     } else {
                         foreach (array_reverse($logs) as $log) {
                             $level_color = array(
@@ -3196,9 +3398,9 @@ class WC_XML_CSV_AI_Import_Admin {
                                 'debug' => '#2196f3'
                             )[$log->level] ?? '#d4d4d4';
                             
-                            echo '<div style="margin-bottom: 10px; border-left: 3px solid ' . $level_color . '; padding-left: 10px;">';
+                            echo '<div style="margin-bottom: 10px; border-left: 3px solid ' . esc_attr($level_color) . '; padding-left: 10px;">';
                             echo '<span style="color: #9e9e9e;">[' . esc_html($log->created_at) . ']</span> ';
-                            echo '<span style="color: ' . $level_color . '; font-weight: bold;">' . strtoupper(esc_html($log->level)) . '</span> ';
+                            echo '<span style="color: ' . esc_attr($level_color) . '; font-weight: bold;">' . esc_html(strtoupper($log->level)) . '</span> ';
                             echo '<span>' . esc_html($log->message) . '</span>';
                             if (!empty($log->context)) {
                                 echo '<div style="color: #888; font-size: 11px; margin-top: 5px;">' . esc_html($log->context) . '</div>';
@@ -3261,7 +3463,7 @@ class WC_XML_CSV_AI_Import_Admin {
         $upgrade_url = WC_XML_CSV_AI_Import_License::get_upgrade_url();
         ?>
         <div class="wrap wc-xml-csv-import">
-            <h1><?php echo esc_html__('Import Logs', 'bootflow-woocommerce-xml-csv-importer'); ?></h1>
+            <h1><?php echo esc_html__('Import Logs', 'bootflow-product-importer'); ?></h1>
             
             <div style="max-width: 700px; margin: 40px auto; text-align: center;">
                 <!-- PRO Feature Card -->
@@ -3270,11 +3472,11 @@ class WC_XML_CSV_AI_Import_Admin {
                     <div style="font-size: 64px; margin-bottom: 20px;">📊</div>
                     
                     <h2 style="font-size: 28px; margin: 0 0 15px 0; color: white;">
-                        <?php _e('Import Logs & Debugging', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                        <?php esc_html_e('Import Logs & Debugging', 'bootflow-product-importer'); ?>
                     </h2>
                     
                     <p style="font-size: 16px; opacity: 0.9; margin-bottom: 30px; line-height: 1.6;">
-                        <?php _e('Track every import in detail. Monitor progress, debug issues, and ensure data quality with comprehensive logging.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                        <?php esc_html_e('Track every import in detail. Monitor progress, debug issues, and ensure data quality with comprehensive logging.', 'bootflow-product-importer'); ?>
                     </p>
                     
                     <!-- Features List -->
@@ -3282,23 +3484,23 @@ class WC_XML_CSV_AI_Import_Admin {
                         <div style="display: grid; gap: 12px;">
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 <span style="background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 6px;">✅</span>
-                                <span><?php _e('Real-time import progress tracking', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                                <span><?php esc_html_e('Real-time import progress tracking', 'bootflow-product-importer'); ?></span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 <span style="background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 6px;">✅</span>
-                                <span><?php _e('Detailed error messages with context', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                                <span><?php esc_html_e('Detailed error messages with context', 'bootflow-product-importer'); ?></span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 <span style="background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 6px;">✅</span>
-                                <span><?php _e('Debug file viewer for troubleshooting', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                                <span><?php esc_html_e('Debug file viewer for troubleshooting', 'bootflow-product-importer'); ?></span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 <span style="background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 6px;">✅</span>
-                                <span><?php _e('Filter logs by import and log level', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                                <span><?php esc_html_e('Filter logs by import and log level', 'bootflow-product-importer'); ?></span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 <span style="background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 6px;">✅</span>
-                                <span><?php _e('Auto-refresh for live monitoring', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                                <span><?php esc_html_e('Auto-refresh for live monitoring', 'bootflow-product-importer'); ?></span>
                             </div>
                         </div>
                     </div>
@@ -3308,18 +3510,18 @@ class WC_XML_CSV_AI_Import_Admin {
                        style="display: inline-block; background: white; color: #667eea; padding: 16px 40px; border-radius: 8px; font-weight: 600; font-size: 16px; text-decoration: none; transition: transform 0.2s, box-shadow 0.2s;"
                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.2)';"
                        onmouseout="this.style.transform=''; this.style.boxShadow='';">
-                        <?php _e('Upgrade to PRO', 'bootflow-woocommerce-xml-csv-importer'); ?> →
+                        <?php esc_html_e('Upgrade to PRO', 'bootflow-product-importer'); ?> →
                     </a>
                     
                     <p style="margin-top: 20px; font-size: 13px; opacity: 0.7;">
-                        <?php _e('Unlock all PRO features including scheduled imports, advanced filters, and AI processing.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                        <?php esc_html_e('Unlock all PRO features including scheduled imports, advanced filters, and AI processing.', 'bootflow-product-importer'); ?>
                     </p>
                 </div>
                 
                 <!-- Back Link -->
                 <p style="margin-top: 25px;">
-                    <a href="<?php echo admin_url('admin.php?page=wc-xml-csv-import-history'); ?>" style="color: #666; text-decoration: none;">
-                        ← <?php _e('Back to Import History', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=wc-xml-csv-import-history')); ?>" style="color: #666; text-decoration: none;">
+                        ← <?php esc_html_e('Back to Import History', 'bootflow-product-importer'); ?>
                     </a>
                 </p>
             </div>
@@ -3335,12 +3537,12 @@ class WC_XML_CSV_AI_Import_Admin {
     public function handle_update_import_url() {
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
-            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed.', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('You do not have sufficient permissions.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('You do not have sufficient permissions.', 'bootflow-product-importer')));
             return;
         }
         
@@ -3348,7 +3550,7 @@ class WC_XML_CSV_AI_Import_Admin {
         $new_url = esc_url_raw($_POST['file_url'] ?? '');
         
         if (!$import_id || !$new_url) {
-            wp_send_json_error(array('message' => __('Invalid import ID or URL.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Invalid import ID or URL.', 'bootflow-product-importer')));
             return;
         }
         
@@ -3362,14 +3564,14 @@ class WC_XML_CSV_AI_Import_Admin {
         ), ARRAY_A);
         
         if (!$import) {
-            wp_send_json_error(array('message' => __('Import not found.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Import not found.', 'bootflow-product-importer')));
             return;
         }
         
         // Delete old XML file if it exists and URL is changing
         if (!empty($import['file_url']) && $import['file_url'] !== $new_url) {
             if (file_exists($import['file_url'])) {
-                unlink($import['file_url']);
+                wp_delete_file($import['file_url']);
             }
         }
         
@@ -3383,11 +3585,11 @@ class WC_XML_CSV_AI_Import_Admin {
         );
         
         if ($updated === false) {
-            wp_send_json_error(array('message' => __('Failed to update URL in database.', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Failed to update URL in database.', 'bootflow-product-importer')));
             return;
         }
         
-        wp_send_json_success(array('message' => __('URL updated successfully. Next import will use the new URL.', 'bootflow-woocommerce-xml-csv-importer')));
+        wp_send_json_success(array('message' => __('URL updated successfully. Next import will use the new URL.', 'bootflow-product-importer')));
     }
 
     /**
@@ -3422,6 +3624,7 @@ class WC_XML_CSV_AI_Import_Admin {
         $file_path = $plugin_upload_dir . time() . '_' . $base_filename;
         
         // Download with streaming
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for streaming large file downloads
         $temp_file = fopen($file_path, 'w');
         if (!$temp_file) {
             return array('success' => false, 'message' => 'Failed to create temporary file');
@@ -3437,16 +3640,17 @@ class WC_XML_CSV_AI_Import_Admin {
             'user-agent' => 'Bootflow-WooCommerce-Importer/' . WC_XML_CSV_AI_IMPORT_VERSION
         ));
         
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
         fclose($temp_file);
         
         if (is_wp_error($response)) {
-            if (file_exists($file_path)) unlink($file_path);
+            if (file_exists($file_path)) wp_delete_file($file_path);
             return array('success' => false, 'message' => $response->get_error_message());
         }
         
         $response_code = wp_remote_retrieve_response_code($response);
         if ($response_code !== 200) {
-            if (file_exists($file_path)) unlink($file_path);
+            if (file_exists($file_path)) wp_delete_file($file_path);
             return array('success' => false, 'message' => 'HTTP Status: ' . $response_code);
         }
         
@@ -3583,7 +3787,7 @@ class WC_XML_CSV_AI_Import_Admin {
         check_ajax_referer('wc_xml_csv_ai_import_nonce', 'nonce');
         
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Permission denied', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Permission denied', 'bootflow-product-importer')));
         }
         
         $recipe_name = sanitize_text_field($_POST['recipe_name'] ?? '');
@@ -3591,7 +3795,7 @@ class WC_XML_CSV_AI_Import_Admin {
         $existing_recipe_id = sanitize_text_field($_POST['recipe_id'] ?? '');
         
         if (empty($recipe_name)) {
-            wp_send_json_error(array('message' => __('Recipe name is required', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Recipe name is required', 'bootflow-product-importer')));
         }
         
         // Get existing recipes
@@ -3634,8 +3838,8 @@ class WC_XML_CSV_AI_Import_Admin {
         update_option('wc_xml_csv_ai_import_recipes', $recipes);
         
         $message = $is_update 
-            ? __('Recipe updated successfully', 'bootflow-woocommerce-xml-csv-importer')
-            : __('Recipe saved successfully', 'bootflow-woocommerce-xml-csv-importer');
+            ? __('Recipe updated successfully', 'bootflow-product-importer')
+            : __('Recipe saved successfully', 'bootflow-product-importer');
         
         wp_send_json_success(array(
             'message' => $message,
@@ -3654,18 +3858,18 @@ class WC_XML_CSV_AI_Import_Admin {
         $recipe_id = sanitize_text_field($_POST['recipe_id'] ?? '');
         
         if (empty($recipe_id)) {
-            wp_send_json_error(array('message' => __('Recipe ID is required', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Recipe ID is required', 'bootflow-product-importer')));
         }
         
         $recipes = get_option('wc_xml_csv_ai_import_recipes', array());
         
         if (!isset($recipes[$recipe_id])) {
-            wp_send_json_error(array('message' => __('Recipe not found', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Recipe not found', 'bootflow-product-importer')));
         }
         
         wp_send_json_success(array(
             'recipe' => $recipes[$recipe_id],
-            'message' => __('Recipe loaded successfully', 'bootflow-woocommerce-xml-csv-importer')
+            'message' => __('Recipe loaded successfully', 'bootflow-product-importer')
         ));
     }
 
@@ -3676,13 +3880,13 @@ class WC_XML_CSV_AI_Import_Admin {
         check_ajax_referer('wc_xml_csv_ai_import_nonce', 'nonce');
         
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => __('Permission denied', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Permission denied', 'bootflow-product-importer')));
         }
         
         $recipe_id = sanitize_text_field($_POST['recipe_id'] ?? '');
         
         if (empty($recipe_id)) {
-            wp_send_json_error(array('message' => __('Recipe ID is required', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Recipe ID is required', 'bootflow-product-importer')));
         }
         
         $recipes = get_option('wc_xml_csv_ai_import_recipes', array());
@@ -3693,7 +3897,7 @@ class WC_XML_CSV_AI_Import_Admin {
         }
         
         wp_send_json_success(array(
-            'message' => __('Recipe deleted successfully', 'bootflow-woocommerce-xml-csv-importer'),
+            'message' => __('Recipe deleted successfully', 'bootflow-product-importer'),
             'recipes' => $this->get_recipes_list()
         ));
     }
@@ -3741,7 +3945,7 @@ class WC_XML_CSV_AI_Import_Admin {
         $source_fields = isset($_POST['source_fields']) ? array_map('sanitize_text_field', $_POST['source_fields']) : array();
         
         if (empty($source_fields)) {
-            wp_send_json_error(array('message' => __('No source fields provided', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('No source fields provided', 'bootflow-product-importer')));
         }
         
         // WooCommerce field aliases for matching
@@ -3869,7 +4073,8 @@ class WC_XML_CSV_AI_Import_Admin {
             'matched_count' => $matched_fields,
             'total_fields' => $total_fields,
             'message' => sprintf(
-                __('Auto-detected %d of %d fields', 'bootflow-woocommerce-xml-csv-importer'),
+                // translators: %1$d is matched count, %2$d is total fields
+                __('Auto-detected %1$d of %2$d fields', 'bootflow-product-importer'),
                 $matched_fields,
                 $total_fields
             )
@@ -3885,13 +4090,13 @@ class WC_XML_CSV_AI_Import_Admin {
         // Verify nonce - use false to return false instead of die()
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wc_xml_csv_ai_import_nonce')) {
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('ajax_get_products_count - nonce failed'); }
-            wp_send_json_error(array('message' => __('Security check failed', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Security check failed', 'bootflow-product-importer')));
             return;
         }
         
         if (!current_user_can('manage_woocommerce')) {
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('ajax_get_products_count - permission denied'); }
-            wp_send_json_error(array('message' => __('Permission denied', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Permission denied', 'bootflow-product-importer')));
             return;
         }
         
@@ -3899,7 +4104,7 @@ class WC_XML_CSV_AI_Import_Admin {
         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('ajax_get_products_count - import_id: ' . $import_id); }
         
         if (!$import_id) {
-            wp_send_json_error(array('message' => __('Invalid import ID', 'bootflow-woocommerce-xml-csv-importer')));
+            wp_send_json_error(array('message' => __('Invalid import ID', 'bootflow-product-importer')));
             return;
         }
         
@@ -3930,7 +4135,7 @@ class WC_XML_CSV_AI_Import_Admin {
             $import_id = isset($_POST['import_id']) ? intval($_POST['import_id']) : 0;
             
             if (!$import_id) {
-                wp_send_json_error(array('message' => __('Invalid import ID', 'bootflow-woocommerce-xml-csv-importer')));
+                wp_send_json_error(array('message' => __('Invalid import ID', 'bootflow-product-importer')));
                 return;
             }
             
@@ -3941,13 +4146,13 @@ class WC_XML_CSV_AI_Import_Admin {
             
             if (!$valid_nonce) {
                 if (defined('WP_DEBUG') && WP_DEBUG) { error_log('ajax_delete_products_batch - nonce failed'); }
-                wp_send_json_error(array('message' => __('Security check failed', 'bootflow-woocommerce-xml-csv-importer')));
+                wp_send_json_error(array('message' => __('Security check failed', 'bootflow-product-importer')));
                 return;
             }
             
             if (!current_user_can('manage_woocommerce')) {
                 if (defined('WP_DEBUG') && WP_DEBUG) { error_log('ajax_delete_products_batch - permission denied'); }
-                wp_send_json_error(array('message' => __('Permission denied', 'bootflow-woocommerce-xml-csv-importer')));
+                wp_send_json_error(array('message' => __('Permission denied', 'bootflow-product-importer')));
                 return;
             }
         
@@ -4011,8 +4216,9 @@ class WC_XML_CSV_AI_Import_Admin {
             'remaining' => intval($remaining),
             'completed' => $completed,
             'message' => $completed 
-                ? __('All products deleted successfully', 'bootflow-woocommerce-xml-csv-importer')
-                : sprintf(__('Deleted %d products, %d remaining...', 'bootflow-woocommerce-xml-csv-importer'), $deleted_count, $remaining)
+                ? __('All products deleted successfully', 'bootflow-product-importer')
+                // translators: placeholder values
+                : sprintf(__('Deleted %1$d products, %2$d remaining...', 'bootflow-product-importer'), $deleted_count, $remaining)
         ));
         
         } catch (Exception $e) {

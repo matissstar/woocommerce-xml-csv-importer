@@ -279,6 +279,27 @@ class WC_XML_CSV_AI_Import_Scheduler {
             error_log('WC XML CSV AI Import Scheduler: Processing chunk import_id=' . $import_id . ', offset=' . $offset);
         }
 
+        // CHECK KILL FLAG FIRST - stop immediately if killed
+        $kill_flag_specific = WC_XML_CSV_AI_IMPORT_PLUGIN_DIR . 'IMPORT_KILLED_' . $import_id . '.flag';
+        $kill_flag_global = WC_XML_CSV_AI_IMPORT_PLUGIN_DIR . 'IMPORT_KILLED.flag';
+        if (file_exists($kill_flag_specific) || file_exists($kill_flag_global)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WC XML CSV AI Import Scheduler: KILL FLAG DETECTED for import_id=' . $import_id . ', ABORTING!');
+            }
+            // Delete specific flag after detecting it
+            if (file_exists($kill_flag_specific)) {
+                @unlink($kill_flag_specific);
+            }
+            // Only delete global flag if it's for this import
+            if (file_exists($kill_flag_global)) {
+                $global_content = file_get_contents($kill_flag_global);
+                if (strpos($global_content, $import_id . ':') === 0) {
+                    @unlink($kill_flag_global);
+                }
+            }
+            return;
+        }
+
         // Get import record
         $table_name = $wpdb->prefix . 'wc_itp_imports';
         $import = $wpdb->get_row(
@@ -440,6 +461,6 @@ class WC_XML_CSV_AI_Import_Scheduler {
             return;
         }
 
-        as_unschedule_all_actions(self::ACTION_CHECK_SCHEDULED, array(), 'bootflow-woocommerce-xml-csv-importer');
+        as_unschedule_all_actions(self::ACTION_CHECK_SCHEDULED, array(), 'bootflow-product-importer');
     }
 }

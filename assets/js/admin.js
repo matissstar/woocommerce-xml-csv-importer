@@ -3435,6 +3435,44 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             }
             if (fieldData.processing_mode) {
                 $newRow.find('select[name*="[processing_mode]"]').val(fieldData.processing_mode);
+                
+                // Trigger processing mode change to show correct config panel
+                $newRow.find('select[name*="[processing_mode]"]').trigger('change');
+            }
+            
+            // Load AI Provider
+            if (fieldData.ai_provider) {
+                $newRow.find('select[name*="[ai_provider]"]').val(fieldData.ai_provider);
+            }
+            
+            // Load AI Prompt
+            if (fieldData.ai_prompt) {
+                $newRow.find('textarea[name*="[ai_prompt]"]').val(fieldData.ai_prompt);
+            }
+            
+            // Load PHP Formula
+            if (fieldData.php_formula) {
+                $newRow.find('textarea[name*="[php_formula]"]').val(fieldData.php_formula);
+            }
+            
+            // Load Hybrid AI Provider
+            if (fieldData.hybrid_ai_provider) {
+                $newRow.find('select[name*="[hybrid_ai_provider]"]').val(fieldData.hybrid_ai_provider);
+            }
+            
+            // Load Hybrid AI Prompt
+            if (fieldData.hybrid_ai_prompt) {
+                $newRow.find('textarea[name*="[hybrid_ai_prompt]"]').val(fieldData.hybrid_ai_prompt);
+            }
+            
+            // Load Hybrid PHP
+            if (fieldData.hybrid_php) {
+                $newRow.find('textarea[name*="[hybrid_php]"]').val(fieldData.hybrid_php);
+            }
+            
+            // Load update_on_sync checkbox
+            if (fieldData.update_on_sync !== undefined) {
+                $newRow.find('input[name*="[update_on_sync]"]').prop('checked', fieldData.update_on_sync == 1 || fieldData.update_on_sync === true);
             }
             
             // Populate source field dropdown first
@@ -4055,18 +4093,39 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         // Collect custom fields
         $('.custom-field-row').each(function() {
             var $row = $(this);
-            var name = $row.find('.custom-field-name').val();
-            var type = $row.find('.custom-field-type').val();
-            var sourceField = $row.find('.field-source-select').val();
-            var processingMode = $row.find('.processing-mode-select').val();
+            var name = $row.find('.custom-field-name').val() || $row.find('input[name*="[name]"]').val();
+            var type = $row.find('.custom-field-type').val() || $row.find('select[name*="[type]"]').val();
+            var sourceField = $row.find('.field-source-select').val() || $row.find('select[name*="[source]"]').val();
+            var processingMode = $row.find('.processing-mode-select').val() || $row.find('select[name*="[processing_mode]"]').val();
+            
+            // Get AI/PHP processing fields
+            var aiProvider = $row.find('select[name*="[ai_provider]"]').val();
+            var aiPrompt = $row.find('textarea[name*="[ai_prompt]"]').val();
+            var phpFormula = $row.find('textarea[name*="[php_formula]"]').val();
+            var hybridAiProvider = $row.find('select[name*="[hybrid_ai_provider]"]').val();
+            var hybridAiPrompt = $row.find('textarea[name*="[hybrid_ai_prompt]"]').val();
+            var hybridPhp = $row.find('textarea[name*="[hybrid_php]"]').val();
+            var updateOnSync = $row.find('input[name*="[update_on_sync]"]').is(':checked') ? '1' : '0';
 
             if (name && sourceField) {
-                data.custom_fields.push({
+                var fieldData = {
                     name: name,
                     type: type,
                     source: sourceField,
-                    processing_mode: processingMode
-                });
+                    processing_mode: processingMode,
+                    update_on_sync: updateOnSync
+                };
+                
+                // Add AI/PHP fields if present
+                if (aiProvider) fieldData.ai_provider = aiProvider;
+                if (aiPrompt) fieldData.ai_prompt = aiPrompt;
+                if (phpFormula) fieldData.php_formula = phpFormula;
+                if (hybridAiProvider) fieldData.hybrid_ai_provider = hybridAiProvider;
+                if (hybridAiPrompt) fieldData.hybrid_ai_prompt = hybridAiPrompt;
+                if (hybridPhp) fieldData.hybrid_php = hybridPhp;
+                
+                data.custom_fields.push(fieldData);
+                console.log('Collected custom field:', fieldData);
             }
         });
 

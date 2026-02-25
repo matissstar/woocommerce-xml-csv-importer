@@ -145,7 +145,7 @@ class WC_XML_CSV_AI_Import_License {
         if (empty($license_key)) {
             return array(
                 'valid' => false,
-                'message' => __('No license key provided.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => __('No license key provided.', 'bootflow-product-importer'),
                 'features' => array(),
                 'expires_at' => null,
             );
@@ -192,7 +192,7 @@ class WC_XML_CSV_AI_Import_License {
         if (is_wp_error($response)) {
             return array(
                 'valid' => false,
-                'message' => __('Could not connect to license server. Please try again later.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => __('Could not connect to license server. Please try again later.', 'bootflow-product-importer'),
                 'features' => array(),
                 'expires_at' => null,
                 'error' => $response->get_error_message(),
@@ -207,7 +207,7 @@ class WC_XML_CSV_AI_Import_License {
         if ($code !== 200 || !is_array($data)) {
             return array(
                 'valid' => false,
-                'message' => isset($data['message']) ? $data['message'] : __('Invalid license key.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => isset($data['message']) ? $data['message'] : __('Invalid license key.', 'bootflow-product-importer'),
                 'features' => array(),
                 'expires_at' => null,
             );
@@ -459,16 +459,16 @@ class WC_XML_CSV_AI_Import_License {
         <div class="wc-xml-csv-import-upgrade-notice" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px 20px; border-radius: 8px; color: white; margin: 10px 0;">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
                 <div>
-                    <strong style="font-size: 14px;">🔒 <?php esc_html_e('PRO Feature', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
+                    <strong style="font-size: 14px;">🔒 <?php esc_html_e('PRO Feature', 'bootflow-product-importer'); ?></strong>
                     <?php if (!empty($feature_name)): ?>
                         <span style="opacity: 0.8;"> - <?php echo esc_html($feature_name); ?></span>
                     <?php endif; ?>
                     <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 13px;">
-                        <?php esc_html_e('Upgrade to PRO to unlock this feature and remove all limits.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                        <?php esc_html_e('Upgrade to PRO to unlock this feature and remove all limits.', 'bootflow-product-importer'); ?>
                     </p>
                 </div>
                 <a href="<?php echo esc_url($upgrade_url); ?>" target="_blank" class="button" style="background: white; color: #764ba2; border: none; font-weight: 600; padding: 8px 20px; text-decoration: none;">
-                    <?php esc_html_e('Upgrade to PRO', 'bootflow-woocommerce-xml-csv-importer'); ?> →
+                    <?php esc_html_e('Upgrade to PRO', 'bootflow-product-importer'); ?> →
                 </a>
             </div>
         </div>
@@ -487,7 +487,7 @@ class WC_XML_CSV_AI_Import_License {
         if (empty($license_key)) {
             return array(
                 'success' => false,
-                'message' => __('Please enter a license key.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => __('Please enter a license key.', 'bootflow-product-importer'),
             );
         }
 
@@ -511,7 +511,7 @@ class WC_XML_CSV_AI_Import_License {
         if (is_wp_error($response)) {
             return array(
                 'success' => false,
-                'message' => __('Could not connect to the license server. Please check your internet connection and try again.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => __('Could not connect to the license server. Please check your internet connection and try again.', 'bootflow-product-importer'),
             );
         }
 
@@ -522,7 +522,7 @@ class WC_XML_CSV_AI_Import_License {
         if ($code !== 200 || empty($data['valid'])) {
             return array(
                 'success' => false,
-                'message' => isset($data['message']) ? $data['message'] : __('Invalid license key.', 'bootflow-woocommerce-xml-csv-importer'),
+                'message' => isset($data['message']) ? $data['message'] : __('Invalid license key.', 'bootflow-product-importer'),
             );
         }
 
@@ -549,7 +549,7 @@ class WC_XML_CSV_AI_Import_License {
             'expires' => $expires,
             'lifetime' => $is_lifetime,
             'message' => sprintf(
-                __('License activated successfully! Your plan: %s', 'bootflow-woocommerce-xml-csv-importer'),
+                __('License activated successfully! Your plan: %s', 'bootflow-product-importer'),
                 self::get_tier_name($tier)
             ),
         );
@@ -573,7 +573,7 @@ class WC_XML_CSV_AI_Import_License {
 
         return array(
             'success' => true,
-            'message' => __('License deactivated.', 'bootflow-woocommerce-xml-csv-importer'),
+            'message' => __('License deactivated.', 'bootflow-product-importer'),
         );
     }
 }

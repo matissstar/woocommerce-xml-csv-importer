@@ -50,7 +50,7 @@ class WC_XML_CSV_AI_Import_Deactivator {
             $files = glob($temp_dir . '*');
             foreach ($files as $file) {
                 if (is_file($file)) {
-                    unlink($file);
+                    wp_delete_file($file);
                 }
             }
         }
@@ -104,9 +104,10 @@ class WC_XML_CSV_AI_Import_Deactivator {
             if (is_dir($path)) {
                 self::remove_directory($path);
             } else {
-                unlink($path);
+                wp_delete_file($path);
             }
         }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Required for recursive directory removal
         rmdir($dir);
     }
 }

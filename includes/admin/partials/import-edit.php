@@ -12,6 +12,15 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// TEMP DEBUG: Log what we have
+error_log('=== IMPORT-EDIT DEBUG ===');
+error_log('saved_custom_fields exists: ' . (isset($saved_custom_fields) ? 'YES' : 'NO'));
+error_log('saved_custom_fields type: ' . gettype($saved_custom_fields ?? null));
+error_log('saved_custom_fields count: ' . (isset($saved_custom_fields) && is_array($saved_custom_fields) ? count($saved_custom_fields) : 'N/A'));
+if (isset($saved_custom_fields) && is_array($saved_custom_fields) && !empty($saved_custom_fields)) {
+    error_log('saved_custom_fields content: ' . print_r($saved_custom_fields, true));
+}
+
 // Debug: Check if form submitted
 if (defined('WP_DEBUG') && WP_DEBUG) { error_log('=== IMPORT-EDIT.PHP LOADED ==='); }
 if (defined('WP_DEBUG') && WP_DEBUG) { error_log('Request method: ' . $_SERVER['REQUEST_METHOD']); }
@@ -66,53 +75,53 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
     }
 }
 ?>
-<!-- DEBUG: file_path=<?php echo esc_html($debug_file_path); ?>, file_exists=<?php echo esc_html($debug_file_exists); ?>, fields_count=<?php echo count($file_fields); ?>, first_5=<?php echo implode(', ', array_slice($file_fields, 0, 5)); ?> -->
+<!-- DEBUG: file_path=<?php echo esc_html($debug_file_path); ?>, file_exists=<?php echo esc_html($debug_file_exists); ?>, fields_count=<?php echo esc_html(count($file_fields)); ?>, first_5=<?php echo esc_html(implode(', ', array_slice($file_fields, 0, 5))); ?> -->
 <div class="wrap wc-ai-import-step wc-ai-import-step-2">
-    <h1><?php echo __('Import Details:', 'bootflow-woocommerce-xml-csv-importer') . ' ' . esc_html($import['name']); ?></h1>
+    <h1><?php echo esc_html__('Import Details:', 'bootflow-product-importer') . ' ' . esc_html($import['name']); ?></h1>
     
     <p>
-        <a href="<?php echo admin_url('admin.php?page=wc-xml-csv-import-history'); ?>" class="button">
-            ⬅️ <?php _e('Back to Import History', 'bootflow-woocommerce-xml-csv-importer'); ?>
+        <a href="<?php echo esc_url(admin_url('admin.php?page=wc-xml-csv-import-history')); ?>" class="button">
+            ⬅️ <?php esc_html_e('Back to Import History', 'bootflow-product-importer'); ?>
         </a>
     </p>
     
     <div class="wc-ai-import-card">
-        <h2><?php _e('Import Information', 'bootflow-woocommerce-xml-csv-importer'); ?></h2>
+        <h2><?php esc_html_e('Import Information', 'bootflow-product-importer'); ?></h2>
         <table class="form-table">
             <tr>
-                <th><?php _e('Name', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                <th><?php esc_html_e('Name', 'bootflow-product-importer'); ?></th>
                 <td><strong><?php echo esc_html($import['name']); ?></strong></td>
             </tr>
             <tr>
-                <th><?php _e('File Type', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                <th><?php esc_html_e('File Type', 'bootflow-product-importer'); ?></th>
                 <td><?php echo esc_html(strtoupper($import['file_type'])); ?></td>
             </tr>
             <tr>
-                <th><?php _e('Status', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                <th><?php esc_html_e('Status', 'bootflow-product-importer'); ?></th>
                 <td><strong><?php echo esc_html(ucfirst($import['status'])); ?></strong></td>
             </tr>
             <tr>
-                <th><?php _e('Products', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
-                <td><?php echo $import['processed_products'] . '/' . $import['total_products']; ?></td>
+                <th><?php esc_html_e('Products', 'bootflow-product-importer'); ?></th>
+                <td><?php echo esc_html($import['processed_products'] . '/' . $import['total_products']); ?></td>
             </tr>
             <tr>
-                <th><?php _e('Created', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
-                <td><?php echo date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import['created_at'])); ?></td>
+                <th><?php esc_html_e('Created', 'bootflow-product-importer'); ?></th>
+                <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import['created_at']))); ?></td>
             </tr>
             <tr>
-                <th><?php _e('Last Run', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
-                <td><?php echo $import['last_run'] ? date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import['last_run'])) : __('Never', 'bootflow-woocommerce-xml-csv-importer'); ?></td>
+                <th><?php esc_html_e('Last Run', 'bootflow-product-importer'); ?></th>
+                <td><?php echo $import['last_run'] ? esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import['last_run']))) : esc_html__('Never', 'bootflow-product-importer'); ?></td>
             </tr>
             <tr>
-                <th><?php _e('Batch Size', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
-                <td><strong><?php echo intval($import['batch_size'] ?? 50); ?></strong> <?php _e('products per chunk', 'bootflow-woocommerce-xml-csv-importer'); ?></td>
+                <th><?php esc_html_e('Batch Size', 'bootflow-product-importer'); ?></th>
+                <td><strong><?php echo intval($import['batch_size'] ?? 50); ?></strong> <?php esc_html_e('products per chunk', 'bootflow-product-importer'); ?></td>
             </tr>
             <?php if (!empty($import['original_file_url'])): ?>
             <tr>
-                <th><?php _e('File URL', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                <th><?php esc_html_e('File URL', 'bootflow-product-importer'); ?></th>
                 <td>
                     <input type="text" id="import_file_url" name="import_file_url" value="<?php echo esc_attr($import['original_file_url']); ?>" class="regular-text" style="width: 500px;">
-                    <button type="button" id="update-file-url-btn" class="button"><?php _e('Update URL', 'bootflow-woocommerce-xml-csv-importer'); ?></button>
+                    <button type="button" id="update-file-url-btn" class="button"><?php esc_html_e('Update URL', 'bootflow-product-importer'); ?></button>
                     <span id="url-update-status"></span>
                 </td>
             </tr>
@@ -124,69 +133,69 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
         
     <!-- Import Behavior (moved INSIDE form to fix save issue) -->
     <div class="wc-ai-import-card" style="margin-top: 20px;">
-        <h2>⚙️ <?php _e('Import Behavior', 'bootflow-woocommerce-xml-csv-importer'); ?></h2>
+        <h2>⚙️ <?php esc_html_e('Import Behavior', 'bootflow-product-importer'); ?></h2>
         <table class="form-table">
             <tr>
-                <th scope="row"><?php _e('Update Existing Products', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                <th scope="row"><?php esc_html_e('Update Existing Products', 'bootflow-product-importer'); ?></th>
                 <td>
                     <label style="display: flex; align-items: flex-start; gap: 10px;">
                         <input type="checkbox" name="update_existing" value="1" <?php checked($import['update_existing'], '1'); ?> style="margin-top: 3px;" />
                         <div>
-                            <strong><?php _e('Update products that already exist (matched by SKU)', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
+                            <strong><?php esc_html_e('Update products that already exist (matched by SKU)', 'bootflow-product-importer'); ?></strong>
                             <p class="description" style="margin-top: 5px; margin-bottom: 0;">
-                                <?php _e('When enabled, existing products with matching SKUs will be updated instead of creating duplicates.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('When enabled, existing products with matching SKUs will be updated instead of creating duplicates.', 'bootflow-product-importer'); ?>
                             </p>
                         </div>
                     </label>
                 </td>
             </tr>
             <tr>
-                <th scope="row"><?php _e('Skip Unchanged Products', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                <th scope="row"><?php esc_html_e('Skip Unchanged Products', 'bootflow-product-importer'); ?></th>
                 <td>
                     <label style="display: flex; align-items: flex-start; gap: 10px;">
                         <input type="checkbox" name="skip_unchanged" value="1" <?php checked(($import['skip_unchanged'] ?? '0') == '1', true); ?> style="margin-top: 3px;" />
                         <div>
-                            <strong><?php _e('Skip products if data unchanged', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
+                            <strong><?php esc_html_e('Skip products if data unchanged', 'bootflow-product-importer'); ?></strong>
                             <p class="description" style="margin-top: 5px; margin-bottom: 0;">
-                                <?php _e('Reduces import time by skipping products that haven\'t changed.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('Reduces import time by skipping products that haven\'t changed.', 'bootflow-product-importer'); ?>
                             </p>
                         </div>
                     </label>
                 </td>
             </tr>
             <tr>
-                <th scope="row"><?php _e('Handle Missing Products', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                <th scope="row"><?php esc_html_e('Handle Missing Products', 'bootflow-product-importer'); ?></th>
                 <td>
                     <label style="display: flex; align-items: flex-start; gap: 10px;">
                         <input type="checkbox" name="handle_missing" id="handle_missing_edit" value="1" <?php checked(($import['handle_missing'] ?? '0') == '1', true); ?> style="margin-top: 3px;" />
                         <div>
-                            <strong><?php _e('Process products no longer in feed', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
+                            <strong><?php esc_html_e('Process products no longer in feed', 'bootflow-product-importer'); ?></strong>
                             <p class="description" style="margin-top: 5px; margin-bottom: 0;">
-                                <?php _e('When enabled, products that were imported before but are no longer in the XML/CSV file will be processed.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('When enabled, products that were imported before but are no longer in the XML/CSV file will be processed.', 'bootflow-product-importer'); ?>
                             </p>
                         </div>
                     </label>
                     
                     <div id="missing-products-options-edit" style="margin-left: 25px; margin-top: 15px; <?php echo (($import['handle_missing'] ?? '0') != '1') ? 'display: none;' : ''; ?>">
                         <div style="margin-bottom: 10px;">
-                            <label for="missing_action_edit"><?php _e('Action for missing products:', 'bootflow-woocommerce-xml-csv-importer'); ?></label><br>
+                            <label for="missing_action_edit"><?php esc_html_e('Action for missing products:', 'bootflow-product-importer'); ?></label><br>
                             <select name="missing_action" id="missing_action_edit" class="regular-text" style="margin-top: 5px;">
-                                <option value="draft" <?php selected($import['missing_action'] ?? 'draft', 'draft'); ?>><?php _e('Move to Draft (Recommended)', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                <option value="outofstock" <?php selected($import['missing_action'] ?? '', 'outofstock'); ?>><?php _e('Mark as Out of Stock', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                <option value="backorder" <?php selected($import['missing_action'] ?? '', 'backorder'); ?>><?php _e('Allow Backorder (stock=0)', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                <option value="trash" <?php selected($import['missing_action'] ?? '', 'trash'); ?>><?php _e('Move to Trash (auto-delete after 30 days)', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                <option value="delete" <?php selected($import['missing_action'] ?? '', 'delete'); ?>><?php _e('Permanently Delete (⚠️ DANGEROUS)', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                                <option value="draft" <?php selected($import['missing_action'] ?? 'draft', 'draft'); ?>><?php esc_html_e('Move to Draft (Recommended)', 'bootflow-product-importer'); ?></option>
+                                <option value="outofstock" <?php selected($import['missing_action'] ?? '', 'outofstock'); ?>><?php esc_html_e('Mark as Out of Stock', 'bootflow-product-importer'); ?></option>
+                                <option value="backorder" <?php selected($import['missing_action'] ?? '', 'backorder'); ?>><?php esc_html_e('Allow Backorder (stock=0)', 'bootflow-product-importer'); ?></option>
+                                <option value="trash" <?php selected($import['missing_action'] ?? '', 'trash'); ?>><?php esc_html_e('Move to Trash (auto-delete after 30 days)', 'bootflow-product-importer'); ?></option>
+                                <option value="delete" <?php selected($import['missing_action'] ?? '', 'delete'); ?>><?php esc_html_e('Permanently Delete (⚠️ DANGEROUS)', 'bootflow-product-importer'); ?></option>
                             </select>
                         </div>
                         
                         <label style="display: flex; align-items: flex-start; gap: 10px;">
                             <input type="checkbox" name="delete_variations" value="1" <?php checked(($import['delete_variations'] ?? '1') == '1', true); ?> style="margin-top: 3px;" />
-                            <span><?php _e('Also process variations when parent product is missing', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                            <span><?php esc_html_e('Also process variations when parent product is missing', 'bootflow-product-importer'); ?></span>
                         </label>
                         
                         <p class="description" style="margin-top: 10px; color: #666;">
                             <span style="color: #0073aa;">ℹ️</span> 
-                            <?php _e('Action will only affect products last updated by THIS import.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                            <?php esc_html_e('Action will only affect products last updated by THIS import.', 'bootflow-product-importer'); ?>
                         </p>
                     </div>
                 </td>
@@ -217,13 +226,13 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
         
         <!-- Import Settings -->
         <div class="wc-ai-import-card" style="margin-bottom: 20px;">
-            <h3><?php _e('Import Settings', 'bootflow-woocommerce-xml-csv-importer'); ?></h3>
+            <h3><?php esc_html_e('Import Settings', 'bootflow-product-importer'); ?></h3>
             <table class="form-table">
                 <tr>
-                    <th scope="row"><?php _e('Batch Size', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                    <th scope="row"><?php esc_html_e('Batch Size', 'bootflow-product-importer'); ?></th>
                     <td>
                         <input type="number" id="batch_size" name="batch_size" value="<?php echo esc_attr($import['batch_size'] ?? 50); ?>" min="1" max="500" style="width: 100px;">
-                        <span class="description"><?php _e('Products to process per chunk (1-500). Higher = faster, but more memory. Recommended: 50-200 for updates.', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                        <span class="description"><?php esc_html_e('Products to process per chunk (1-500). Higher = faster, but more memory. Recommended: 50-200 for updates.', 'bootflow-product-importer'); ?></span>
                     </td>
                 </tr>
             </table>
@@ -233,31 +242,31 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
             <!-- Left Sidebar - File Structure -->
             <div class="wc-ai-import-sidebar">
                 <div class="wc-ai-import-card">
-                    <h3><?php _e('File Structure', 'bootflow-woocommerce-xml-csv-importer'); ?></h3>
+                    <h3><?php esc_html_e('File Structure', 'bootflow-product-importer'); ?></h3>
                     <div class="file-info">
-                        <p><strong><?php _e('File:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong> <?php echo basename($import['file_path']); ?></p>
-                        <p><strong><?php _e('Type:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong> <?php echo strtoupper($import['file_type']); ?></p>
-                        <p><strong><?php _e('Import:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong> <?php echo esc_html($import['name']); ?></p>
+                        <p><strong><?php esc_html_e('File:', 'bootflow-product-importer'); ?></strong> <?php echo esc_html(basename($import['file_path'])); ?></p>
+                        <p><strong><?php esc_html_e('Type:', 'bootflow-product-importer'); ?></strong> <?php echo esc_html(strtoupper($import['file_type'])); ?></p>
+                        <p><strong><?php esc_html_e('Import:', 'bootflow-product-importer'); ?></strong> <?php echo esc_html($import['name']); ?></p>
                     </div>
                     <div id="file-structure-browser">
                         <div class="structure-loader">
                             <div class="spinner is-active"></div>
-                            <p><?php _e('Loading file structure...', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                            <p><?php esc_html_e('Loading file structure...', 'bootflow-product-importer'); ?></p>
                         </div>
                     </div>
                     <div class="structure-pagination" id="structure-pagination" style="display: none; margin-top: 15px; text-align: center;">
-                        <button type="button" class="button" id="prev-page"><?php _e('Previous', 'bootflow-woocommerce-xml-csv-importer'); ?></button>
+                        <button type="button" class="button" id="prev-page"><?php esc_html_e('Previous', 'bootflow-product-importer'); ?></button>
                         <span class="pagination-info" style="display: inline-block; vertical-align: middle;">
                             Page <input type="number" id="current-page-input" min="1" style="width: 50px; text-align: center; display: inline-block; vertical-align: middle;" /> 
                             of <span id="total-pages-display">1</span>
                         </span>
-                        <button type="button" class="button" id="next-page"><?php _e('Next', 'bootflow-woocommerce-xml-csv-importer'); ?></button>
+                        <button type="button" class="button" id="next-page"><?php esc_html_e('Next', 'bootflow-product-importer'); ?></button>
                     </div>
                 </div>
                 <div class="wc-ai-import-card">
-                    <h3><?php _e('Sample Data', 'bootflow-woocommerce-xml-csv-importer'); ?></h3>
+                    <h3><?php esc_html_e('Sample Data', 'bootflow-product-importer'); ?></h3>
                     <div id="sample-data-preview">
-                        <p class="description"><?php _e('Sample product data will appear here after loading the file structure.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                        <p class="description"><?php esc_html_e('Sample product data will appear here after loading the file structure.', 'bootflow-product-importer'); ?></p>
                     </div>
                 </div>
             </div>
@@ -265,32 +274,32 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
             <!-- Main Content - Field Mapping -->
             <div class="wc-ai-import-main">
                 <div class="wc-ai-import-card">
-                    <h2><?php _e('Field Mappings', 'bootflow-woocommerce-xml-csv-importer'); ?></h2>
-                    <p class="description"><?php _e('Map your file fields to WooCommerce product fields and configure processing modes.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                    <h2><?php esc_html_e('Field Mappings', 'bootflow-product-importer'); ?></h2>
+                    <p class="description"><?php esc_html_e('Map your file fields to WooCommerce product fields and configure processing modes.', 'bootflow-product-importer'); ?></p>
                     
                     <?php if (empty($existing_mappings)): ?>
                     <div class="notice notice-warning inline" style="margin: 15px 0;">
-                        <p><strong><?php _e('Configuration Required:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong> <?php _e('This import needs to be configured. Please select source fields from the dropdowns below, configure processing modes, and click "Save Changes" to activate this import.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                        <p><strong><?php esc_html_e('Configuration Required:', 'bootflow-product-importer'); ?></strong> <?php esc_html_e('This import needs to be configured. Please select source fields from the dropdowns below, configure processing modes, and click "Save Changes" to activate this import.', 'bootflow-product-importer'); ?></p>
                     </div>
                     <?php endif; ?>
                     
                     <!-- Quick Actions -->
                     <div class="mapping-actions" style="margin-bottom: 15px;">
                         <button type="button" class="button button-secondary" onclick="clearAllMapping()">
-                            <?php _e('Clear All', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                            <?php esc_html_e('Clear All', 'bootflow-product-importer'); ?>
                         </button>
                         <button type="button" class="button button-secondary" onclick="alert('Test mapping feature coming soon')">
-                            <?php _e('Test Mapping', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                            <?php esc_html_e('Test Mapping', 'bootflow-product-importer'); ?>
                         </button>
                     </div>
             
                     <!-- Field Mapping Sections -->
                     <div class="field-mapping-sections">
                 <?php foreach ($woocommerce_fields as $section_key => $section): ?>
-                    <div class="mapping-section" data-section="<?php echo $section_key; ?>">
+                    <div class="mapping-section" data-section="<?php echo esc_attr($section_key); ?>">
                         <h3 class="section-toggle">
                             <span class="dashicons dashicons-arrow-down-alt2"></span>
-                            <?php echo $section['title']; ?>
+                            <?php echo esc_attr($section['title']); ?>
                             <?php 
                             $mapped = 0;
                             foreach ($section['fields'] as $fk => $fv) {
@@ -299,10 +308,10 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                                 }
                             }
                             ?>
-                            <span class="mapped-count"><?php echo $mapped . '/' . count($section['fields']); ?></span>
+                            <span class="mapped-count"><?php echo esc_html($mapped . '/' . count($section['fields'])); ?></span>
                         </h3>
                         
-                        <div class="section-fields" id="section-<?php echo $section_key; ?>">
+                        <div class="section-fields" id="section-<?php echo esc_attr($section_key); ?>">
                             <?php foreach ($section['fields'] as $field_key => $field): 
                                 $current_mapping = $existing_mappings[$field_key] ?? array();
                                 $current_source = $current_mapping['source'] ?? '';
@@ -311,13 +320,13 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                                 <?php if ($field_key === 'shipping_class_formula'): ?>
                                     <!-- Special handling for Shipping Class Formula -->
                                     <div class="shipping-class-formula-section" style="padding: 20px; background: #f9f9f9; border-radius: 4px; margin: 10px 0;">
-                                        <h4 style="margin-top: 0;"><?php _e('Shipping Class Assignment', 'bootflow-woocommerce-xml-csv-importer'); ?></h4>
+                                        <h4 style="margin-top: 0;"><?php esc_html_e('Shipping Class Assignment', 'bootflow-product-importer'); ?></h4>
                                         <p class="description" style="margin-bottom: 15px;">
-                                            <?php _e('Write a PHP formula to automatically assign shipping classes based on product dimensions and weight. The formula should return the shipping class slug (e.g., "S", "M", "L", "Smags").', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                            <?php esc_html_e('Write a PHP formula to automatically assign shipping classes based on product dimensions and weight. The formula should return the shipping class slug (e.g., "S", "M", "L", "Smags").', 'bootflow-product-importer'); ?>
                                         </p>
                                         
                                         <label style="font-weight: bold; display: block; margin-bottom: 8px;">
-                                            <?php _e('PHP Formula (return shipping class slug):', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                            <?php esc_html_e('PHP Formula (return shipping class slug):', 'bootflow-product-importer'); ?>
                                         </label>
                                         
                                         <textarea name="field_mapping[shipping_class_formula][formula]" 
@@ -327,14 +336,14 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                                                   placeholder="// Available variables: $weight, $length, $width, $height&#10;&#10;if ($weight > 30) {&#10;    return 'Smags';&#10;}&#10;&#10;if ($height <= 8 && $length <= 38 && $width <= 64) {&#10;    return 'S';&#10;}&#10;&#10;if ($height <= 39 && $length <= 38 && $width <= 64) {&#10;    return 'M';&#10;}&#10;&#10;return 'L';"><?php echo esc_textarea($existing_mappings['shipping_class_formula']['formula'] ?? ''); ?></textarea>
                                         
                                         <button type="button" class="button button-small test-shipping-formula" style="margin-top: 10px;">
-                                            <?php _e('Test Shipping Formula', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                            <?php esc_html_e('Test Shipping Formula', 'bootflow-product-importer'); ?>
                                         </button>
                                         
                                         <div style="margin-top: 10px; padding: 10px; background: #fff; border-left: 3px solid #0073aa; border-radius: 3px;">
-                                            <strong><?php _e('Available Variables:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong><br>
+                                            <strong><?php esc_html_e('Available Variables:', 'bootflow-product-importer'); ?></strong><br>
                                             <code>$weight</code>, <code>$length</code>, <code>$width</code>, <code>$height</code>
                                             <br><br>
-                                            <strong><?php _e('Available Shipping Classes:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong><br>
+                                            <strong><?php esc_html_e('Available Shipping Classes:', 'bootflow-product-importer'); ?></strong><br>
                                             <?php
                                             $shipping_classes = get_terms(array(
                                                 'taxonomy' => 'product_shipping_class',
@@ -345,34 +354,34 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                                                     echo '<code>' . esc_html($class->slug) . '</code> (' . esc_html($class->name) . ') ';
                                                 endforeach;
                                             else:
-                                                _e('No shipping classes found. Please create them in WooCommerce → Settings → Shipping → Shipping classes', 'bootflow-woocommerce-xml-csv-importer');
+                                                esc_html_e('No shipping classes found. Please create them in WooCommerce → Settings → Shipping → Shipping classes', 'bootflow-product-importer');
                                             endif;
                                             ?>
                                             <br><br>
-                                            <em><?php _e('Leave empty to skip automatic shipping class assignment.', 'bootflow-woocommerce-xml-csv-importer'); ?></em>
+                                            <em><?php esc_html_e('Leave empty to skip automatic shipping class assignment.', 'bootflow-product-importer'); ?></em>
                                         </div>
                                     </div>
                                 <?php else: ?>
-                                <div class="field-mapping-row" data-field="<?php echo $field_key; ?>">
+                                <div class="field-mapping-row" data-field="<?php echo esc_attr($field_key); ?>">
                                     <div class="field-target">
-                                        <label class="field-label <?php echo $field['required'] ? 'required' : ''; ?>">
-                                            <?php echo $field['label']; ?>
+                                        <label class="field-label <?php echo esc_attr($field['required'] ? 'required' : ''); ?>">
+                                            <?php echo esc_attr($field['label']); ?>
                                             <?php if ($field['required']): ?>
                                                 <span class="required-asterisk">*</span>
                                             <?php endif; ?>
                                         </label>
-                                        <span class="field-type"><?php echo $field['type'] ?? 'text'; ?></span>
+                                        <span class="field-type"><?php echo esc_attr($field['type'] ?? 'text'); ?></span>
                                         <label class="update-field-checkbox" style="margin-top: 8px; font-weight: normal; font-size: 12px; display: flex; align-items: center; gap: 5px;">
                                             <!-- Hidden input sends '0' if checkbox unchecked, checkbox overrides with '1' if checked -->
                                             <input type="hidden" 
-                                                   name="field_mapping[<?php echo $field_key; ?>][update_on_sync]" 
+                                                   name="field_mapping[<?php echo esc_attr($field_key); ?>][update_on_sync]" 
                                                    value="0">
                                             <input type="checkbox" 
-                                                   name="field_mapping[<?php echo $field_key; ?>][update_on_sync]" 
+                                                   name="field_mapping[<?php echo esc_attr($field_key); ?>][update_on_sync]" 
                                                    value="1"
                                                    <?php checked(!isset($current_mapping['update_on_sync']) || $current_mapping['update_on_sync'] !== '0'); ?>
                                                    style="margin: 0;">
-                                            <span style="color: #646970;"><?php _e('Update this field?', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                                            <span style="color: #646970;"><?php esc_html_e('Update this field?', 'bootflow-product-importer'); ?></span>
                                         </label>
                                     </div>
                                     
@@ -385,10 +394,12 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                                         ?>
                                         <div class="textarea-mapping-wrapper" data-field="<?php echo esc_attr($field_key); ?>">
                                             <textarea name="field_mapping[<?php echo esc_attr($field_key); ?>][source]" 
-                                                      class="<?php echo $textarea_class; ?>" 
-                                                      rows="<?php echo $textarea_rows; ?>"
+                                                      class="<?php echo esc_attr($textarea_class); ?>" 
+                                                      rows="<?php echo esc_attr($textarea_rows); ?>"
                                                       data-field-name="<?php echo esc_attr($field_key); ?>"
-                                                      placeholder="<?php echo esc_attr(sprintf(__('Type { to see fields or drag field here. E.g. {%s}', 'bootflow-woocommerce-xml-csv-importer'), strtolower(str_replace('_', '', $field_key)))); ?>"
+                                                      placeholder="<?php 
+                                                      // translators: %s is the field key example
+                                                      echo esc_attr(sprintf(__('Type { to see fields or drag field here. E.g. {%s}', 'bootflow-product-importer'), strtolower(str_replace('_', '', $field_key)))); ?>"
                                             ><?php echo esc_textarea($current_source); ?></textarea>
                                             <?php if (!empty($field['description'])): ?>
                                                 <p class="description" style="margin-top: 4px; font-size: 11px;"><?php echo esc_html($field['description']); ?></p>
@@ -397,11 +408,11 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                                     </div>
                                     
                                     <div class="processing-mode">
-                                        <select name="field_mapping[<?php echo $field_key; ?>][processing_mode]" class="processing-mode-select" data-field="<?php echo $field_key; ?>">
-                                            <option value="direct" <?php selected($current_mode, 'direct'); ?>><?php _e('Direct Mapping', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                            <option value="php_formula" <?php selected($current_mode, 'php_formula'); ?>><?php _e('PHP Formula', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                            <option value="ai_processing" <?php selected($current_mode, 'ai_processing'); ?>><?php _e('AI Processing', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                            <option value="hybrid" <?php selected($current_mode, 'hybrid'); ?>><?php _e('Hybrid (PHP + AI)', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                                        <select name="field_mapping[<?php echo esc_attr($field_key); ?>][processing_mode]" class="processing-mode-select" data-field="<?php echo esc_attr($field_key); ?>">
+                                            <option value="direct" <?php selected($current_mode, 'direct'); ?>><?php esc_html_e('Direct Mapping', 'bootflow-product-importer'); ?></option>
+                                            <option value="php_formula" <?php selected($current_mode, 'php_formula'); ?>><?php esc_html_e('PHP Formula', 'bootflow-product-importer'); ?></option>
+                                            <option value="ai_processing" <?php selected($current_mode, 'ai_processing'); ?>><?php esc_html_e('AI Processing', 'bootflow-product-importer'); ?></option>
+                                            <option value="hybrid" <?php selected($current_mode, 'hybrid'); ?>><?php esc_html_e('Hybrid (PHP + AI)', 'bootflow-product-importer'); ?></option>
                                         </select>
                                     </div>
                                     
@@ -409,68 +420,68 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                                         <div class="config-content">
                                             <!-- PHP Formula Config -->
                                             <div class="php-formula-config config-panel" style="<?php echo ($current_mode === 'php_formula') ? '' : 'display: none;'; ?>">
-                                                <label><?php _e('PHP Formula:', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
-                                                <textarea name="field_mapping[<?php echo $field_key; ?>][php_formula]" 
-                                                          placeholder="<?php _e('e.g., $value * 1.2', 'bootflow-woocommerce-xml-csv-importer'); ?>" 
+                                                <label><?php esc_html_e('PHP Formula:', 'bootflow-product-importer'); ?></label>
+                                                <textarea name="field_mapping[<?php echo esc_attr($field_key); ?>][php_formula]" 
+                                                          placeholder="<?php esc_html_e('e.g., $value * 1.2', 'bootflow-product-importer'); ?>" 
                                                           rows="3"><?php echo esc_textarea($current_mapping['php_formula'] ?? ''); ?></textarea>
                                                 <p class="description">
                                                     <?php if (in_array($field_key, ['regular_price', 'sale_price'])): ?>
-                                                        <strong><?php _e('⚠️ Always use $value as input (not field names like $price or $product_price)', 'bootflow-woocommerce-xml-csv-importer'); ?></strong><br>
+                                                        <strong><?php esc_html_e('⚠️ Always use $value as input (not field names like $price or $product_price)', 'bootflow-product-importer'); ?></strong><br>
                                                     <?php endif; ?>
-                                                    <?php _e('Example: $value * 1.2 (adds 20% markup)', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                                    <?php esc_html_e('Example: $value * 1.2 (adds 20% markup)', 'bootflow-product-importer'); ?>
                                                 </p>
                                                 <button type="button" class="button button-small test-php-formula" 
-                                                        data-field="<?php echo $field_key; ?>">
-                                                    <?php _e('Test PHP Formula', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                                        data-field="<?php echo esc_attr($field_key); ?>">
+                                                    <?php esc_html_e('Test PHP Formula', 'bootflow-product-importer'); ?>
                                                 </button>
                                             </div>
                                             
                                             <!-- AI Processing Config -->
                                             <div class="ai-processing-config config-panel" style="<?php echo ($current_mode === 'ai_processing') ? '' : 'display: none;'; ?>">
                                                 <div class="ai-provider-selection">
-                                                    <label><?php _e('AI Provider:', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
-                                                    <select name="field_mapping[<?php echo $field_key; ?>][ai_provider]">
+                                                    <label><?php esc_html_e('AI Provider:', 'bootflow-product-importer'); ?></label>
+                                                    <select name="field_mapping[<?php echo esc_attr($field_key); ?>][ai_provider]">
                                                         <?php foreach ($ai_providers as $provider_key => $provider_name): ?>
-                                                            <option value="<?php echo $provider_key; ?>" 
+                                                            <option value="<?php echo esc_attr($provider_key); ?>" 
                                                                     <?php selected($current_mapping['ai_provider'] ?? 'openai', $provider_key); ?>>
-                                                                <?php echo $provider_name; ?>
+                                                                <?php echo esc_attr($provider_name); ?>
                                                             </option>
                                                         <?php endforeach; ?>
                                                     </select>
                                                 </div>
-                                                <label><?php _e('AI Prompt:', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
-                                                <textarea name="field_mapping[<?php echo $field_key; ?>][ai_prompt]" 
-                                                          placeholder="<?php _e('e.g., Translate this product name to English and make it SEO-friendly', 'bootflow-woocommerce-xml-csv-importer'); ?>" 
+                                                <label><?php esc_html_e('AI Prompt:', 'bootflow-product-importer'); ?></label>
+                                                <textarea name="field_mapping[<?php echo esc_attr($field_key); ?>][ai_prompt]" 
+                                                          placeholder="<?php esc_html_e('e.g., Translate this product name to English and make it SEO-friendly', 'bootflow-product-importer'); ?>" 
                                                           rows="3"><?php echo esc_textarea($current_mapping['ai_prompt'] ?? ''); ?></textarea>
                                                 <button type="button" class="button button-small test-ai-field" 
-                                                        data-field="<?php echo $field_key; ?>">
-                                                    <?php _e('Test AI', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                                        data-field="<?php echo esc_attr($field_key); ?>">
+                                                    <?php esc_html_e('Test AI', 'bootflow-product-importer'); ?>
                                                 </button>
                                             </div>
                                             
                                             <!-- Hybrid Config -->
                                             <div class="hybrid-config config-panel" style="<?php echo ($current_mode === 'hybrid') ? '' : 'display: none;'; ?>">
-                                                <label><?php _e('PHP Formula (executed first):', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
-                                                <textarea name="field_mapping[<?php echo $field_key; ?>][hybrid_php]" 
-                                                          placeholder="<?php _e('e.g., trim(strtolower($value))', 'bootflow-woocommerce-xml-csv-importer'); ?>" 
+                                                <label><?php esc_html_e('PHP Formula (executed first):', 'bootflow-product-importer'); ?></label>
+                                                <textarea name="field_mapping[<?php echo esc_attr($field_key); ?>][hybrid_php]" 
+                                                          placeholder="<?php esc_html_e('e.g., trim(strtolower($value))', 'bootflow-product-importer'); ?>" 
                                                           rows="2"><?php echo esc_textarea($current_mapping['hybrid_php'] ?? ''); ?></textarea>
                                                 <p class="description">
-                                                    <strong><?php _e('Use $value as input', 'bootflow-woocommerce-xml-csv-importer'); ?></strong> - 
-                                                    <?php _e('Result will be passed to AI', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                                    <strong><?php esc_html_e('Use $value as input', 'bootflow-product-importer'); ?></strong> - 
+                                                    <?php esc_html_e('Result will be passed to AI', 'bootflow-product-importer'); ?>
                                                 </p>
                                                 
-                                                <label><?php _e('AI Prompt (applied to PHP result):', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
-                                                <textarea name="field_mapping[<?php echo $field_key; ?>][hybrid_ai_prompt]" 
-                                                          placeholder="<?php _e('e.g., Enhance this processed text for better readability', 'bootflow-woocommerce-xml-csv-importer'); ?>" 
+                                                <label><?php esc_html_e('AI Prompt (applied to PHP result):', 'bootflow-product-importer'); ?></label>
+                                                <textarea name="field_mapping[<?php echo esc_attr($field_key); ?>][hybrid_ai_prompt]" 
+                                                          placeholder="<?php esc_html_e('e.g., Enhance this processed text for better readability', 'bootflow-product-importer'); ?>" 
                                                           rows="2"><?php echo esc_textarea($current_mapping['hybrid_ai_prompt'] ?? ''); ?></textarea>
                                                 
                                                 <div class="ai-provider-selection">
-                                                    <label><?php _e('AI Provider:', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
-                                                    <select name="field_mapping[<?php echo $field_key; ?>][hybrid_ai_provider]">
+                                                    <label><?php esc_html_e('AI Provider:', 'bootflow-product-importer'); ?></label>
+                                                    <select name="field_mapping[<?php echo esc_attr($field_key); ?>][hybrid_ai_provider]">
                                                         <?php foreach ($ai_providers as $provider_key => $provider_name): ?>
-                                                            <option value="<?php echo $provider_key; ?>" 
+                                                            <option value="<?php echo esc_attr($provider_key); ?>" 
                                                                     <?php selected($current_mapping['hybrid_ai_provider'] ?? 'openai', $provider_key); ?>>
-                                                                <?php echo $provider_name; ?>
+                                                                <?php echo esc_attr($provider_name); ?>
                                                             </option>
                                                         <?php endforeach; ?>
                                                     </select>
@@ -480,10 +491,10 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                                     </div>
                                     
                                     <div class="field-actions">
-                                        <button type="button" class="button button-small toggle-config" title="<?php _e('Configure Processing', 'bootflow-woocommerce-xml-csv-importer'); ?>">
+                                        <button type="button" class="button button-small toggle-config" title="<?php esc_html_e('Configure Processing', 'bootflow-product-importer'); ?>">
                                             <span class="dashicons dashicons-admin-generic"></span>
                                         </button>
-                                        <button type="button" class="button button-small clear-mapping" title="<?php _e('Clear Mapping', 'bootflow-woocommerce-xml-csv-importer'); ?>">
+                                        <button type="button" class="button button-small clear-mapping" title="<?php esc_html_e('Clear Mapping', 'bootflow-product-importer'); ?>">
                                             <span class="dashicons dashicons-no-alt"></span>
                                         </button>
                                     </div>
@@ -499,14 +510,14 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
             <div class="mapping-section" data-section="filters">
                 <h3 class="section-toggle">
                     <span class="dashicons dashicons-arrow-down-alt2"></span>
-                    <?php _e('Import Filters', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Import Filters', 'bootflow-product-importer'); ?>
                     <button type="button" class="button button-small" onclick="addFilterRule(event)" style="margin-left: 10px;">
                         <span class="dashicons dashicons-plus-alt" style="margin-top: 3px;"></span>
-                        <?php _e('Add Filter', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                        <?php esc_html_e('Add Filter', 'bootflow-product-importer'); ?>
                     </button>
                 </h3>
                 <p class="description" style="margin: 10px 15px; color: #666;">
-                    <?php _e('Filter which products to import based on field values. Products that don\'t match will be skipped.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Filter which products to import based on field values. Products that don\'t match will be skipped.', 'bootflow-product-importer'); ?>
                 </p>
                 
                 <div class="section-fields">
@@ -520,9 +531,9 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                         ?>
                             <div class="filter-rule-row" style="display: flex; gap: 10px; align-items: center; padding: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
                                 <div style="flex: 1;">
-                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php _e('Field', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
-                                    <select name="import_filters[<?php echo $filter_index; ?>][field]" class="filter-field-select import-filter-field-select" data-selected="<?php echo esc_attr($filter['field'] ?? ''); ?>" style="width: 100%;">
-                                        <option value=""><?php _e('-- Select Field --', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php esc_html_e('Field', 'bootflow-product-importer'); ?></label>
+                                    <select name="import_filters[<?php echo esc_attr($filter_index); ?>][field]" class="filter-field-select import-filter-field-select" data-selected="<?php echo esc_attr($filter['field'] ?? ''); ?>" style="width: 100%;">
+                                        <option value=""><?php esc_html_e('-- Select Field --', 'bootflow-product-importer'); ?></option>
                                         <?php foreach ($file_fields as $ff): ?>
                                             <option value="<?php echo esc_attr($ff); ?>" <?php selected($filter['field'] ?? '', $ff); ?>><?php echo esc_html($ff); ?></option>
                                         <?php endforeach; ?>
@@ -530,36 +541,36 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                                 </div>
                                 
                                 <div style="flex: 0 0 150px;">
-                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php _e('Operator', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
-                                    <select name="import_filters[<?php echo $filter_index; ?>][operator]" style="width: 100%;">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php esc_html_e('Operator', 'bootflow-product-importer'); ?></label>
+                                    <select name="import_filters[<?php echo esc_attr($filter_index); ?>][operator]" style="width: 100%;">
                                         <option value="=" <?php selected($filter['operator'] ?? '', '='); ?>>=</option>
                                         <option value="!=" <?php selected($filter['operator'] ?? '', '!='); ?>>!=</option>
                                         <option value=">" <?php selected($filter['operator'] ?? '', '>'); ?>>></option>
                                         <option value="<" <?php selected($filter['operator'] ?? '', '<'); ?>><</option>
                                         <option value=">=" <?php selected($filter['operator'] ?? '', '>='); ?>>>=</option>
                                         <option value="<=" <?php selected($filter['operator'] ?? '', '<='); ?>><=</option>
-                                        <option value="contains" <?php selected($filter['operator'] ?? '', 'contains'); ?>><?php _e('contains', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                        <option value="not_contains" <?php selected($filter['operator'] ?? '', 'not_contains'); ?>><?php _e('not contains', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                        <option value="empty" <?php selected($filter['operator'] ?? '', 'empty'); ?>><?php _e('is empty', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                        <option value="not_empty" <?php selected($filter['operator'] ?? '', 'not_empty'); ?>><?php _e('not empty', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                                        <option value="contains" <?php selected($filter['operator'] ?? '', 'contains'); ?>><?php esc_html_e('contains', 'bootflow-product-importer'); ?></option>
+                                        <option value="not_contains" <?php selected($filter['operator'] ?? '', 'not_contains'); ?>><?php esc_html_e('not contains', 'bootflow-product-importer'); ?></option>
+                                        <option value="empty" <?php selected($filter['operator'] ?? '', 'empty'); ?>><?php esc_html_e('is empty', 'bootflow-product-importer'); ?></option>
+                                        <option value="not_empty" <?php selected($filter['operator'] ?? '', 'not_empty'); ?>><?php esc_html_e('not empty', 'bootflow-product-importer'); ?></option>
                                     </select>
                                 </div>
                                 
                                 <div style="flex: 1;">
-                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php _e('Value', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
-                                    <input type="text" name="import_filters[<?php echo $filter_index; ?>][value]" value="<?php echo esc_attr($filter['value'] ?? ''); ?>" placeholder="<?php _e('Comparison value', 'bootflow-woocommerce-xml-csv-importer'); ?>" style="width: 100%;" />
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php esc_html_e('Value', 'bootflow-product-importer'); ?></label>
+                                    <input type="text" name="import_filters[<?php echo esc_attr($filter_index); ?>][value]" value="<?php echo esc_attr($filter['value'] ?? ''); ?>" placeholder="<?php esc_html_e('Comparison value', 'bootflow-product-importer'); ?>" style="width: 100%;" />
                                 </div>
                                 
                                 <?php if (!$is_last): ?>
                                 <div style="flex: 0 0 100px;">
-                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php _e('Condition', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php esc_html_e('Condition', 'bootflow-product-importer'); ?></label>
                                     <div style="display: flex; gap: 8px;">
                                         <label style="margin: 0; display: flex; align-items: center;">
-                                            <input type="radio" name="import_filters[<?php echo $filter_index; ?>][logic]" value="AND" <?php checked($filter['logic'] ?? 'AND', 'AND'); ?> style="margin: 0 4px 0 0;" />
+                                            <input type="radio" name="import_filters[<?php echo esc_attr($filter_index); ?>][logic]" value="AND" <?php checked($filter['logic'] ?? 'AND', 'AND'); ?> style="margin: 0 4px 0 0;" />
                                             <span style="font-size: 12px;">AND</span>
                                         </label>
                                         <label style="margin: 0; display: flex; align-items: center;">
-                                            <input type="radio" name="import_filters[<?php echo $filter_index; ?>][logic]" value="OR" <?php checked($filter['logic'] ?? 'AND', 'OR'); ?> style="margin: 0 4px 0 0;" />
+                                            <input type="radio" name="import_filters[<?php echo esc_attr($filter_index); ?>][logic]" value="OR" <?php checked($filter['logic'] ?? 'AND', 'OR'); ?> style="margin: 0 4px 0 0;" />
                                             <span style="font-size: 12px;">OR</span>
                                         </label>
                                     </div>
@@ -578,7 +589,7 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                         else:
                         ?>
                             <p class="no-filters" style="padding: 15px; color: #666; text-align: center;">
-                                <?php _e('No filters added. All products will be imported.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('No filters added. All products will be imported.', 'bootflow-product-importer'); ?>
                             </p>
                         <?php endif; ?>
                     </div>
@@ -588,21 +599,21 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                     <div style="margin: 15px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
                         <p style="margin: 0 0 10px 0; font-weight: 600; color: #856404;">
                             <span class="dashicons dashicons-warning" style="color: #ffc107;"></span>
-                            <?php _e('Filter Behavior', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                            <?php esc_html_e('Filter Behavior', 'bootflow-product-importer'); ?>
                         </p>
                         <p style="margin: 0 0 10px 0; font-size: 13px; color: #856404;">
-                            <?php _e('⚠️ Changing filters will affect future imports. Existing products won\'t be modified automatically.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                            <?php esc_html_e('⚠️ Changing filters will affect future imports. Existing products won\'t be modified automatically.', 'bootflow-product-importer'); ?>
                         </p>
                         <label style="display: block; margin-top: 10px;">
                             <input type="checkbox" name="draft_non_matching" value="1" <?php checked($import['draft_non_matching'] ?? '0', '1'); ?> />
-                            <strong><?php _e('Move non-matching products to Draft', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
+                            <strong><?php esc_html_e('Move non-matching products to Draft', 'bootflow-product-importer'); ?></strong>
                             <br>
                             <span style="font-size: 12px; color: #666; margin-left: 20px;">
-                                <?php _e('When re-running, products that no longer match filters will be set to Draft status (not deleted).', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('When re-running, products that no longer match filters will be set to Draft status (not deleted).', 'bootflow-product-importer'); ?>
                             </span>
                             <br>
                             <span style="font-size: 12px; color: #d63638; margin-left: 20px; margin-top: 5px; display: block;">
-                                <?php _e('⚠️ If unchecked: Products not matching filters will be skipped during import, but existing products will remain Published.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('⚠️ If unchecked: Products not matching filters will be skipped during import, but existing products will remain Published.', 'bootflow-product-importer'); ?>
                             </span>
                         </label>
                     </div>
@@ -614,62 +625,96 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
             <div class="mapping-section" data-section="custom">
                 <h3 class="section-toggle">
                     <span class="dashicons dashicons-arrow-down-alt2"></span>
-                    <?php _e('Custom Fields', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Custom Fields', 'bootflow-product-importer'); ?>
                     <button type="button" class="button button-small" onclick="addCustomField(event)" style="margin-left: 10px;">
                         <span class="dashicons dashicons-plus-alt" style="margin-top: 3px;"></span>
-                        <?php _e('Add Custom Field', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                        <?php esc_html_e('Add Custom Field', 'bootflow-product-importer'); ?>
                     </button>
                 </h3>
                 
                 <div class="section-fields">
                     <div id="custom-fields-container">
+                        <!-- DEBUG: saved_custom_fields = <?php echo isset($saved_custom_fields) ? 'SET(' . (is_array($saved_custom_fields) ? count($saved_custom_fields) : 'not-array') . ')' : 'NOT SET'; ?> -->
                         <?php 
                         $custom_field_index = 0;
-                        foreach ($existing_mappings as $key => $mapping) {
-                            if (strpos($key, '_custom_') === 0) {
-                                $cf_name = $mapping['name'] ?? str_replace('_custom_', '', $key);
+                        // Use $saved_custom_fields array (populated by admin class from both sources)
+                        if (!empty($saved_custom_fields) && is_array($saved_custom_fields)):
+                            foreach ($saved_custom_fields as $mapping):
+                                $cf_name = $mapping['name'] ?? '';
+                                if (empty($cf_name)) continue;
                                 ?>
                                 <div class="custom-field-row" style="background: #f9f9f9; padding: 10px; margin-bottom: 10px; border-left: 3px solid #2271b1;">
                                     <table class="form-table" style="margin: 0;">
                                         <tr>
                                             <td style="width: 20%;">
-                                                <input type="text" name="custom_fields[<?php echo $custom_field_index; ?>][name]" value="<?php echo esc_attr($cf_name); ?>" placeholder="<?php _e('Field Name', 'bootflow-woocommerce-xml-csv-importer'); ?>" class="widefat" />
+                                                <input type="text" name="custom_fields[<?php echo esc_attr($custom_field_index); ?>][name]" value="<?php echo esc_attr($cf_name); ?>" placeholder="<?php esc_html_e('Field Name', 'bootflow-product-importer'); ?>" class="widefat" />
                                             </td>
                                             <td style="width: 20%;">
-                                                <select name="custom_fields[<?php echo $custom_field_index; ?>][source]" class="widefat">
-                                                    <option value=""><?php _e('-- Select Source --', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                                                <select name="custom_fields[<?php echo esc_attr($custom_field_index); ?>][source]" class="widefat">
+                                                    <option value=""><?php esc_html_e('-- Select Source --', 'bootflow-product-importer'); ?></option>
                                                     <?php foreach ($file_fields as $ff): ?>
                                                         <option value="<?php echo esc_attr($ff); ?>" <?php selected($mapping['source'] ?? '', $ff); ?>><?php echo esc_html($ff); ?></option>
                                                     <?php endforeach; ?>
                                                 </select>
                                             </td>
                                             <td style="width: 15%;">
-                                                <select name="custom_fields[<?php echo $custom_field_index; ?>][type]" class="widefat">
-                                                    <option value="text" <?php selected($mapping['type'] ?? 'text', 'text'); ?>><?php _e('Text', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                                    <option value="number" <?php selected($mapping['type'] ?? '', 'number'); ?>><?php _e('Number', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                                    <option value="textarea" <?php selected($mapping['type'] ?? '', 'textarea'); ?>><?php _e('Textarea', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                                                <select name="custom_fields[<?php echo esc_attr($custom_field_index); ?>][type]" class="widefat">
+                                                    <option value="text" <?php selected($mapping['type'] ?? 'text', 'text'); ?>><?php esc_html_e('Text', 'bootflow-product-importer'); ?></option>
+                                                    <option value="number" <?php selected($mapping['type'] ?? '', 'number'); ?>><?php esc_html_e('Number', 'bootflow-product-importer'); ?></option>
+                                                    <option value="textarea" <?php selected($mapping['type'] ?? '', 'textarea'); ?>><?php esc_html_e('Textarea', 'bootflow-product-importer'); ?></option>
                                                 </select>
                                             </td>
-                                            <td style="width: 40%;">
-                                                <select name="custom_fields[<?php echo $custom_field_index; ?>][processing_mode]" class="widefat">
-                                                    <option value="direct" <?php selected($mapping['processing_mode'] ?? 'direct', 'direct'); ?>><?php _e('Direct', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                                    <option value="php_formula" <?php selected($mapping['processing_mode'] ?? '', 'php_formula'); ?>><?php _e('PHP Formula', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                                    <option value="ai_processing" <?php selected($mapping['processing_mode'] ?? '', 'ai_processing'); ?>><?php _e('AI Processing', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                                            <td style="width: 35%;">
+                                                <select name="custom_fields[<?php echo esc_attr($custom_field_index); ?>][processing_mode]" class="widefat custom-field-processing-mode" onchange="toggleCustomFieldConfig(this)">
+                                                    <option value="direct" <?php selected($mapping['processing_mode'] ?? 'direct', 'direct'); ?>><?php esc_html_e('Direct', 'bootflow-product-importer'); ?></option>
+                                                    <option value="php_formula" <?php selected($mapping['processing_mode'] ?? '', 'php_formula'); ?>><?php esc_html_e('PHP Formula', 'bootflow-product-importer'); ?></option>
+                                                    <option value="ai_processing" <?php selected($mapping['processing_mode'] ?? '', 'ai_processing'); ?>><?php esc_html_e('AI Processing', 'bootflow-product-importer'); ?></option>
                                                 </select>
                                             </td>
-                                            <td style="width: 5%; text-align: center;">
-                                                <button type="button" class="button" onclick="this.closest('.custom-field-row').remove();" title="<?php _e('Remove', 'bootflow-woocommerce-xml-csv-importer'); ?>">
+                                            <td style="width: 10%; text-align: center;">
+                                                <button type="button" class="button" onclick="this.closest('.custom-field-row').remove();" title="<?php esc_html_e('Remove', 'bootflow-product-importer'); ?>">
                                                     <span class="dashicons dashicons-trash"></span>
                                                 </button>
+                                            </td>
+                                        </tr>
+                                        <tr class="custom-field-config-row" style="<?php echo ($mapping['processing_mode'] ?? 'direct') === 'direct' ? 'display:none;' : ''; ?>">
+                                            <td colspan="5" style="padding-top: 10px;">
+                                                <!-- PHP Formula Config -->
+                                                <div class="php-formula-config" style="<?php echo ($mapping['processing_mode'] ?? '') !== 'php_formula' ? 'display:none;' : ''; ?>">
+                                                    <label><strong><?php esc_html_e('PHP Formula:', 'bootflow-product-importer'); ?></strong></label>
+                                                    <textarea name="custom_fields[<?php echo esc_attr($custom_field_index); ?>][php_formula]" 
+                                                              placeholder="<?php esc_html_e('e.g., return $value + 20;', 'bootflow-product-importer'); ?>" 
+                                                              rows="2" style="width:100%;"><?php echo esc_textarea($mapping['php_formula'] ?? ''); ?></textarea>
+                                                </div>
+                                                <!-- AI Processing Config -->
+                                                <div class="ai-processing-config" style="<?php echo ($mapping['processing_mode'] ?? '') !== 'ai_processing' ? 'display:none;' : ''; ?>">
+                                                    <label><strong><?php esc_html_e('AI Provider:', 'bootflow-product-importer'); ?></strong></label>
+                                                    <select name="custom_fields[<?php echo esc_attr($custom_field_index); ?>][ai_provider]" style="width:200px; margin-bottom:5px;">
+                                                        <option value="openai" <?php selected($mapping['ai_provider'] ?? 'openai', 'openai'); ?>>OpenAI GPT</option>
+                                                        <option value="claude" <?php selected($mapping['ai_provider'] ?? '', 'claude'); ?>>Anthropic Claude</option>
+                                                    </select>
+                                                    <br>
+                                                    <label><strong><?php esc_html_e('AI Prompt:', 'bootflow-product-importer'); ?></strong></label>
+                                                    <textarea name="custom_fields[<?php echo esc_attr($custom_field_index); ?>][ai_prompt]" 
+                                                              placeholder="<?php esc_html_e('e.g., Add 20 to this number: {value}. Return only the result number.', 'bootflow-product-importer'); ?>" 
+                                                              rows="2" style="width:100%;"><?php echo esc_textarea($mapping['ai_prompt'] ?? ''); ?></textarea>
+                                                </div>
                                             </td>
                                         </tr>
                                     </table>
                                 </div>
                                 <?php
                                 $custom_field_index++;
-                            }
-                        }
+                            endforeach;
+                        endif;
+                        
+                        // Show message if no custom fields
+                        if ($custom_field_index === 0):
                         ?>
+                        <p class="no-custom-fields" style="color: #666; font-style: italic;">
+                            <?php esc_html_e('No custom fields added yet. Click "Add Custom Field" to create one.', 'bootflow-product-importer'); ?>
+                        </p>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -686,40 +731,40 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
             $cron_url = admin_url('admin-ajax.php') . '?action=wc_xml_csv_ai_import_cron&secret=' . $cron_secret;
         ?>
         <div class="wc-ai-import-card" style="margin-top: 20px;">
-            <h2><?php _e('Automated Schedule', 'bootflow-woocommerce-xml-csv-importer'); ?></h2>
+            <h2><?php esc_html_e('Automated Schedule', 'bootflow-product-importer'); ?></h2>
             <table class="form-table">
                 <tr>
-                    <th scope="row"><?php _e('Schedule Interval', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                    <th scope="row"><?php esc_html_e('Schedule Interval', 'bootflow-product-importer'); ?></th>
                     <td>
                         <select name="schedule_type" id="schedule_type_edit" class="regular-text">
-                            <option value="none" <?php selected($import['schedule_type'], 'none'); ?>><?php _e('Disabled', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                            <option value="15min" <?php selected($import['schedule_type'], '15min'); ?>><?php _e('Every 15 minutes', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                            <option value="hourly" <?php selected($import['schedule_type'], 'hourly'); ?>><?php _e('Hourly', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                            <option value="6hours" <?php selected($import['schedule_type'], '6hours'); ?>><?php _e('Every 6 hours', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                            <option value="daily" <?php selected($import['schedule_type'], 'daily'); ?>><?php _e('Daily', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                            <option value="weekly" <?php selected($import['schedule_type'], 'weekly'); ?>><?php _e('Weekly', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                            <option value="monthly" <?php selected($import['schedule_type'], 'monthly'); ?>><?php _e('Monthly', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                            <option value="none" <?php selected($import['schedule_type'], 'none'); ?>><?php esc_html_e('Disabled', 'bootflow-product-importer'); ?></option>
+                            <option value="15min" <?php selected($import['schedule_type'], '15min'); ?>><?php esc_html_e('Every 15 minutes', 'bootflow-product-importer'); ?></option>
+                            <option value="hourly" <?php selected($import['schedule_type'], 'hourly'); ?>><?php esc_html_e('Hourly', 'bootflow-product-importer'); ?></option>
+                            <option value="6hours" <?php selected($import['schedule_type'], '6hours'); ?>><?php esc_html_e('Every 6 hours', 'bootflow-product-importer'); ?></option>
+                            <option value="daily" <?php selected($import['schedule_type'], 'daily'); ?>><?php esc_html_e('Daily', 'bootflow-product-importer'); ?></option>
+                            <option value="weekly" <?php selected($import['schedule_type'], 'weekly'); ?>><?php esc_html_e('Weekly', 'bootflow-product-importer'); ?></option>
+                            <option value="monthly" <?php selected($import['schedule_type'], 'monthly'); ?>><?php esc_html_e('Monthly', 'bootflow-product-importer'); ?></option>
                         </select>
                     </td>
                 </tr>
                 <tr id="schedule_method_row" style="<?php echo ($import['schedule_type'] === 'none' || empty($import['schedule_type'])) ? 'display:none;' : ''; ?>">
-                    <th scope="row"><?php _e('Schedule Method', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                    <th scope="row"><?php esc_html_e('Schedule Method', 'bootflow-product-importer'); ?></th>
                     <td>
                         <fieldset>
-                            <label style="display: block; margin-bottom: 12px; padding: 12px; border: 2px solid <?php echo $schedule_method === 'action_scheduler' ? '#0073aa' : '#ddd'; ?>; border-radius: 6px; cursor: pointer; background: <?php echo $schedule_method === 'action_scheduler' ? '#f0f6fc' : '#fff'; ?>;">
+                            <label style="display: block; margin-bottom: 12px; padding: 12px; border: 2px solid <?php echo esc_attr($schedule_method === 'action_scheduler' ? '#0073aa' : '#ddd'); ?>; border-radius: 6px; cursor: pointer; background: <?php echo esc_attr($schedule_method === 'action_scheduler' ? '#f0f6fc' : '#fff'); ?>;">
                                 <input type="radio" name="schedule_method" value="action_scheduler" <?php checked($schedule_method, 'action_scheduler'); ?>>
-                                <strong><?php _e('Action Scheduler', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
-                                <span style="background: #28a745; color: white; font-size: 10px; padding: 2px 6px; border-radius: 8px; margin-left: 6px;"><?php _e('Recommended', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                                <strong><?php esc_html_e('Action Scheduler', 'bootflow-product-importer'); ?></strong>
+                                <span style="background: #28a745; color: white; font-size: 10px; padding: 2px 6px; border-radius: 8px; margin-left: 6px;"><?php esc_html_e('Recommended', 'bootflow-product-importer'); ?></span>
                                 <p class="description" style="margin: 6px 0 0 22px;">
-                                    <?php _e('Automatically continues until complete. No server cron needed. Requires website traffic.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                    <?php esc_html_e('Automatically continues until complete. No server cron needed. Requires website traffic.', 'bootflow-product-importer'); ?>
                                 </p>
                             </label>
                             
-                            <label style="display: block; padding: 12px; border: 2px solid <?php echo $schedule_method === 'server_cron' ? '#0073aa' : '#ddd'; ?>; border-radius: 6px; cursor: pointer; background: <?php echo $schedule_method === 'server_cron' ? '#f0f6fc' : '#fff'; ?>;">
+                            <label style="display: block; padding: 12px; border: 2px solid <?php echo esc_attr($schedule_method === 'server_cron' ? '#0073aa' : '#ddd'); ?>; border-radius: 6px; cursor: pointer; background: <?php echo esc_attr($schedule_method === 'server_cron' ? '#f0f6fc' : '#fff'); ?>;">
                                 <input type="radio" name="schedule_method" value="server_cron" <?php checked($schedule_method, 'server_cron'); ?>>
-                                <strong><?php _e('Server Cron', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
+                                <strong><?php esc_html_e('Server Cron', 'bootflow-product-importer'); ?></strong>
                                 <p class="description" style="margin: 6px 0 0 22px;">
-                                    <?php _e('Processes entire import in one request. 100% reliable but requires server cron setup.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                    <?php esc_html_e('Processes entire import in one request. 100% reliable but requires server cron setup.', 'bootflow-product-importer'); ?>
                                 </p>
                             </label>
                         </fieldset>
@@ -728,24 +773,24 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
             </table>
             
             <!-- Server Cron Setup Instructions (only shown when server_cron is selected) -->
-            <div id="server_cron_instructions" style="<?php echo $schedule_method !== 'server_cron' ? 'display:none;' : ''; ?> margin-top: 15px; background: #f8f9fa; border: 1px solid #e2e4e7; border-radius: 6px; padding: 15px;">
+            <div id="server_cron_instructions" style="<?php echo esc_attr($schedule_method !== 'server_cron' ? 'display:none;' : ''); ?> margin-top: 15px; background: #f8f9fa; border: 1px solid #e2e4e7; border-radius: 6px; padding: 15px;">
                 <h4 style="margin-top: 0;">
                     <span class="dashicons dashicons-clock" style="color: #0073aa;"></span>
-                    <?php _e('Server Cron Setup', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Server Cron Setup', 'bootflow-product-importer'); ?>
                 </h4>
                 
                 <table class="form-table" style="margin: 0;">
                     <tr>
-                        <th style="padding: 8px 10px 8px 0; width: 120px;"><?php _e('Cron URL', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                        <th style="padding: 8px 10px 8px 0; width: 120px;"><?php esc_html_e('Cron URL', 'bootflow-product-importer'); ?></th>
                         <td style="padding: 8px 0;">
                             <input type="text" value="<?php echo esc_attr($cron_url); ?>" readonly class="large-text" style="font-size: 12px;" />
-                            <button type="button" class="button button-small" onclick="navigator.clipboard.writeText('<?php echo esc_js($cron_url); ?>'); alert('<?php _e('Copied!', 'bootflow-woocommerce-xml-csv-importer'); ?>');">
-                                <?php _e('Copy', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                            <button type="button" class="button button-small" onclick="navigator.clipboard.writeText('<?php echo esc_js($cron_url); ?>'); alert('<?php esc_html_e('Copied!', 'bootflow-product-importer'); ?>');">
+                                <?php esc_html_e('Copy', 'bootflow-product-importer'); ?>
                             </button>
                         </td>
                     </tr>
                     <tr>
-                        <th style="padding: 8px 10px 8px 0;"><?php _e('cPanel Command', 'bootflow-woocommerce-xml-csv-importer'); ?></th>
+                        <th style="padding: 8px 10px 8px 0;"><?php esc_html_e('cPanel Command', 'bootflow-product-importer'); ?></th>
                         <td style="padding: 8px 0;">
                             <?php 
                             $cron_patterns = array('15min'=>'*/15 * * * *','hourly'=>'0 * * * *','6hours'=>'0 */6 * * *','daily'=>'0 0 * * *','weekly'=>'0 0 * * 0','monthly'=>'0 0 1 * *');
@@ -753,15 +798,15 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
                             $cmd = $pattern . ' curl -s "' . $cron_url . '" > /dev/null 2>&1';
                             ?>
                             <code style="display: block; padding: 8px; background: #1e1e1e; color: #9cdcfe; border-radius: 4px; font-size: 11px; word-break: break-all;"><?php echo esc_html($cmd); ?></code>
-                            <button type="button" class="button button-small" style="margin-top: 5px;" onclick="navigator.clipboard.writeText('<?php echo esc_js($cmd); ?>'); alert('<?php _e('Copied!', 'bootflow-woocommerce-xml-csv-importer'); ?>');">
-                                <?php _e('Copy Command', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                            <button type="button" class="button button-small" style="margin-top: 5px;" onclick="navigator.clipboard.writeText('<?php echo esc_js($cmd); ?>'); alert('<?php esc_html_e('Copied!', 'bootflow-product-importer'); ?>');">
+                                <?php esc_html_e('Copy Command', 'bootflow-product-importer'); ?>
                             </button>
                         </td>
                     </tr>
                 </table>
                 <p class="description" style="margin-top: 10px; margin-bottom: 0;">
                     <span style="color: #0073aa;">ℹ️</span> 
-                    <?php _e('We recommend running cron every minute. The plugin will only process when the scheduled interval has passed.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('We recommend running cron every minute. The plugin will only process when the scheduled interval has passed.', 'bootflow-product-importer'); ?>
                 </p>
             </div>
         </div>
@@ -769,30 +814,30 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
         <!-- PRO Required Notice -->
         <div class="wc-ai-import-card" style="margin-top: 20px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
             <h2>
-                <?php _e('Automated Schedule', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                <?php esc_html_e('Automated Schedule', 'bootflow-product-importer'); ?>
                 <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 12px; padding: 4px 12px; border-radius: 12px; margin-left: 10px;">PRO</span>
             </h2>
             <p style="color: #6c757d;">
-                <?php _e('Schedule automatic imports to run at regular intervals. Keep your products always up-to-date without manual intervention.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                <?php esc_html_e('Schedule automatic imports to run at regular intervals. Keep your products always up-to-date without manual intervention.', 'bootflow-product-importer'); ?>
             </p>
             <ul style="color: #6c757d; margin-left: 20px;">
-                <li>✓ <?php _e('Every 15 minutes, hourly, daily, weekly, or monthly', 'bootflow-woocommerce-xml-csv-importer'); ?></li>
-                <li>✓ <?php _e('Automatic product updates', 'bootflow-woocommerce-xml-csv-importer'); ?></li>
-                <li>✓ <?php _e('Action Scheduler or Server Cron support', 'bootflow-woocommerce-xml-csv-importer'); ?></li>
+                <li>✓ <?php esc_html_e('Every 15 minutes, hourly, daily, weekly, or monthly', 'bootflow-product-importer'); ?></li>
+                <li>✓ <?php esc_html_e('Automatic product updates', 'bootflow-product-importer'); ?></li>
+                <li>✓ <?php esc_html_e('Action Scheduler or Server Cron support', 'bootflow-product-importer'); ?></li>
             </ul>
             <a href="https://yourwebsite.com/pro" target="_blank" class="button button-primary" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
-                <?php _e('Upgrade to PRO', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                <?php esc_html_e('Upgrade to PRO', 'bootflow-product-importer'); ?>
             </a>
         </div>
         <?php endif; ?>
         
         <p class="submit">
-            <input type="submit" name="update_import" class="button button-primary button-large" value="<?php _e('Save Changes', 'bootflow-woocommerce-xml-csv-importer'); ?>" />
+            <input type="submit" name="update_import" class="button button-primary button-large" value="<?php esc_html_e('Save Changes', 'bootflow-product-importer'); ?>" />
             
-            <input type="submit" name="run_import_now" class="button button-hero" value="<?php _e('▶ Run Import Now', 'bootflow-woocommerce-xml-csv-importer'); ?>" style="background: #00a32a; border-color: #00a32a; color: #fff; margin-left: 10px;" />
+            <input type="submit" name="run_import_now" class="button button-hero" value="<?php esc_html_e('▶ Run Import Now', 'bootflow-product-importer'); ?>" style="background: #00a32a; border-color: #00a32a; color: #fff; margin-left: 10px;" />
             
-            <a href="<?php echo admin_url('admin.php?page=wc-xml-csv-import-history'); ?>" class="button button-secondary">
-                <?php _e('Cancel', 'bootflow-woocommerce-xml-csv-importer'); ?>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=wc-xml-csv-import-history')); ?>" class="button button-secondary">
+                <?php esc_html_e('Cancel', 'bootflow-product-importer'); ?>
             </a>
         </p>
     </form>
@@ -989,7 +1034,24 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
 </style>
 
 <script>
-let customFieldCounter = <?php echo $custom_field_index; ?>;
+let customFieldCounter = <?php echo esc_attr($custom_field_index); ?>;
+
+// Toggle custom field config visibility based on processing mode
+function toggleCustomFieldConfig(selectElement) {
+    const row = selectElement.closest('.custom-field-row');
+    const configRow = row.querySelector('.custom-field-config-row');
+    const phpConfig = row.querySelector('.php-formula-config');
+    const aiConfig = row.querySelector('.ai-processing-config');
+    const mode = selectElement.value;
+    
+    if (mode === 'direct') {
+        configRow.style.display = 'none';
+    } else {
+        configRow.style.display = '';
+        phpConfig.style.display = mode === 'php_formula' ? '' : 'none';
+        aiConfig.style.display = mode === 'ai_processing' ? '' : 'none';
+    }
+}
 
 function addCustomField(e) {
     e.preventDefault();
@@ -999,11 +1061,11 @@ function addCustomField(e) {
             <table class="form-table" style="margin: 0;">
                 <tr>
                     <td style="width: 20%;">
-                        <input type="text" name="custom_fields[${customFieldCounter}][name]" placeholder="<?php _e('Field Name', 'bootflow-woocommerce-xml-csv-importer'); ?>" class="widefat" />
+                        <input type="text" name="custom_fields[${customFieldCounter}][name]" placeholder="<?php esc_html_e('Field Name', 'bootflow-product-importer'); ?>" class="widefat" />
                     </td>
                     <td style="width: 20%;">
                         <select name="custom_fields[${customFieldCounter}][source]" class="widefat">
-                            <option value=""><?php _e('-- Select Source --', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                            <option value=""><?php esc_html_e('-- Select Source --', 'bootflow-product-importer'); ?></option>
                             <?php foreach ($file_fields as $ff): ?>
                                 <option value="<?php echo esc_attr($ff); ?>"><?php echo esc_html($ff); ?></option>
                             <?php endforeach; ?>
@@ -1011,22 +1073,46 @@ function addCustomField(e) {
                     </td>
                     <td style="width: 15%;">
                         <select name="custom_fields[${customFieldCounter}][type]" class="widefat">
-                            <option value="text"><?php _e('Text', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                            <option value="number"><?php _e('Number', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                            <option value="textarea"><?php _e('Textarea', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                            <option value="text"><?php esc_html_e('Text', 'bootflow-product-importer'); ?></option>
+                            <option value="number"><?php esc_html_e('Number', 'bootflow-product-importer'); ?></option>
+                            <option value="textarea"><?php esc_html_e('Textarea', 'bootflow-product-importer'); ?></option>
                         </select>
                     </td>
-                    <td style="width: 40%;">
-                        <select name="custom_fields[${customFieldCounter}][processing_mode]" class="widefat">
-                            <option value="direct"><?php _e('Direct', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                            <option value="php_formula"><?php _e('PHP Formula', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                            <option value="ai_processing"><?php _e('AI Processing', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                    <td style="width: 35%;">
+                        <select name="custom_fields[${customFieldCounter}][processing_mode]" class="widefat custom-field-processing-mode" onchange="toggleCustomFieldConfig(this)">
+                            <option value="direct"><?php esc_html_e('Direct', 'bootflow-product-importer'); ?></option>
+                            <option value="php_formula"><?php esc_html_e('PHP Formula', 'bootflow-product-importer'); ?></option>
+                            <option value="ai_processing"><?php esc_html_e('AI Processing', 'bootflow-product-importer'); ?></option>
                         </select>
                     </td>
-                    <td style="width: 5%; text-align: center;">
-                        <button type="button" class="button" onclick="this.closest('.custom-field-row').remove();" title="<?php _e('Remove', 'bootflow-woocommerce-xml-csv-importer'); ?>">
+                    <td style="width: 10%; text-align: center;">
+                        <button type="button" class="button" onclick="this.closest('.custom-field-row').remove();" title="<?php esc_html_e('Remove', 'bootflow-product-importer'); ?>">
                             <span class="dashicons dashicons-trash"></span>
                         </button>
+                    </td>
+                </tr>
+                <tr class="custom-field-config-row" style="display:none;">
+                    <td colspan="5" style="padding-top: 10px;">
+                        <!-- PHP Formula Config -->
+                        <div class="php-formula-config" style="display:none;">
+                            <label><strong><?php esc_html_e('PHP Formula:', 'bootflow-product-importer'); ?></strong></label>
+                            <textarea name="custom_fields[${customFieldCounter}][php_formula]" 
+                                      placeholder="<?php esc_html_e('e.g., return $value + 20;', 'bootflow-product-importer'); ?>" 
+                                      rows="2" style="width:100%;"></textarea>
+                        </div>
+                        <!-- AI Processing Config -->
+                        <div class="ai-processing-config" style="display:none;">
+                            <label><strong><?php esc_html_e('AI Provider:', 'bootflow-product-importer'); ?></strong></label>
+                            <select name="custom_fields[${customFieldCounter}][ai_provider]" style="width:200px; margin-bottom:5px;">
+                                <option value="openai">OpenAI GPT</option>
+                                <option value="claude">Anthropic Claude</option>
+                            </select>
+                            <br>
+                            <label><strong><?php esc_html_e('AI Prompt:', 'bootflow-product-importer'); ?></strong></label>
+                            <textarea name="custom_fields[${customFieldCounter}][ai_prompt]" 
+                                      placeholder="<?php esc_html_e('e.g., Add 20 to this number: {value}. Return only the result number.', 'bootflow-product-importer'); ?>" 
+                                      rows="2" style="width:100%;"></textarea>
+                        </div>
                     </td>
                 </tr>
             </table>
@@ -1050,9 +1136,9 @@ function addFilterRule(e) {
     const html = `
         <div class="filter-rule-row" style="display: flex; gap: 10px; align-items: center; padding: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
             <div style="flex: 1;">
-                <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php _e('Field', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
+                <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php esc_html_e('Field', 'bootflow-product-importer'); ?></label>
                 <select name="import_filters[${filterRuleCounter}][field]" style="width: 100%;">
-                    <option value=""><?php _e('-- Select Field --', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                    <option value=""><?php esc_html_e('-- Select Field --', 'bootflow-product-importer'); ?></option>
                     <?php foreach ($file_fields as $ff): ?>
                         <option value="<?php echo esc_attr($ff); ?>"><?php echo esc_html($ff); ?></option>
                     <?php endforeach; ?>
@@ -1060,7 +1146,7 @@ function addFilterRule(e) {
             </div>
             
             <div style="flex: 0 0 150px;">
-                <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php _e('Operator', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
+                <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php esc_html_e('Operator', 'bootflow-product-importer'); ?></label>
                 <select name="import_filters[${filterRuleCounter}][operator]" style="width: 100%;">
                     <option value="=">=</option>
                     <option value="!=">!=</option>
@@ -1068,16 +1154,16 @@ function addFilterRule(e) {
                     <option value="<"><</option>
                     <option value=">=">>=</option>
                     <option value="<="><=</option>
-                    <option value="contains"><?php _e('contains', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="not_contains"><?php _e('not contains', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="empty"><?php _e('is empty', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="not_empty"><?php _e('not empty', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                    <option value="contains"><?php esc_html_e('contains', 'bootflow-product-importer'); ?></option>
+                    <option value="not_contains"><?php esc_html_e('not contains', 'bootflow-product-importer'); ?></option>
+                    <option value="empty"><?php esc_html_e('is empty', 'bootflow-product-importer'); ?></option>
+                    <option value="not_empty"><?php esc_html_e('not empty', 'bootflow-product-importer'); ?></option>
                 </select>
             </div>
             
             <div style="flex: 1;">
-                <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php _e('Value', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
-                <input type="text" name="import_filters[${filterRuleCounter}][value]" placeholder="<?php _e('Comparison value', 'bootflow-woocommerce-xml-csv-importer'); ?>" style="width: 100%;" />
+                <label style="display: block; font-size: 11px; color: #666; margin-bottom: 3px;"><?php esc_html_e('Value', 'bootflow-product-importer'); ?></label>
+                <input type="text" name="import_filters[${filterRuleCounter}][value]" placeholder="<?php esc_html_e('Comparison value', 'bootflow-product-importer'); ?>" style="width: 100%;" />
             </div>
             
             <div style="flex: 0 0 40px;">
@@ -1116,12 +1202,12 @@ function removeFilterRule(e) {
     }
     
     if (filterCount === 0) {
-        container.innerHTML = '<p class="no-filters" style="padding: 15px; color: #666; text-align: center;"><?php _e('No filters added. All products will be imported.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>';
+        container.innerHTML = '<p class="no-filters" style="padding: 15px; color: #666; text-align: center;"><?php esc_html_e('No filters added. All products will be imported.', 'bootflow-product-importer'); ?></p>';
     }
 }
 
 function clearAllMapping() {
-    if (confirm('<?php _e('Are you sure you want to clear all field mappings?', 'bootflow-woocommerce-xml-csv-importer'); ?>')) {
+    if (confirm('<?php esc_html_e('Are you sure you want to clear all field mappings?', 'bootflow-product-importer'); ?>')) {
         // Clear all source dropdowns
         document.querySelectorAll('select[name^="field_mapping"]').forEach(select => {
             if (select.name.includes('[source]')) {
@@ -1237,7 +1323,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.clear-mapping').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
-            if (confirm('<?php _e('Clear this field mapping?', 'bootflow-woocommerce-xml-csv-importer'); ?>')) {
+            if (confirm('<?php esc_html_e('Clear this field mapping?', 'bootflow-product-importer'); ?>')) {
                 const row = this.closest('.field-mapping-row');
                 if (!row) return;
                 

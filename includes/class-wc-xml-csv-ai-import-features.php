@@ -298,6 +298,7 @@ class WC_XML_CSV_AI_Import_Features {
         }
         
         if ($echo_badge) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pro_badge returns safe HTML
             echo self::pro_badge($feature);
         }
         

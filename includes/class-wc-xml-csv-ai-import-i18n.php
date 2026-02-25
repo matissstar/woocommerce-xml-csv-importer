@@ -23,8 +23,9 @@ class WC_XML_CSV_AI_Import_i18n {
      */
     public function load_plugin_textdomain() {
         // WP.org compliance: text domain must match plugin slug
+        // phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound -- Required for development/non-WP.org translation loading
         load_plugin_textdomain(
-            'bootflow-woocommerce-xml-csv-importer',
+            'bootflow-product-importer',
             false,
             dirname(dirname(plugin_basename(__FILE__))) . '/languages/'
         );

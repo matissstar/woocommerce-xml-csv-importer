@@ -110,7 +110,7 @@ class WC_XML_CSV_AI_Import_Logger {
     public static function clear_log_file($filename) {
         $log_file = WP_CONTENT_DIR . '/' . sanitize_file_name($filename);
         if (file_exists($log_file)) {
-            @unlink($log_file);
+            @wp_delete_file($log_file);
         }
     }
 }

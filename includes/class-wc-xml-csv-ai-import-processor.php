@@ -19,15 +19,18 @@ class WC_XML_CSV_AI_Import_Processor {
     /**
      * AI Providers instance
      *
-     * @var WC_XML_CSV_AI_Import_AI_Providers
+     * @var WC_XML_CSV_AI_Import_AI_Providers|null
      */
-    private $ai_providers;
+    private $ai_providers = null;
 
     /**
      * Constructor.
      */
     public function __construct() {
-        $this->ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();
+        // AI Providers only available in PRO version
+        if (class_exists('WC_XML_CSV_AI_Import_AI_Providers')) {
+            $this->ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();
+        }
     }
 
     /**
@@ -173,6 +176,12 @@ class WC_XML_CSV_AI_Import_Processor {
             $this->log_debug('AI_PROCESSING_EMPTY: No prompt provided, using direct processing', array());
             return $this->process_direct($value);
         }
+        
+        // Check if AI providers is available (PRO feature)
+        if ($this->ai_providers === null) {
+            $this->log_debug('AI_PROCESSING_UNAVAILABLE: AI providers not available in FREE version', array());
+            return $this->process_direct($value);
+        }
 
         // Build context for AI
         $context = $this->build_product_context($product_data);
@@ -228,8 +237,11 @@ class WC_XML_CSV_AI_Import_Processor {
         
         
         if (!empty($ai_prompt)) {
-            $context = $this->build_product_context($product_data);
-            $value = $this->ai_providers->process_field($value, $ai_prompt, array('provider' => $ai_provider), $context);
+            // Check if AI providers is available (PRO feature)
+            if ($this->ai_providers !== null) {
+                $context = $this->build_product_context($product_data);
+                $value = $this->ai_providers->process_field($value, $ai_prompt, array('provider' => $ai_provider), $context);
+            }
         }
 
         // Then, apply PHP formula for technical adjustments (trim, lowercase, etc)
@@ -257,7 +269,7 @@ class WC_XML_CSV_AI_Import_Processor {
             // Security: Check if PHP formulas are enabled
             $settings = get_option('wc_xml_csv_ai_import_settings', array());
             if (empty($settings['enable_php_formulas'])) {
-                throw new Exception(__('PHP formulas are disabled in settings.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('PHP formulas are disabled in settings.', 'bootflow-product-importer'));
             }
             
 
@@ -294,7 +306,7 @@ class WC_XML_CSV_AI_Import_Processor {
 
             foreach ($dangerous_patterns as $pattern) {
                 if (preg_match($pattern, $formula)) {
-                    throw new Exception(__('Formula contains disallowed constructs.', 'bootflow-woocommerce-xml-csv-importer'));
+                    throw new Exception(__('Formula contains disallowed constructs.', 'bootflow-product-importer'));
                 }
             }
 
@@ -308,7 +320,8 @@ class WC_XML_CSV_AI_Import_Processor {
                 foreach ($matches[1] as $function_name) {
                     if (!in_array(strtolower($function_name), $allowed_functions)) {
                         if (defined('WP_DEBUG') && WP_DEBUG) { error_log("Blocked function: " . $function_name); }
-                        throw new Exception(sprintf(__('Function "%s" is not allowed.', 'bootflow-woocommerce-xml-csv-importer'), $function_name));
+                        // translators: placeholder values
+                        throw new Exception(sprintf(__('Function "%s" is not allowed.', 'bootflow-product-importer'), $function_name));
                     }
                 }
             }

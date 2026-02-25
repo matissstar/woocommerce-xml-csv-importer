@@ -22,8 +22,8 @@ $can_import_url = WC_XML_CSV_AI_Import_Features::is_available('remote_url_import
 
 <div class="wc-ai-import-step wc-ai-import-step-1">
     <div class="wc-ai-import-card">
-        <h2><?php _e('Step 1: Upload File', 'bootflow-woocommerce-xml-csv-importer'); ?></h2>
-        <p class="description"><?php _e('Upload your XML or CSV file, or provide a URL to import products from.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+        <h2><?php esc_html_e('Step 1: Upload File', 'bootflow-product-importer'); ?></h2>
+        <p class="description"><?php esc_html_e('Upload your XML or CSV file, or provide a URL to import products from.', 'bootflow-product-importer'); ?></p>
         
         <form id="wc-ai-import-upload-form" method="post" enctype="multipart/form-data">
             <?php wp_nonce_field('wc_xml_csv_ai_import_nonce', 'nonce'); ?>
@@ -31,54 +31,56 @@ $can_import_url = WC_XML_CSV_AI_Import_Features::is_available('remote_url_import
             <!-- Import Name -->
             <div class="form-group">
                 <label for="import_name" class="required">
-                    <strong><?php _e('Import Name', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
+                    <strong><?php esc_html_e('Import Name', 'bootflow-product-importer'); ?></strong>
                     <span class="required-asterisk">*</span>
                 </label>
                 <input type="text" id="import_name" name="import_name" class="regular-text" required 
-                       placeholder="<?php _e('e.g., Summer Collection 2024', 'bootflow-woocommerce-xml-csv-importer'); ?>" />
-                <p class="description"><?php _e('Give this import a descriptive name for easy identification.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                       placeholder="<?php esc_html_e('e.g., Summer Collection 2024', 'bootflow-product-importer'); ?>" />
+                <p class="description"><?php esc_html_e('Give this import a descriptive name for easy identification.', 'bootflow-product-importer'); ?></p>
             </div>
 
             <!-- Upload Method Selection -->
             <div class="form-group">
-                <label><strong><?php _e('Upload Method', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></label>
+                <label><strong><?php esc_html_e('Upload Method', 'bootflow-product-importer'); ?></strong></label>
                 <div class="upload-method-selection">
                     <label class="upload-method-option">
                         <input type="radio" name="upload_method" value="file" checked />
                         <span class="method-icon">📁</span>
-                        <span class="method-title"><?php _e('Upload File', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
-                        <span class="method-desc"><?php _e('Upload XML/CSV file from your computer', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                        <span class="method-title"><?php esc_html_e('Upload File', 'bootflow-product-importer'); ?></span>
+                        <span class="method-desc"><?php esc_html_e('Upload XML/CSV file from your computer', 'bootflow-product-importer'); ?></span>
                     </label>
                     <label class="upload-method-option<?php echo !$can_import_url ? ' pro-feature-disabled' : ''; ?>">
                         <input type="radio" name="upload_method" value="url" <?php echo !$can_import_url ? 'disabled' : ''; ?> />
                         <span class="method-icon">🔗</span>
                         <span class="method-title">
-                            <?php _e('From URL', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                            <?php esc_html_e('From URL', 'bootflow-product-importer'); ?>
                             <?php if (!$can_import_url): ?>
                                 <span class="pro-badge">PRO</span>
                             <?php endif; ?>
                         </span>
-                        <span class="method-desc"><?php _e('Import from external URL or FTP server', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                        <span class="method-desc"><?php esc_html_e('Import from external URL or FTP server', 'bootflow-product-importer'); ?></span>
                     </label>
                 </div>
             </div>
 
             <!-- File Upload -->
             <div id="file-upload-section" class="form-group upload-section">
-                <label for="file_upload"><strong><?php _e('Select File', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></label>
+                <label for="file_upload"><strong><?php esc_html_e('Select File', 'bootflow-product-importer'); ?></strong></label>
                 <div class="file-upload-area" id="file-upload-area">
                     <div class="upload-dropzone">
                         <div class="upload-icon">📤</div>
                         <div class="upload-text">
-                            <p class="upload-primary"><?php _e('Drag & drop your file here', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
-                            <p class="upload-secondary"><?php _e('or', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                            <p class="upload-primary"><?php esc_html_e('Drag & drop your file here', 'bootflow-product-importer'); ?></p>
+                            <p class="upload-secondary"><?php esc_html_e('or', 'bootflow-product-importer'); ?></p>
                             <button type="button" class="button button-secondary" id="browse-files">
-                                <?php _e('Browse Files', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('Browse Files', 'bootflow-product-importer'); ?>
                             </button>
                             <input type="file" id="file_upload" name="file" style="display: none;" />
                         </div>
                         <div class="upload-requirements">
-                            <p><?php printf(__('Accepted formats: XML, CSV | Max size: %dMB', 'bootflow-woocommerce-xml-csv-importer'), $max_file_size); ?></p>
+                            <p><?php 
+                            // translators: %d is the maximum file size in MB
+                            printf(esc_html__('Accepted formats: XML, CSV | Max size: %dMB', 'bootflow-product-importer'), intval($max_file_size)); ?></p>
                         </div>
                     </div>
                     <div class="file-preview" id="file-preview" style="display: none;">
@@ -99,145 +101,145 @@ $can_import_url = WC_XML_CSV_AI_Import_Features::is_available('remote_url_import
 
             <!-- URL Input -->
             <div id="url-upload-section" class="form-group upload-section" style="display: none;">
-                <label for="file_url"><strong><?php _e('File URL', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></label>
+                <label for="file_url"><strong><?php esc_html_e('File URL', 'bootflow-product-importer'); ?></strong></label>
                 <input type="url" id="file_url" name="file_url" class="regular-text" 
-                       placeholder="<?php _e('https://example.com/products.xml', 'bootflow-woocommerce-xml-csv-importer'); ?>" />
-                <p class="description"><?php _e('Enter the direct URL to your XML or CSV file.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                       placeholder="<?php esc_html_e('https://example.com/products.xml', 'bootflow-product-importer'); ?>" />
+                <p class="description"><?php esc_html_e('Enter the direct URL to your XML or CSV file.', 'bootflow-product-importer'); ?></p>
                 <button type="button" id="test-url" class="button button-secondary">
-                    <?php _e('Test URL', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Test URL', 'bootflow-product-importer'); ?>
                 </button>
                 <div id="url-test-result" class="url-test-result"></div>
             </div>
 
             <!-- File Type Selection -->
             <div class="form-group">
-                <label for="force_file_type"><strong><?php _e('File Type', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></label>
+                <label for="force_file_type"><strong><?php esc_html_e('File Type', 'bootflow-product-importer'); ?></strong></label>
                 <select id="force_file_type" name="force_file_type" class="regular-text">
-                    <option value="auto"><?php _e('Auto-detect (from extension or content)', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="xml"><?php _e('Force XML', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="csv"><?php _e('Force CSV', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                    <option value="auto"><?php esc_html_e('Auto-detect (from extension or content)', 'bootflow-product-importer'); ?></option>
+                    <option value="xml"><?php esc_html_e('Force XML', 'bootflow-product-importer'); ?></option>
+                    <option value="csv"><?php esc_html_e('Force CSV', 'bootflow-product-importer'); ?></option>
                 </select>
-                <p class="description"><?php _e('Select file type manually for URLs without file extension (e.g., API feeds).', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                <p class="description"><?php esc_html_e('Select file type manually for URLs without file extension (e.g., API feeds).', 'bootflow-product-importer'); ?></p>
             </div>
 
             <!-- XML Product Wrapper -->
             <div id="xml-wrapper-section" class="form-group">
                 <label for="product_wrapper">
-                    <strong><?php _e('XML Product Element', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
+                    <strong><?php esc_html_e('XML Product Element', 'bootflow-product-importer'); ?></strong>
                 </label>
                 <input type="text" id="product_wrapper" name="product_wrapper" class="regular-text" 
                        value="" placeholder="product" />
-                <p class="description"><?php _e('The XML element name that contains individual product data (e.g., "product", "item", "goods"). Leave as "product" for CSV files.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                <p class="description"><?php esc_html_e('The XML element name that contains individual product data (e.g., "product", "item", "goods"). Leave as "product" for CSV files.', 'bootflow-product-importer'); ?></p>
             </div>
 
             <!-- Schedule Configuration -->
             <?php if ($can_scheduling): ?>
             <div class="form-group">
-                <label for="schedule_type"><strong><?php _e('Schedule Type', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></label>
+                <label for="schedule_type"><strong><?php esc_html_e('Schedule Type', 'bootflow-product-importer'); ?></strong></label>
                 <select id="schedule_type" name="schedule_type" class="regular-text">
-                    <option value="disabled"><?php _e('Manual Import Only', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="15min"><?php _e('Every 15 Minutes', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="hourly"><?php _e('Every Hour', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="6hours"><?php _e('Every 6 Hours', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="daily"><?php _e('Daily Import', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="weekly"><?php _e('Weekly Import', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                    <option value="monthly"><?php _e('Monthly Import', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                    <option value="disabled"><?php esc_html_e('Manual Import Only', 'bootflow-product-importer'); ?></option>
+                    <option value="15min"><?php esc_html_e('Every 15 Minutes', 'bootflow-product-importer'); ?></option>
+                    <option value="hourly"><?php esc_html_e('Every Hour', 'bootflow-product-importer'); ?></option>
+                    <option value="6hours"><?php esc_html_e('Every 6 Hours', 'bootflow-product-importer'); ?></option>
+                    <option value="daily"><?php esc_html_e('Daily Import', 'bootflow-product-importer'); ?></option>
+                    <option value="weekly"><?php esc_html_e('Weekly Import', 'bootflow-product-importer'); ?></option>
+                    <option value="monthly"><?php esc_html_e('Monthly Import', 'bootflow-product-importer'); ?></option>
                 </select>
-                <p class="description"><?php _e('Choose how often this import should run automatically. Manual imports can be run at any time.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                <p class="description"><?php esc_html_e('Choose how often this import should run automatically. Manual imports can be run at any time.', 'bootflow-product-importer'); ?></p>
             </div>
             <?php else: ?>
             <!-- Schedule Configuration - PRO only -->
             <div class="form-group pro-feature-locked" style="opacity: 0.7;">
-                <label><strong><?php _e('Schedule Type', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
+                <label><strong><?php esc_html_e('Schedule Type', 'bootflow-product-importer'); ?></strong>
                     <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; font-weight: bold;">PRO</span>
                 </label>
                 <select disabled class="regular-text" style="background: #f5f5f5;">
-                    <option><?php _e('Manual Import Only', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                    <option><?php esc_html_e('Manual Import Only', 'bootflow-product-importer'); ?></option>
                 </select>
                 <input type="hidden" name="schedule_type" value="disabled" />
-                <p class="description" style="color: #6c757d;"><?php _e('Automated scheduled imports are available in the PRO version. Run imports automatically every 15 minutes, hourly, daily, or weekly.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                <p class="description" style="color: #6c757d;"><?php esc_html_e('Automated scheduled imports are available in the PRO version. Run imports automatically every 15 minutes, hourly, daily, or weekly.', 'bootflow-product-importer'); ?></p>
             </div>
             <?php endif; ?>
 
             <!-- Advanced Options -->
             <div class="form-group">
                 <h3>
-                    <?php _e('Advanced Options', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Advanced Options', 'bootflow-product-importer'); ?>
                 </h3>
                 <div id="advanced-options" class="advanced-options">
                     <div class="advanced-grid">
                         <div class="advanced-item">
                             <label>
                                 <input type="checkbox" name="update_existing" value="1" />
-                                <?php _e('Update Existing Products', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('Update Existing Products', 'bootflow-product-importer'); ?>
                             </label>
-                            <p class="description"><?php _e('Update products that already exist (matched by SKU).', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                            <p class="description"><?php esc_html_e('Update products that already exist (matched by SKU).', 'bootflow-product-importer'); ?></p>
                         </div>
                         <div class="advanced-item">
                             <label>
                                 <input type="checkbox" name="skip_unchanged" value="1" />
-                                <?php _e('Skip products if data unchanged', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('Skip products if data unchanged', 'bootflow-product-importer'); ?>
                             </label>
-                            <p class="description"><?php _e('Skip updating products if mapped data hasn\'t changed.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                            <p class="description"><?php esc_html_e('Skip updating products if mapped data hasn\'t changed.', 'bootflow-product-importer'); ?></p>
                         </div>
                         <div class="advanced-item">
                             <label>
                                 <input type="checkbox" name="create_categories" value="1" checked />
-                                <?php _e('Auto-create Categories', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('Auto-create Categories', 'bootflow-product-importer'); ?>
                             </label>
-                            <p class="description"><?php _e('Automatically create product categories if they don\'t exist.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                            <p class="description"><?php esc_html_e('Automatically create product categories if they don\'t exist.', 'bootflow-product-importer'); ?></p>
                         </div>
                         <div class="advanced-item">
-                            <label for="default_status"><?php _e('Default Product Status', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
+                            <label for="default_status"><?php esc_html_e('Default Product Status', 'bootflow-product-importer'); ?></label>
                             <select name="default_status" id="default_status">
-                                <option value="publish"><?php _e('Published', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                <option value="draft"><?php _e('Draft', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                <option value="private"><?php _e('Private', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                                <option value="publish"><?php esc_html_e('Published', 'bootflow-product-importer'); ?></option>
+                                <option value="draft"><?php esc_html_e('Draft', 'bootflow-product-importer'); ?></option>
+                                <option value="private"><?php esc_html_e('Private', 'bootflow-product-importer'); ?></option>
                             </select>
                         </div>
                         <div class="advanced-item">
-                            <label for="batch_size"><?php _e('Batch Size', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
+                            <label for="batch_size"><?php esc_html_e('Batch Size', 'bootflow-product-importer'); ?></label>
                             <input type="number" name="batch_size" id="batch_size" value="50" min="1" max="500" />
-                            <p class="description"><?php _e('Number of products to process at once.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                            <p class="description"><?php esc_html_e('Number of products to process at once.', 'bootflow-product-importer'); ?></p>
                         </div>
                     </div>
                     
                     <!-- Missing Products Handling -->
                     <div class="missing-products-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
-                        <h4 style="margin-top: 0;"><?php _e('Handle Products No Longer in Feed', 'bootflow-woocommerce-xml-csv-importer'); ?></h4>
+                        <h4 style="margin-top: 0;"><?php esc_html_e('Handle Products No Longer in Feed', 'bootflow-product-importer'); ?></h4>
                         <p class="description" style="margin-bottom: 15px;">
-                            <?php _e('What to do with products that were imported before but are no longer present in the XML/CSV file.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                            <?php esc_html_e('What to do with products that were imported before but are no longer present in the XML/CSV file.', 'bootflow-product-importer'); ?>
                         </p>
                         
                         <div class="advanced-item">
                             <label>
                                 <input type="checkbox" name="handle_missing" id="handle_missing" value="1" />
-                                <?php _e('Process products that are no longer in feed', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('Process products that are no longer in feed', 'bootflow-product-importer'); ?>
                             </label>
                         </div>
                         
                         <div id="missing-products-options" style="margin-left: 25px; margin-top: 10px; display: none;">
                             <div class="advanced-item">
-                                <label for="missing_action"><?php _e('Action for missing products:', 'bootflow-woocommerce-xml-csv-importer'); ?></label>
+                                <label for="missing_action"><?php esc_html_e('Action for missing products:', 'bootflow-product-importer'); ?></label>
                                 <select name="missing_action" id="missing_action" class="regular-text">
-                                    <option value="draft"><?php _e('Move to Draft (Recommended)', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                    <option value="outofstock"><?php _e('Mark as Out of Stock', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                    <option value="backorder"><?php _e('Allow Backorder (stock=0)', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                    <option value="trash"><?php _e('Move to Trash (auto-delete after 30 days)', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
-                                    <option value="delete"><?php _e('Permanently Delete (⚠️ DANGEROUS)', 'bootflow-woocommerce-xml-csv-importer'); ?></option>
+                                    <option value="draft"><?php esc_html_e('Move to Draft (Recommended)', 'bootflow-product-importer'); ?></option>
+                                    <option value="outofstock"><?php esc_html_e('Mark as Out of Stock', 'bootflow-product-importer'); ?></option>
+                                    <option value="backorder"><?php esc_html_e('Allow Backorder (stock=0)', 'bootflow-product-importer'); ?></option>
+                                    <option value="trash"><?php esc_html_e('Move to Trash (auto-delete after 30 days)', 'bootflow-product-importer'); ?></option>
+                                    <option value="delete"><?php esc_html_e('Permanently Delete (⚠️ DANGEROUS)', 'bootflow-product-importer'); ?></option>
                                 </select>
                             </div>
                             
                             <div class="advanced-item" style="margin-top: 10px;">
                                 <label>
                                     <input type="checkbox" name="delete_variations" id="delete_variations" value="1" checked />
-                                    <?php _e('Also process variations when parent product is missing', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                    <?php esc_html_e('Also process variations when parent product is missing', 'bootflow-product-importer'); ?>
                                 </label>
                             </div>
                             
                             <p class="description" style="margin-top: 10px; color: #666;">
                                 <span style="color: #0073aa;">ℹ️</span> 
-                                <?php _e('Action will only affect products that were last updated by THIS import. Products updated by other imports will not be affected.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                                <?php esc_html_e('Action will only affect products that were last updated by THIS import. Products updated by other imports will not be affected.', 'bootflow-product-importer'); ?>
                             </p>
                         </div>
                     </div>
@@ -247,7 +249,7 @@ $can_import_url = WC_XML_CSV_AI_Import_Features::is_available('remote_url_import
             <!-- Submit Button -->
             <div class="form-actions">
                 <button type="submit" class="button button-primary button-large" id="proceed-mapping">
-                    <?php _e('Proceed to Field Mapping', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Proceed to Field Mapping', 'bootflow-product-importer'); ?>
                     <span class="button-icon">➡️</span>
                 </button>
             </div>
@@ -444,7 +446,7 @@ jQuery(document).ready(function($) {
                 } else {
                     console.error('Upload failed:', response.data);
                     showMessage(response.data.message, 'error');
-                    $submitBtn.prop('disabled', false).html('<?php _e('Proceed to Field Mapping', 'bootflow-woocommerce-xml-csv-importer'); ?> <span class="button-icon">➡️</span>');
+                    $submitBtn.prop('disabled', false).html('<?php esc_html_e('Proceed to Field Mapping', 'bootflow-product-importer'); ?> <span class="button-icon">➡️</span>');
                 }
             },
             error: function(xhr, status, error) {
@@ -453,7 +455,7 @@ jQuery(document).ready(function($) {
                 } else {
                     showMessage('Upload failed: ' + error, 'error');
                 }
-                $submitBtn.prop('disabled', false).html('<?php _e('Proceed to Field Mapping', 'bootflow-woocommerce-xml-csv-importer'); ?> <span class="button-icon">➡️</span>');
+                $submitBtn.prop('disabled', false).html('<?php esc_html_e('Proceed to Field Mapping', 'bootflow-product-importer'); ?> <span class="button-icon">➡️</span>');
             }
         });
     });

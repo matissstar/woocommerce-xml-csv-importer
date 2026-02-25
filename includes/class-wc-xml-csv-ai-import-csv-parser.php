@@ -28,21 +28,22 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
     public function parse_structure($file_path, $page = 1, $per_page = 5) {
         try {
             if (!file_exists($file_path)) {
-                throw new Exception(__('CSV file not found.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('CSV file not found.', 'bootflow-product-importer'));
             }
 
             // Auto-detect CSV format
             $csv_format = $this->detect_csv_format($file_path);
             
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for fgetcsv CSV parsing
             $handle = fopen($file_path, 'r');
             if (!$handle) {
-                throw new Exception(__('Unable to open CSV file.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('Unable to open CSV file.', 'bootflow-product-importer'));
             }
 
             // Get headers
             $headers = fgetcsv($handle, 0, $csv_format['delimiter'], $csv_format['enclosure'], $csv_format['escape']);
             if (!$headers) {
-                throw new Exception(__('Unable to read CSV headers.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('Unable to read CSV headers.', 'bootflow-product-importer'));
             }
 
             $headers = array_map('trim', $headers);
@@ -76,6 +77,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
                 }
             }
 
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
             fclose($handle);
 
             // Count total rows
@@ -117,14 +119,15 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             $products = array();
             
             if (!file_exists($file_path)) {
-                throw new Exception(__('CSV file not found.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('CSV file not found.', 'bootflow-product-importer'));
             }
 
             $csv_format = $this->detect_csv_format($file_path);
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for fgetcsv CSV parsing
             $handle = fopen($file_path, 'r');
             
             if (!$handle) {
-                throw new Exception(__('Unable to open CSV file.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('Unable to open CSV file.', 'bootflow-product-importer'));
             }
 
             // Get headers
@@ -147,6 +150,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
                 $row_count++;
             }
 
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
             fclose($handle);
             return $products;
 
@@ -182,12 +186,14 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             }
 
             $count = 0;
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for fgetcsv CSV parsing
             $handle = fopen($file_path, 'r');
             
             if ($handle) {
                 while (fgets($handle) !== false) {
                     $count++;
                 }
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
                 fclose($handle);
             }
 
@@ -211,7 +217,8 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
         $enclosures = array('"', "'");
         $escape = "\\";
 
-        $handle = fopen($file_path, 'r');
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for fgetcsv CSV parsing
+            $handle = fopen($file_path, 'r');
         if (!$handle) {
             return array(
                 'delimiter' => ',',
@@ -227,6 +234,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             if ($line === false) break;
             $sample_lines[] = trim($line);
         }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
         fclose($handle);
 
         if (empty($sample_lines)) {
@@ -280,12 +288,15 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
      * @return   string Detected encoding
      */
     private function detect_encoding($file_path) {
-        $handle = fopen($file_path, 'r');
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for fgetcsv CSV parsing
+            $handle = fopen($file_path, 'r');
         if (!$handle) {
             return 'UTF-8';
         }
 
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
         $sample = fread($handle, 1024);
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
         fclose($handle);
 
         $encodings = array('UTF-8', 'UTF-16', 'UTF-16LE', 'UTF-16BE', 'ISO-8859-1', 'Windows-1252');
@@ -337,7 +348,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
     public function validate_csv_file($file_path) {
         try {
             if (!file_exists($file_path)) {
-                throw new Exception(__('File does not exist.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('File does not exist.', 'bootflow-product-importer'));
             }
 
             $file_size = filesize($file_path);
@@ -345,18 +356,20 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             $max_size = isset($settings['max_file_size']) ? $settings['max_file_size'] : 100;
             
             if ($file_size > ($max_size * 1024 * 1024)) {
-                throw new Exception(sprintf(__('File size exceeds maximum limit of %dMB.', 'bootflow-woocommerce-xml-csv-importer'), $max_size));
+                // translators: placeholder values
+                throw new Exception(sprintf(__('File size exceeds maximum limit of %dMB.', 'bootflow-product-importer'), $max_size));
             }
 
             // Try to read first line
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for fgetcsv CSV parsing
             $handle = fopen($file_path, 'r');
             if (!$handle) {
-                throw new Exception(__('Unable to open CSV file.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('Unable to open CSV file.', 'bootflow-product-importer'));
             }
 
             $first_line = fgets($handle);
             if ($first_line === false) {
-                throw new Exception(__('CSV file appears to be empty.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('CSV file appears to be empty.', 'bootflow-product-importer'));
             }
 
             // Check if we can parse the CSV
@@ -365,14 +378,16 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             
             $headers = fgetcsv($handle, 0, $csv_format['delimiter'], $csv_format['enclosure'], $csv_format['escape']);
             if (!$headers || empty($headers)) {
-                throw new Exception(__('Unable to parse CSV headers.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('Unable to parse CSV headers.', 'bootflow-product-importer'));
             }
 
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
             fclose($handle);
 
             return array(
                 'valid' => true,
-                'message' => sprintf(__('CSV file is valid with %d columns.', 'bootflow-woocommerce-xml-csv-importer'), count($headers)),
+                // translators: placeholder values
+                'message' => sprintf(__('CSV file is valid with %d columns.', 'bootflow-product-importer'), count($headers)),
                 'file_size' => $file_size,
                 'column_count' => count($headers),
                 'csv_format' => $csv_format
@@ -402,12 +417,13 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             @ignore_user_abort(true);
 
             if (!file_exists($file_path)) {
-                throw new Exception(__('CSV file not found.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('CSV file not found.', 'bootflow-product-importer'));
             }
 
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for fgetcsv CSV parsing
             $handle = fopen($file_path, 'r');
             if (!$handle) {
-                throw new Exception(__('Unable to open CSV file.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('Unable to open CSV file.', 'bootflow-product-importer'));
             }
 
             // Detect delimiter
@@ -416,8 +432,9 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             // Read headers
             $headers = fgetcsv($handle, 0, $csv_format['delimiter'], $csv_format['enclosure']);
             if (!$headers) {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
                 fclose($handle);
-                throw new Exception(__('CSV file has no headers.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('CSV file has no headers.', 'bootflow-product-importer'));
             }
 
             $structure = array();
@@ -438,6 +455,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
                 }
             }
 
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
             fclose($handle);
 
             return array(
@@ -469,14 +487,15 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
     public function extract_products_grouped($file_path, $parent_sku_column, $type_column = '', $offset = 0, $limit = 50) {
         try {
             if (!file_exists($file_path)) {
-                throw new Exception(__('CSV file not found.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('CSV file not found.', 'bootflow-product-importer'));
             }
 
             $csv_format = $this->detect_csv_format($file_path);
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for fgetcsv CSV parsing
             $handle = fopen($file_path, 'r');
             
             if (!$handle) {
-                throw new Exception(__('Unable to open CSV file.', 'bootflow-woocommerce-xml-csv-importer'));
+                throw new Exception(__('Unable to open CSV file.', 'bootflow-product-importer'));
             }
 
             // Get headers
@@ -488,8 +507,10 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             $type_index = !empty($type_column) ? array_search($type_column, $headers) : false;
             
             if ($parent_sku_index === false) {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
                 fclose($handle);
-                throw new Exception(sprintf(__('Parent SKU column "%s" not found in CSV.', 'bootflow-woocommerce-xml-csv-importer'), $parent_sku_column));
+                // translators: placeholder values
+                throw new Exception(sprintf(__('Parent SKU column "%s" not found in CSV.', 'bootflow-product-importer'), $parent_sku_column));
             }
             
             // Read all rows and group by parent SKU
@@ -538,6 +559,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
                 }
             }
             
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
             fclose($handle);
             
             // Combine parents with their variations
@@ -620,6 +642,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             }
 
             $csv_format = $this->detect_csv_format($file_path);
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Required for fgetcsv CSV parsing
             $handle = fopen($file_path, 'r');
             
             if (!$handle) {
@@ -634,6 +657,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
             $type_index = !empty($type_column) ? array_search($type_column, $headers) : false;
             
             if ($parent_sku_index === false) {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
                 fclose($handle);
                 return 0;
             }
@@ -653,6 +677,7 @@ class WC_XML_CSV_AI_Import_CSV_Parser {
                 }
             }
             
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
             fclose($handle);
             
             return count($parent_skus) + $simple_count;

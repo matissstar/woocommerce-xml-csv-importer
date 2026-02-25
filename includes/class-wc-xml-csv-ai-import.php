@@ -100,13 +100,13 @@ class WC_XML_CSV_AI_Import {
         // Every 15 minutes
         $schedules['15min'] = array(
             'interval' => 15 * 60,
-            'display'  => __('Every 15 Minutes', 'bootflow-woocommerce-xml-csv-importer')
+            'display'  => __('Every 15 Minutes', 'bootflow-product-importer')
         );
         
         // Every 6 hours
         $schedules['6hours'] = array(
             'interval' => 6 * 60 * 60,
-            'display'  => __('Every 6 Hours', 'bootflow-woocommerce-xml-csv-importer')
+            'display'  => __('Every 6 Hours', 'bootflow-product-importer')
         );
         
         return $schedules;
@@ -149,8 +149,17 @@ class WC_XML_CSV_AI_Import {
         require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-wc-xml-csv-ai-import-csv-parser.php';
         require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-wc-xml-csv-ai-import-importer.php';
         require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-wc-xml-csv-ai-import-processor.php';
-        require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-wc-xml-csv-ai-import-ai-providers.php';
-        require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-wc-xml-csv-ai-import-scheduler.php';
+        
+        // PRO-only classes - load only if they exist (excluded from FREE version)
+        $ai_providers_file = plugin_dir_path(dirname(__FILE__)) . 'includes/class-wc-xml-csv-ai-import-ai-providers.php';
+        if (file_exists($ai_providers_file)) {
+            require_once $ai_providers_file;
+        }
+        
+        $scheduler_file = plugin_dir_path(dirname(__FILE__)) . 'includes/class-wc-xml-csv-ai-import-scheduler.php';
+        if (file_exists($scheduler_file)) {
+            require_once $scheduler_file;
+        }
 
         $this->loader = new WC_XML_CSV_AI_Import_Loader();
     }

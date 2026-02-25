@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 $import_id = isset($_GET['import_id']) ? intval($_GET['import_id']) : 0;
 
 if (!$import_id) {
-    echo '<div class="notice notice-error"><p>' . __('Invalid import ID. Please start a new import.', 'bootflow-woocommerce-xml-csv-importer') . '</p></div>';
+    echo '<div class="notice notice-error"><p>' . esc_html__('Invalid import ID. Please start a new import.', 'bootflow-product-importer') . '</p></div>';
     return;
 }
 
@@ -28,7 +28,7 @@ $import = $wpdb->get_row($wpdb->prepare(
 ));
 
 if (!$import) {
-    echo '<div class="notice notice-error"><p>' . __('Import not found.', 'bootflow-woocommerce-xml-csv-importer') . '</p></div>';
+    echo '<div class="notice notice-error"><p>' . esc_html__('Import not found.', 'bootflow-product-importer') . '</p></div>';
     return;
 }
 
@@ -169,29 +169,31 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
 
 <div class="wc-ai-import-step wc-ai-import-step-3" data-import-id="<?php echo esc_attr($import_id); ?>" data-batch-size="<?php echo esc_attr($import->batch_size ?? 50); ?>">
     <div class="import-progress-card">
-        <h2><?php _e('Import Progress', 'bootflow-woocommerce-xml-csv-importer'); ?></h2>
-        <p class="description"><?php printf(__('Importing "%s" - Please keep this page open until the import is complete.', 'bootflow-woocommerce-xml-csv-importer'), esc_html($import->name)); ?></p>
+        <h2><?php esc_html_e('Import Progress', 'bootflow-product-importer'); ?></h2>
+        <p class="description"><?php 
+        // translators: %s is the import name
+        printf(esc_html__('Importing "%s" - Please keep this page open until the import is complete.', 'bootflow-product-importer'), esc_html($import->name)); ?></p>
         
         <!-- Cron Info Box -->
         <div class="cron-info-box" style="background: linear-gradient(135deg, #e8f4fd 0%, #f0f7ff 100%); border: 1px solid #0073aa; border-radius: 8px; padding: 15px; margin: 15px 0; display: flex; align-items: flex-start; gap: 12px;">
             <span style="font-size: 24px;">💡</span>
             <div>
-                <strong style="color: #0073aa;"><?php _e('Want to close this page?', 'bootflow-woocommerce-xml-csv-importer'); ?></strong>
+                <strong style="color: #0073aa;"><?php esc_html_e('Want to close this page?', 'bootflow-product-importer'); ?></strong>
                 <p style="margin: 5px 0 10px; color: #555; font-size: 13px;">
-                    <?php _e('Set up a cron job to continue imports in the background, even when the browser is closed.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Set up a cron job to continue imports in the background, even when the browser is closed.', 'bootflow-product-importer'); ?>
                 </p>
                 <details style="cursor: pointer;">
-                    <summary style="color: #0073aa; font-weight: 500;"><?php _e('Show cron setup instructions', 'bootflow-woocommerce-xml-csv-importer'); ?></summary>
+                    <summary style="color: #0073aa; font-weight: 500;"><?php esc_html_e('Show cron setup instructions', 'bootflow-product-importer'); ?></summary>
                     <div style="background: #fff; border-radius: 4px; padding: 12px; margin-top: 10px; font-size: 12px;">
-                        <p style="margin: 0 0 8px;"><strong><?php _e('cPanel / Plesk:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></p>
-                        <p style="margin: 0 0 5px;"><?php _e('Add a new Cron Job with:', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+                        <p style="margin: 0 0 8px;"><strong><?php esc_html_e('cPanel / Plesk:', 'bootflow-product-importer'); ?></strong></p>
+                        <p style="margin: 0 0 5px;"><?php esc_html_e('Add a new Cron Job with:', 'bootflow-product-importer'); ?></p>
                         <ul style="margin: 0 0 10px; padding-left: 20px;">
-                            <li><?php _e('Schedule: Every minute', 'bootflow-woocommerce-xml-csv-importer'); ?> (<code>* * * * *</code>)</li>
+                            <li><?php esc_html_e('Schedule: Every minute', 'bootflow-product-importer'); ?> (<code>* * * * *</code>)</li>
                         </ul>
-                        <p style="margin: 0 0 5px;"><strong><?php _e('Command:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></p>
+                        <p style="margin: 0 0 5px;"><strong><?php esc_html_e('Command:', 'bootflow-product-importer'); ?></strong></p>
                         <code style="display: block; background: #f5f5f5; padding: 8px; border-radius: 4px; word-break: break-all; font-size: 11px;">wget -q -O /dev/null "<?php echo esc_url(site_url('/wp-cron.php')); ?>" &gt;/dev/null 2&gt;&amp;1</code>
                         <p style="margin: 10px 0 0; color: #666; font-size: 11px;">
-                            <?php _e('Once configured, imports will continue automatically even if you close this page.', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                            <?php esc_html_e('Once configured, imports will continue automatically even if you close this page.', 'bootflow-product-importer'); ?>
                         </p>
                     </div>
                 </details>
@@ -203,42 +205,42 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
             <?php 
             switch ($import->status) {
                 case 'preparing':
-                    _e('Preparing Import...', 'bootflow-woocommerce-xml-csv-importer');
+                    esc_html_e('Preparing Import...', 'bootflow-product-importer');
                     break;
                 case 'processing':
-                    _e('Processing Products...', 'bootflow-woocommerce-xml-csv-importer');
+                    esc_html_e('Processing Products...', 'bootflow-product-importer');
                     break;
                 case 'completed':
-                    _e('Import Completed Successfully!', 'bootflow-woocommerce-xml-csv-importer');
+                    esc_html_e('Import Completed Successfully!', 'bootflow-product-importer');
                     break;
                 case 'failed':
-                    _e('Import Failed', 'bootflow-woocommerce-xml-csv-importer');
+                    esc_html_e('Import Failed', 'bootflow-product-importer');
                     break;
                 default:
-                    _e('Unknown Status', 'bootflow-woocommerce-xml-csv-importer');
+                    esc_html_e('Unknown Status', 'bootflow-product-importer');
                     break;
             }
             ?>
         </div>
 
         <!-- Progress Circle -->
-        <div class="progress-circle" style="background: conic-gradient(#0073aa <?php echo $percentage; ?>%, #f0f0f0 0%);">
-            <div class="progress-percentage"><?php echo $percentage; ?>%</div>
+        <div class="progress-circle" style="background: conic-gradient(#0073aa <?php echo esc_attr($percentage); ?>%, #f0f0f0 0%);">
+            <div class="progress-percentage"><?php echo esc_html($percentage); ?>%</div>
         </div>
 
         <!-- Import Statistics -->
         <div class="import-stats">
             <div class="stat-item">
                 <span class="stat-value"><?php echo number_format($import->total_products); ?></span>
-                <span class="stat-label"><?php _e('Total Products', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                <span class="stat-label"><?php esc_html_e('Total Products', 'bootflow-product-importer'); ?></span>
             </div>
             <div class="stat-item">
                 <span class="stat-value"><?php echo number_format($import->processed_products); ?></span>
-                <span class="stat-label"><?php _e('Processed', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                <span class="stat-label"><?php esc_html_e('Processed', 'bootflow-product-importer'); ?></span>
             </div>
             <div class="stat-item">
                 <span class="stat-value"><?php echo number_format($import->total_products - $import->processed_products); ?></span>
-                <span class="stat-label"><?php _e('Remaining', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                <span class="stat-label"><?php esc_html_e('Remaining', 'bootflow-product-importer'); ?></span>
             </div>
         </div>
 
@@ -246,60 +248,60 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
         <div class="import-details">
             <table class="wp-list-table widefat">
                 <tr>
-                    <td><strong><?php _e('Import Name:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></td>
+                    <td><strong><?php esc_html_e('Import Name:', 'bootflow-product-importer'); ?></strong></td>
                     <td><?php echo esc_html($import->name); ?></td>
                 </tr>
                 <tr>
-                    <td><strong><?php _e('File Type:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></td>
-                    <td><?php echo strtoupper($import->file_type); ?></td>
+                    <td><strong><?php esc_html_e('File Type:', 'bootflow-product-importer'); ?></strong></td>
+                    <td><?php echo esc_html(strtoupper($import->file_type)); ?></td>
                 </tr>
                 <tr>
-                    <td><strong><?php _e('Started:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></td>
-                    <td><?php echo date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import->created_at)); ?></td>
+                    <td><strong><?php esc_html_e('Started:', 'bootflow-product-importer'); ?></strong></td>
+                    <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import->created_at))); ?></td>
                 </tr>
                 <?php if ($import->last_run): ?>
                 <tr>
-                    <td><strong><?php _e('Last Activity:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></td>
-                    <td><?php echo date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import->last_run)); ?></td>
+                    <td><strong><?php esc_html_e('Last Activity:', 'bootflow-product-importer'); ?></strong></td>
+                    <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import->last_run))); ?></td>
                 </tr>
                 <?php endif; ?>
                 <tr>
-                    <td><strong><?php _e('Schedule:', 'bootflow-woocommerce-xml-csv-importer'); ?></strong></td>
-                    <td><?php echo ucfirst($import->schedule_type); ?></td>
+                    <td><strong><?php esc_html_e('Schedule:', 'bootflow-product-importer'); ?></strong></td>
+                    <td><?php echo esc_html(ucfirst($import->schedule_type)); ?></td>
                 </tr>
             </table>
         </div>
 
         <!-- Import Controls -->
         <div class="import-controls" style="margin: 20px 0;">
-            <?php if ($import->status === 'processing'): ?>
+            <?php if (in_array($import->status, array('processing', 'pending', 'preparing', 'active'))): ?>
                 <button type="button" id="pause-import" class="button button-secondary">
                     <span class="dashicons dashicons-controls-pause"></span>
-                    <?php _e('Pause Import', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Pause Import', 'bootflow-product-importer'); ?>
                 </button>
-                <button type="button" id="stop-import" class="button button-secondary">
+                <button type="button" id="stop-import" class="button button-secondary" style="color: #d63638; border-color: #d63638;">
                     <span class="dashicons dashicons-controls-stop"></span>
-                    <?php _e('Stop Import', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Stop Import', 'bootflow-product-importer'); ?>
                 </button>
             <?php elseif ($import->status === 'paused'): ?>
                 <button type="button" id="resume-import" class="button button-primary">
                     <span class="dashicons dashicons-controls-play"></span>
-                    <?php _e('Resume Import', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Resume Import', 'bootflow-product-importer'); ?>
                 </button>
-                <button type="button" id="stop-import" class="button button-secondary">
+                <button type="button" id="stop-import" class="button button-secondary" style="color: #d63638; border-color: #d63638;">
                     <span class="dashicons dashicons-controls-stop"></span>
-                    <?php _e('Stop Import', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Stop Import', 'bootflow-product-importer'); ?>
                 </button>
             <?php elseif ($import->status === 'failed'): ?>
                 <button type="button" id="retry-import" class="button button-primary">
                     <span class="dashicons dashicons-update"></span>
-                    <?php _e('Retry Import', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Retry Import', 'bootflow-product-importer'); ?>
                 </button>
             <?php endif; ?>
 
             <button type="button" id="view-logs" class="button button-secondary">
                 <span class="dashicons dashicons-list-view"></span>
-                <?php _e('View Detailed Logs', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                <?php esc_html_e('View Detailed Logs', 'bootflow-product-importer'); ?>
             </button>
         </div>
 
@@ -309,7 +311,7 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
                 <!-- Progress Bar -->
                 <div style="flex: 2; min-width: 250px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span style="font-weight: 600; color: #495057;"><?php _e('Progress', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                        <span style="font-weight: 600; color: #495057;"><?php esc_html_e('Progress', 'bootflow-product-importer'); ?></span>
                         <span id="live-progress-text" style="font-weight: 700; color: #0073aa;"><?php echo esc_html($percentage); ?>%</span>
                     </div>
                     <div style="background: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
@@ -321,19 +323,19 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
                 <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                     <div style="text-align: center; min-width: 80px;">
                         <div id="live-processed" style="font-size: 24px; font-weight: 700; color: #28a745;"><?php echo esc_html($import->processed_products); ?></div>
-                        <div style="font-size: 11px; color: #6c757d; text-transform: uppercase;"><?php _e('Processed', 'bootflow-woocommerce-xml-csv-importer'); ?></div>
+                        <div style="font-size: 11px; color: #6c757d; text-transform: uppercase;"><?php esc_html_e('Processed', 'bootflow-product-importer'); ?></div>
                     </div>
                     <div style="text-align: center; min-width: 80px;">
                         <div id="live-total" style="font-size: 24px; font-weight: 700; color: #495057;"><?php echo esc_html($import->total_products); ?></div>
-                        <div style="font-size: 11px; color: #6c757d; text-transform: uppercase;"><?php _e('Total', 'bootflow-woocommerce-xml-csv-importer'); ?></div>
+                        <div style="font-size: 11px; color: #6c757d; text-transform: uppercase;"><?php esc_html_e('Total', 'bootflow-product-importer'); ?></div>
                     </div>
                     <div style="text-align: center; min-width: 80px;">
                         <div id="live-speed" style="font-size: 24px; font-weight: 700; color: #17a2b8;">-</div>
-                        <div style="font-size: 11px; color: #6c757d; text-transform: uppercase;"><?php _e('prod/min', 'bootflow-woocommerce-xml-csv-importer'); ?></div>
+                        <div style="font-size: 11px; color: #6c757d; text-transform: uppercase;"><?php esc_html_e('prod/min', 'bootflow-product-importer'); ?></div>
                     </div>
                     <div style="text-align: center; min-width: 80px;">
                         <div id="live-eta" style="font-size: 24px; font-weight: 700; color: #6f42c1;">-</div>
-                        <div style="font-size: 11px; color: #6c757d; text-transform: uppercase;"><?php _e('ETA', 'bootflow-woocommerce-xml-csv-importer'); ?></div>
+                        <div style="font-size: 11px; color: #6c757d; text-transform: uppercase;"><?php esc_html_e('ETA', 'bootflow-product-importer'); ?></div>
                     </div>
                 </div>
             </div>
@@ -341,7 +343,7 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
             <!-- Current chunk info -->
             <div id="live-chunk-info" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #dee2e6; font-size: 13px; color: #6c757d;">
                 <span class="dashicons dashicons-update" style="animation: spin 1s linear infinite;"></span>
-                <span id="live-current-action"><?php _e('Waiting for progress...', 'bootflow-woocommerce-xml-csv-importer'); ?></span>
+                <span id="live-current-action"><?php esc_html_e('Waiting for progress...', 'bootflow-product-importer'); ?></span>
             </div>
         </div>
 
@@ -351,32 +353,38 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
             <h3 style="display: flex; align-items: center; justify-content: space-between;">
                 <span>
                     <span class="dashicons dashicons-admin-page"></span>
-                    <?php _e('Product Activity Log', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Product Activity Log', 'bootflow-product-importer'); ?>
                 </span>
                 <span style="font-size: 12px; font-weight: normal; color: #6c757d;">
                     <label style="cursor: pointer;">
                         <input type="checkbox" id="auto-scroll-logs" checked style="margin-right: 5px;">
-                        <?php _e('Auto-scroll', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                        <?php esc_html_e('Auto-scroll', 'bootflow-product-importer'); ?>
                     </label>
                 </span>
             </h3>
             <div class="import-logs" id="import-logs" style="max-height: 400px; overflow-y: auto;">
                 <?php
                 // Get recent product logs only (exclude progress logs)
+                $chunk_pattern = $wpdb->esc_like('Chunk ') . '%';
+                $processing_pattern = $wpdb->esc_like('Processing chunk ') . '%';
+                $processed_pattern = $wpdb->esc_like('Processed ') . '%/%';
                 $logs = $wpdb->get_results($wpdb->prepare(
                     "SELECT * FROM {$wpdb->prefix}wc_itp_import_logs 
                      WHERE import_id = %d 
-                     AND message NOT LIKE 'Chunk %' 
-                     AND message NOT LIKE 'Processing chunk %'
-                     AND message NOT LIKE 'Processed %/%'
+                     AND message NOT LIKE %s 
+                     AND message NOT LIKE %s
+                     AND message NOT LIKE %s
                      ORDER BY id DESC LIMIT 50",
-                    $import_id
+                    $import_id,
+                    $chunk_pattern,
+                    $processing_pattern,
+                    $processed_pattern
                 ));
 
                 if (!empty($logs)) {
                     foreach ($logs as $log) {
                         $log_class = esc_attr($log->level);
-                        $timestamp = date_i18n('H:i:s', strtotime($log->created_at));
+                        $timestamp = esc_html(date_i18n('H:i:s', strtotime($log->created_at)));
                         
                         // Determine icon based on log content
                         $icon = '📝';
@@ -392,9 +400,9 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
                             $icon = '⚠️';
                         }
                         
-                        echo '<div class="log-entry ' . $log_class . '" data-log-id="' . esc_attr($log->id) . '">';
-                        echo '<span class="log-icon">' . $icon . '</span> ';
-                        echo '<span class="log-time">[' . $timestamp . ']</span> ';
+                        echo '<div class="log-entry ' . esc_attr($log_class) . '" data-log-id="' . esc_attr($log->id) . '">';
+                        echo '<span class="log-icon">' . esc_html($icon) . '</span> ';
+                        echo '<span class="log-time">[' . esc_html($timestamp) . ']</span> ';
                         echo '<span class="log-message">' . esc_html($log->message) . '</span>';
                         if (!empty($log->product_sku)) {
                             echo ' <span class="log-sku">(SKU: ' . esc_html($log->product_sku) . ')</span>';
@@ -402,7 +410,7 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
                         echo '</div>';
                     }
                 } else {
-                    echo '<div class="log-entry info">' . __('Waiting for product processing...', 'bootflow-woocommerce-xml-csv-importer') . '</div>';
+                    echo '<div class="log-entry info">' . esc_html__('Waiting for product processing...', 'bootflow-product-importer') . '</div>';
                 }
                 ?>
             </div>
@@ -414,25 +422,25 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
         <div class="performance-metrics" style="margin-top: 20px;">
             <h3>
                 <span class="dashicons dashicons-chart-line"></span>
-                <?php _e('Performance Metrics', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                <?php esc_html_e('Performance Metrics', 'bootflow-product-importer'); ?>
             </h3>
             <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="metric-item">
-                    <div class="metric-label"><?php _e('Processing Speed', 'bootflow-woocommerce-xml-csv-importer'); ?></div>
+                    <div class="metric-label"><?php esc_html_e('Processing Speed', 'bootflow-product-importer'); ?></div>
                     <div class="metric-value" id="processing-speed">
                         <?php
                         if ($import->last_run && $import->created_at) {
                             $elapsed = strtotime($import->last_run) - strtotime($import->created_at);
                             $rate = $elapsed > 0 ? round($import->processed_products / ($elapsed / 60), 2) : 0;
-                            echo $rate . ' ' . __('products/min', 'bootflow-woocommerce-xml-csv-importer');
+                            echo esc_html($rate) . ' ' . esc_html__('products/min', 'bootflow-product-importer');
                         } else {
-                            echo __('Calculating...', 'bootflow-woocommerce-xml-csv-importer');
+                            echo esc_html__('Calculating...', 'bootflow-product-importer');
                         }
                         ?>
                     </div>
                 </div>
                 <div class="metric-item">
-                    <div class="metric-label"><?php _e('Estimated Time Remaining', 'bootflow-woocommerce-xml-csv-importer'); ?></div>
+                    <div class="metric-label"><?php esc_html_e('Estimated Time Remaining', 'bootflow-product-importer'); ?></div>
                     <div class="metric-value" id="time-remaining">
                         <?php
                         if ($import->processed_products > 0 && $import->total_products > $import->processed_products) {
@@ -440,23 +448,23 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
                             if (isset($rate) && $rate > 0) {
                                 $eta_minutes = round($remaining / $rate);
                                 if ($eta_minutes < 60) {
-                                    echo $eta_minutes . ' ' . __('minutes', 'bootflow-woocommerce-xml-csv-importer');
+                                    echo esc_html($eta_minutes) . ' ' . esc_html__('minutes', 'bootflow-product-importer');
                                 } else {
                                     $eta_hours = floor($eta_minutes / 60);
                                     $eta_mins = $eta_minutes % 60;
-                                    echo $eta_hours . 'h ' . $eta_mins . 'm';
+                                    echo esc_html($eta_hours) . 'h ' . esc_html($eta_mins) . 'm';
                                 }
                             } else {
-                                echo __('Calculating...', 'bootflow-woocommerce-xml-csv-importer');
+                                echo esc_html__('Calculating...', 'bootflow-product-importer');
                             }
                         } else {
-                            echo __('N/A', 'bootflow-woocommerce-xml-csv-importer');
+                            echo esc_html__('N/A', 'bootflow-product-importer');
                         }
                         ?>
                     </div>
                 </div>
                 <div class="metric-item">
-                    <div class="metric-label"><?php _e('Success Rate', 'bootflow-woocommerce-xml-csv-importer'); ?></div>
+                    <div class="metric-label"><?php esc_html_e('Success Rate', 'bootflow-product-importer'); ?></div>
                     <div class="metric-value" id="success-rate">
                         <?php
                         $error_count = $wpdb->get_var($wpdb->prepare(
@@ -464,7 +472,7 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
                             $import_id
                         ));
                         $success_rate = $import->processed_products > 0 ? round((($import->processed_products - $error_count) / $import->processed_products) * 100, 1) : 100;
-                        echo $success_rate . '%';
+                        echo esc_html($success_rate) . '%';
                         ?>
                     </div>
                 </div>
@@ -475,31 +483,33 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
         <!-- Actions after completion -->
         <?php if ($import->status === 'completed'): ?>
         <div class="completion-actions" style="margin-top: 30px; padding: 20px; background: #f0f8ff; border: 1px solid #0073aa; border-radius: 6px;">
-            <h3><?php _e('Import Completed Successfully!', 'bootflow-woocommerce-xml-csv-importer'); ?></h3>
-            <p><?php printf(__('Successfully imported %d out of %d products.', 'bootflow-woocommerce-xml-csv-importer'), $import->processed_products, $import->total_products); ?></p>
+            <h3><?php esc_html_e('Import Completed Successfully!', 'bootflow-product-importer'); ?></h3>
+            <p><?php 
+            // translators: %1$d is the number of successfully imported products, %2$d is the total number of products
+            printf(esc_html__('Successfully imported %1$d out of %2$d products.', 'bootflow-product-importer'), intval($import->processed_products), intval($import->total_products)); ?></p>
             
             <div class="action-buttons" style="margin-top: 15px;">
-                <a href="<?php echo admin_url('edit.php?post_type=product'); ?>" class="button button-primary">
+                <a href="<?php echo esc_url(admin_url('edit.php?post_type=product')); ?>" class="button button-primary">
                     <span class="dashicons dashicons-products"></span>
-                    <?php _e('View Products', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('View Products', 'bootflow-product-importer'); ?>
                 </a>
                 
-                <a href="<?php echo admin_url('admin.php?page=wc-xml-csv-import'); ?>" class="button button-secondary">
+                <a href="<?php echo esc_url(admin_url('admin.php?page=wc-xml-csv-import')); ?>" class="button button-secondary">
                     <span class="dashicons dashicons-plus-alt"></span>
-                    <?php _e('Start New Import', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Start New Import', 'bootflow-product-importer'); ?>
                 </a>
                 
                 <?php if (WC_XML_CSV_AI_Import_Features::is_available('detailed_logs')): ?>
                 <button type="button" id="download-report" class="button button-secondary">
                     <span class="dashicons dashicons-download"></span>
-                    <?php _e('Download Report', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Download Report', 'bootflow-product-importer'); ?>
                 </button>
                 <?php endif; ?>
                 
                 <?php if ($import->schedule_type !== 'disabled'): ?>
-                <a href="<?php echo admin_url('admin.php?page=wc-xml-csv-import-settings'); ?>" class="button button-secondary">
+                <a href="<?php echo esc_url(admin_url('admin.php?page=wc-xml-csv-import-settings')); ?>" class="button button-secondary">
                     <span class="dashicons dashicons-clock"></span>
-                    <?php _e('Manage Scheduled Import', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Manage Scheduled Import', 'bootflow-product-importer'); ?>
                 </a>
                 <?php endif; ?>
             </div>
@@ -509,8 +519,8 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
         <!-- Error information -->
         <?php if ($import->status === 'failed'): ?>
         <div class="error-information" style="margin-top: 20px; padding: 20px; background: #fee; border: 1px solid #dc3545; border-radius: 6px;">
-            <h3><?php _e('Import Failed', 'bootflow-woocommerce-xml-csv-importer'); ?></h3>
-            <p><?php _e('The import process encountered an error and could not be completed. Please check the logs below for more details.', 'bootflow-woocommerce-xml-csv-importer'); ?></p>
+            <h3><?php esc_html_e('Import Failed', 'bootflow-product-importer'); ?></h3>
+            <p><?php esc_html_e('The import process encountered an error and could not be completed. Please check the logs below for more details.', 'bootflow-product-importer'); ?></p>
             
             <?php
             $error_logs = $wpdb->get_results($wpdb->prepare(
@@ -520,10 +530,10 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
             
             if (!empty($error_logs)): ?>
             <div class="error-logs">
-                <h4><?php _e('Recent Errors:', 'bootflow-woocommerce-xml-csv-importer'); ?></h4>
+                <h4><?php esc_html_e('Recent Errors:', 'bootflow-product-importer'); ?></h4>
                 <?php foreach ($error_logs as $error_log): ?>
                 <div class="error-log-entry">
-                    <strong><?php echo date_i18n('H:i:s', strtotime($error_log->created_at)); ?></strong>: 
+                    <strong><?php echo esc_html(date_i18n('H:i:s', strtotime($error_log->created_at))); ?></strong>: 
                     <?php echo esc_html($error_log->message); ?>
                     <?php if (!empty($error_log->product_sku)): ?>
                         (SKU: <?php echo esc_html($error_log->product_sku); ?>)
@@ -536,12 +546,12 @@ $percentage = $import->total_products > 0 ? round(($import->processed_products /
             <div class="error-actions" style="margin-top: 15px;">
                 <button type="button" id="retry-import" class="button button-primary">
                     <span class="dashicons dashicons-update"></span>
-                    <?php _e('Retry Import', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Retry Import', 'bootflow-product-importer'); ?>
                 </button>
                 
-                <a href="<?php echo admin_url('admin.php?page=wc-xml-csv-import'); ?>" class="button button-secondary">
+                <a href="<?php echo esc_url(admin_url('admin.php?page=wc-xml-csv-import')); ?>" class="button button-secondary">
                     <span class="dashicons dashicons-arrow-left-alt"></span>
-                    <?php _e('Start Over', 'bootflow-woocommerce-xml-csv-importer'); ?>
+                    <?php esc_html_e('Start Over', 'bootflow-product-importer'); ?>
                 </a>
             </div>
         </div>
@@ -577,9 +587,10 @@ jQuery(document).ready(function($) {
     currentProcessed = processedProducts;
     currentTotal = totalProducts;
     
-    // Kickstart import if it's stuck at 0% (happens after re-run or pending status)
-    if ((importStatus === 'processing' || importStatus === 'pending') && processedProducts === 0 && totalProducts > 0 && !importKickstarted) {
-        console.log('Import appears stuck at 0% - kickstarting...');
+    // Kickstart import if status is pending (happens after re-run/resume)
+    // For pending status, always kickstart regardless of processed count (resume case)
+    if ((importStatus === 'pending' || (importStatus === 'processing' && processedProducts === 0)) && totalProducts > 0 && !importKickstarted) {
+        console.log('Import needs kickstart - status:', importStatus, 'processed:', processedProducts);
         importKickstarted = true;
         
         // Reset progress to 0% before kickstart
@@ -770,16 +781,16 @@ jQuery(document).ready(function($) {
         var statusText = '';
         switch(data.status) {
             case 'preparing':
-                statusText = '<?php _e('Preparing Import...', 'bootflow-woocommerce-xml-csv-importer'); ?>';
+                statusText = '<?php esc_html_e('Preparing Import...', 'bootflow-product-importer'); ?>';
                 break;
             case 'processing':
-                statusText = '<?php _e('Processing Products...', 'bootflow-woocommerce-xml-csv-importer'); ?>';
+                statusText = '<?php esc_html_e('Processing Products...', 'bootflow-product-importer'); ?>';
                 break;
             case 'completed':
-                statusText = '<?php _e('Import Completed Successfully!', 'bootflow-woocommerce-xml-csv-importer'); ?>';
+                statusText = '<?php esc_html_e('Import Completed Successfully!', 'bootflow-product-importer'); ?>';
                 break;
             case 'failed':
-                statusText = '<?php _e('Import Failed', 'bootflow-woocommerce-xml-csv-importer'); ?>';
+                statusText = '<?php esc_html_e('Import Failed', 'bootflow-product-importer'); ?>';
                 break;
         }
         $('.import-status').removeClass('preparing processing completed failed').addClass(data.status).text(statusText);
@@ -909,7 +920,7 @@ jQuery(document).ready(function($) {
     // View detailed logs
     $('#view-logs').on('click', function() {
         window.open(
-            '<?php echo admin_url("admin.php?page=wc-xml-csv-import-logs&import_id="); ?>' + importId,
+            '<?php echo esc_url(admin_url("admin.php?page=wc-xml-csv-import-logs&import_id=")); ?>' + importId,
             '_blank'
         );
     });

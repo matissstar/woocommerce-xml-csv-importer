@@ -10,7 +10,7 @@ set -e
 
 # Configuration
 VERSION="0.9.2-build-$(date +%Y%m%d-%H%M)"
-PLUGIN_SLUG="bootflow-woocommerce-xml-csv-importer"
+PLUGIN_SLUG="bootflow-product-importer"
 PRO_SLUG="${PLUGIN_SLUG}-pro"
 
 # Directories
@@ -26,7 +26,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}Building WooCommerce XML/CSV Importer${NC}"
+echo -e "${GREEN}Building Product XML/CSV Importer${NC}"
 echo -e "${GREEN}Version: ${VERSION}${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
@@ -70,20 +70,13 @@ echo -e "${YELLOW}  Modifying plugin for FREE edition...${NC}"
 
 # Change IS_PRO constant to false
 sed -i "s/define('WC_XML_CSV_AI_IMPORT_IS_PRO', true);/define('WC_XML_CSV_AI_IMPORT_IS_PRO', false);/g" \
-    "$FREE_BUILD_DIR/woocommerce-xml-csv-importer.php"
+    "$FREE_BUILD_DIR/bootflow-product-importer.php"
 
 # Update plugin header for FREE - no change needed since source already has correct Bootflow branding
 # Just ensure the name stays as-is (Bootflow – WooCommerce XML & CSV Importer)
 
-# Remove AI-related require statements from main file (they'll cause errors without the files)
-sed -i '/class-wc-xml-csv-ai-import-ai-providers\.php/d' "$FREE_BUILD_DIR/woocommerce-xml-csv-importer.php"
-sed -i '/class-wc-xml-csv-ai-import-scheduler\.php/d' "$FREE_BUILD_DIR/woocommerce-xml-csv-importer.php"
-
-# Also remove from class-wc-xml-csv-ai-import.php if it loads these
-if [ -f "$FREE_BUILD_DIR/includes/class-wc-xml-csv-ai-import.php" ]; then
-    sed -i '/class-wc-xml-csv-ai-import-ai-providers\.php/d' "$FREE_BUILD_DIR/includes/class-wc-xml-csv-ai-import.php"
-    sed -i '/class-wc-xml-csv-ai-import-scheduler\.php/d' "$FREE_BUILD_DIR/includes/class-wc-xml-csv-ai-import.php"
-fi
+# NOTE: No need to remove AI/Scheduler require statements anymore - 
+# code now uses file_exists() and class_exists() checks for compatibility
 
 # Remove eval() and create_function usage (WordPress.org requirement)
 echo -e "${YELLOW}  Removing eval() and PRO features for WordPress.org compliance...${NC}"
@@ -99,8 +92,7 @@ fi
 if [ -f "$FREE_BUILD_DIR/includes/class-wc-xml-csv-ai-import-processor.php" ]; then
     # Comment out the eval line and return original value
     sed -i 's/\$result = eval.*return.*eval_code.*;/\$result = \$value_param; \/\/ eval disabled in FREE version/g' "$FREE_BUILD_DIR/includes/class-wc-xml-csv-ai-import-processor.php"
-    # Remove AI_Providers instantiation
-    sed -i 's/\$this->ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();/\$this->ai_providers = null; \/\/ AI disabled in FREE version/g' "$FREE_BUILD_DIR/includes/class-wc-xml-csv-ai-import-processor.php"
+    # NOTE: AI_Providers instantiation now uses class_exists() check in source code - no sed needed
 fi
 
 # In importer.php - replace eval with direct value return
@@ -111,16 +103,14 @@ fi
 # In admin.php - replace eval calls with safe returns
 if [ -f "$FREE_BUILD_DIR/includes/admin/class-wc-xml-csv-ai-import-admin.php" ]; then
     sed -i 's/\$result = eval(\$wrapped_formula);/\$result = \$test_value; \/\/ eval disabled in FREE version/g' "$FREE_BUILD_DIR/includes/admin/class-wc-xml-csv-ai-import-admin.php"
-    # Remove AI_Providers instantiation
-    sed -i 's/\$ai_providers = new WC_XML_CSV_AI_Import_AI_Providers();/\$ai_providers = null; \/\/ AI disabled in FREE version/g' "$FREE_BUILD_DIR/includes/admin/class-wc-xml-csv-ai-import-admin.php"
+    # NOTE: AI_Providers now uses class_exists() check in source code - no sed needed
 fi
 
 # Remove AI Providers tab, Scheduler, Security, and Logging references from settings-page.php
 if [ -f "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php" ]; then
     # Remove AI Providers tab link
     sed -i '/<a href="#ai-providers".*AI Providers/d' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
-    # Comment out Scheduler::is_action_scheduler_available calls
-    sed -i 's/WC_XML_CSV_AI_Import_Scheduler::is_action_scheduler_available()/true \/\/ Scheduler disabled in FREE/g' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
+    # NOTE: Scheduler::is_action_scheduler_available now uses class_exists() check in source code - no sed needed
     # Remove Security tab from navigation (PHP Formula is PRO-only feature)
     sed -i '/<a href="#security".*Security/d' "$FREE_BUILD_DIR/includes/admin/partials/settings-page.php"
     # Remove Logging tab from navigation (Logging is PRO-only feature)
@@ -179,11 +169,11 @@ class WC_XML_CSV_AI_Import_License {
     }
     
     public static function activate_license($license_key) {
-        return array('success' => false, 'message' => __('License activation is only available in the Pro version.', 'bootflow-woocommerce-xml-csv-importer'));
+        return array('success' => false, 'message' => __('License activation is only available in the Pro version.', 'bootflow-product-importer'));
     }
     
     public static function deactivate_license() {
-        return array('success' => false, 'message' => __('License deactivation is only available in the Pro version.', 'bootflow-woocommerce-xml-csv-importer'));
+        return array('success' => false, 'message' => __('License deactivation is only available in the Pro version.', 'bootflow-product-importer'));
     }
 }
 
@@ -194,7 +184,7 @@ EOFLIC
 fi
 
 # Rename main plugin file to match slug
-mv "$FREE_BUILD_DIR/woocommerce-xml-csv-importer.php" "$FREE_BUILD_DIR/$PLUGIN_SLUG.php"
+# No rename needed - file already named correctly
 
 # Create FREE ZIP
 echo -e "${YELLOW}  Creating ZIP archive...${NC}"
@@ -233,22 +223,23 @@ echo -e "${YELLOW}  Modifying plugin for PRO edition...${NC}"
 
 # Ensure IS_PRO is true (should already be, but just in case)
 sed -i "s/define('WC_XML_CSV_AI_IMPORT_IS_PRO', false);/define('WC_XML_CSV_AI_IMPORT_IS_PRO', true);/g" \
-    "$PRO_BUILD_DIR/woocommerce-xml-csv-importer.php"
+    "$PRO_BUILD_DIR/bootflow-product-importer.php"
 
 # Update plugin header for PRO
-sed -i "s/Plugin Name: Bootflow – WooCommerce XML & CSV Importer/Plugin Name: Bootflow – WooCommerce XML \& CSV Importer (Pro)/g" \
-    "$PRO_BUILD_DIR/woocommerce-xml-csv-importer.php"
+sed -i "s/Plugin Name: Bootflow – Product XML & CSV Importer/Plugin Name: Bootflow – WooCommerce XML \& CSV Importer (Pro)/g" \
+    "$PRO_BUILD_DIR/bootflow-product-importer.php"
 
 # Update description for PRO
 sed -i "s/Description: Import and update WooCommerce products from XML and CSV feeds with manual field mapping, product variations support, and a reliable import workflow./Description: Advanced automation, scheduled imports, selective updates, and AI-assisted workflows for WooCommerce XML and CSV product feeds./g" \
-    "$PRO_BUILD_DIR/woocommerce-xml-csv-importer.php"
+    "$PRO_BUILD_DIR/bootflow-product-importer.php"
 
 # Update version number in PRO
 sed -i "s/Version: [0-9.]*$/Version: ${VERSION}/g" \
-    "$PRO_BUILD_DIR/woocommerce-xml-csv-importer.php"
+    "$PRO_BUILD_DIR/bootflow-product-importer.php"
 
 # Rename main plugin file to match slug
-mv "$PRO_BUILD_DIR/woocommerce-xml-csv-importer.php" "$PRO_BUILD_DIR/$PRO_SLUG.php"
+# Rename for PRO version
+mv "$PRO_BUILD_DIR/bootflow-product-importer.php" "$PRO_BUILD_DIR/$PRO_SLUG.php"
 
 # Create PRO ZIP
 echo -e "${YELLOW}  Creating ZIP archive...${NC}"

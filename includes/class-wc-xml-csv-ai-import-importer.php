@@ -179,7 +179,7 @@ class WC_XML_CSV_AI_Import_Importer {
                 
                 if ($result === false) {
                     $error = $wpdb->last_error;
-                    throw new Exception(__('Failed to update import record: ', 'bootflow-woocommerce-xml-csv-importer') . $error);
+                    throw new Exception(esc_html__('Failed to update import record: ', 'bootflow-product-importer') . $error);
                 }
                 
                 $this->import_id = $import_id;
@@ -192,7 +192,7 @@ class WC_XML_CSV_AI_Import_Importer {
                 
                 if ($result === false) {
                     $error = $wpdb->last_error;
-                    throw new Exception(__('Failed to create import record: ', 'bootflow-woocommerce-xml-csv-importer') . $error);
+                    throw new Exception(esc_html__('Failed to create import record: ', 'bootflow-product-importer') . $error);
                 }
 
                 $this->import_id = $wpdb->insert_id;
@@ -201,8 +201,10 @@ class WC_XML_CSV_AI_Import_Importer {
             // Load config from database to ensure proper format
             $this->load_import_config($this->import_id);
 
+            // translators: %1$s is the import name, %2$d is the number of products
             // Log import start
-            $this->log('info', sprintf(__('Import "%s" started with %d products.', 'bootflow-woocommerce-xml-csv-importer'), $import_record['name'], $total_products));
+            // translators: %1$s is a string, %2$d is a number
+            $this->log('info', sprintf(__('Import "%1$s" started with %2$d products.', 'bootflow-product-importer'), $import_record['name'], $total_products));
 
             // Return import ID - processing will be kickstarted by progress page
             return $this->import_id;
@@ -231,18 +233,34 @@ class WC_XML_CSV_AI_Import_Importer {
         ));
 
         if (!$import) {
-            throw new Exception(__('Import not found.', 'bootflow-woocommerce-xml-csv-importer'));
+            throw new Exception(esc_html__('Import not found.', 'bootflow-product-importer'));
         }
 
         $this->import_id = $import_id;
+        
+        $field_mappings = json_decode($import->field_mappings, true) ?: array();
+        
+        // Extract custom fields from field_mappings (they are saved with '_custom_' prefix)
+        $custom_fields = array();
+        foreach ($field_mappings as $key => $mapping) {
+            if (strpos($key, '_custom_') === 0) {
+                $custom_fields[] = $mapping;
+            }
+        }
+        // Also check the dedicated custom_fields column for backwards compatibility
+        $legacy_custom_fields = json_decode($import->custom_fields ?? '[]', true) ?: array();
+        if (!empty($legacy_custom_fields) && empty($custom_fields)) {
+            $custom_fields = $legacy_custom_fields;
+        }
+        
         $this->config = array(
             'file_path' => $import->file_path ?: $import->file_url,  // Fallback to file_url if file_path is NULL
             'file_type' => $import->file_type ?? 'xml',
             'product_wrapper' => $import->product_wrapper,
-            'field_mapping' => json_decode($import->field_mappings, true) ?: array(),
+            'field_mapping' => $field_mappings,
             'processing_modes' => json_decode($import->processing_modes ?? '[]', true) ?: array(),
             'processing_configs' => json_decode($import->processing_configs ?? '[]', true) ?: array(),
-            'custom_fields' => json_decode($import->custom_fields ?? '[]', true) ?: array(),
+            'custom_fields' => $custom_fields,
             'import_filters' => json_decode($import->import_filters ?? '[]', true) ?: array(),
             'filter_logic' => $import->filter_logic ?? 'AND',
             'draft_non_matching' => isset($import->draft_non_matching) ? (int)$import->draft_non_matching : 0,
@@ -282,6 +300,32 @@ class WC_XML_CSV_AI_Import_Importer {
             // Load config if import_id provided (for cron jobs)
             if ($import_id && empty($this->config)) {
                 $this->load_import_config($import_id);
+            }
+            
+            // CHECK KILL FLAG FIRST - stop immediately if killed
+            $kill_flag_specific = WC_XML_CSV_AI_IMPORT_PLUGIN_DIR . 'IMPORT_KILLED_' . $this->import_id . '.flag';
+            $kill_flag_global = WC_XML_CSV_AI_IMPORT_PLUGIN_DIR . 'IMPORT_KILLED.flag';
+            if (file_exists($kill_flag_specific) || file_exists($kill_flag_global)) {
+                // Delete specific flag after detecting it
+                if (file_exists($kill_flag_specific)) {
+                    @unlink($kill_flag_specific);
+                }
+                // Only delete global flag if it's for this import
+                if (file_exists($kill_flag_global)) {
+                    $global_content = file_get_contents($kill_flag_global);
+                    if (strpos($global_content, $this->import_id . ':') === 0) {
+                        @unlink($kill_flag_global);
+                    }
+                }
+                return array(
+                    'processed' => 0,
+                    'errors' => array(),
+                    'total_processed' => 0,
+                    'total_products' => 0,
+                    'completed' => false,
+                    'stopped' => true,
+                    'message' => 'Import killed by user'
+                );
             }
             
             // CRITICAL: Use transient lock to prevent parallel execution
@@ -568,7 +612,8 @@ class WC_XML_CSV_AI_Import_Importer {
                 add_action('shutdown', array($this, 'sync_variable_products_stock_status'), 999);
                 
                 $this->update_import_status('completed');
-                $this->log('info', sprintf(__('Import completed successfully. Processed %d products.', 'bootflow-woocommerce-xml-csv-importer'), $import->processed_products));
+                // translators: %d is the number of processed products
+                $this->log('info', sprintf(__('Import completed successfully. Processed %d products.', 'bootflow-product-importer'), $import->processed_products));
             } else {
                 // Schedule next chunk automatically to prevent hanging
                 // This ensures continuous processing even if AJAX times out
@@ -648,10 +693,12 @@ class WC_XML_CSV_AI_Import_Importer {
                 // If draft_non_matching is enabled, import as Draft instead of skipping
                 if (!empty($this->config['draft_non_matching'])) {
                     $force_status = 'draft';
-                    $this->log('info', sprintf(__('Product does not match filters - will be imported as Draft (SKU: %s)', 'bootflow-woocommerce-xml-csv-importer'), $sku));
+                    // translators: %s is the product SKU
+                    $this->log('info', sprintf(__('Product does not match filters - will be imported as Draft (SKU: %s)', 'bootflow-product-importer'), $sku));
                 } else {
                     // Skip product if checkbox not enabled
-                    $this->log('info', sprintf(__('Product skipped by import filters (SKU: %s)', 'bootflow-woocommerce-xml-csv-importer'), $sku));
+                    // translators: %s is the product SKU
+                    $this->log('info', sprintf(__('Product skipped by import filters (SKU: %s)', 'bootflow-product-importer'), $sku));
                     return;
                 }
             } else {
@@ -660,7 +707,8 @@ class WC_XML_CSV_AI_Import_Importer {
                     // When draft_non_matching is enabled, products that pass filters should be published
                     $force_status = 'publish';
                     $sku = $product_data['sku'] ?? $product_data['id'] ?? 'Unknown';
-                    $this->log('info', sprintf(__('Product matches filters - will be imported as Published (SKU: %s)', 'bootflow-woocommerce-xml-csv-importer'), $sku));
+                    // translators: %s is the product SKU
+                    $this->log('info', sprintf(__('Product matches filters - will be imported as Published (SKU: %s)', 'bootflow-product-importer'), $sku));
                 }
             }
             
@@ -706,7 +754,8 @@ class WC_XML_CSV_AI_Import_Importer {
             
 
             if ($existing_product_id && !$update_existing) {
-                throw new Exception(sprintf(__('Product with SKU "%s" already exists and update is disabled.', 'bootflow-woocommerce-xml-csv-importer'), $processed_data['sku']));
+                // translators: placeholder values
+                throw new Exception(sprintf(esc_html__('Product with SKU "%s" already exists and update is disabled.', 'bootflow-product-importer'), esc_html($processed_data['sku'])));
             }
 
             // Create or update product
@@ -714,17 +763,20 @@ class WC_XML_CSV_AI_Import_Importer {
                 // Check if we should skip unchanged products
                 if ($skip_unchanged && !$this->has_product_data_changed($existing_product_id, $processed_data)) {
                     $product_name = !empty($processed_data['name']) ? $processed_data['name'] : 'Product';
-                    $this->log('info', sprintf(__('Skipped product (unchanged): %s (ID: %d)', 'bootflow-woocommerce-xml-csv-importer'), $product_name, $existing_product_id), $processed_data['sku']);
+                    // translators: %1$s is the product name, %2$d is the product ID
+                    $this->log('info', sprintf(__('Skipped product (unchanged): %1$s (ID: %2$d)', 'bootflow-product-importer'), $product_name, $existing_product_id), esc_html($processed_data['sku']));
                     return $existing_product_id; // Return existing ID without updating
                 }
                 
                 $product_id = $this->update_product($existing_product_id, $processed_data, $mapped_data);
                 $product_name = !empty($processed_data['name']) ? $processed_data['name'] : 'Product';
-                $this->log('info', sprintf(__('Updated product: %s (ID: %d)', 'bootflow-woocommerce-xml-csv-importer'), $product_name, $product_id), $processed_data['sku']);
+                // translators: %1$s is the product name, %2$d is the product ID
+                $this->log('info', sprintf(__('Updated product: %1$s (ID: %2$d)', 'bootflow-product-importer'), $product_name, $product_id), esc_html($processed_data['sku']));
             } else {
                 $product_id = $this->create_product($processed_data, $mapped_data);
                 $product_name = !empty($processed_data['name']) ? $processed_data['name'] : 'Product';
-                $this->log('info', sprintf(__('Created product: %s (ID: %d)', 'bootflow-woocommerce-xml-csv-importer'), $product_name, $product_id), $processed_data['sku']);
+                // translators: %1$s is the product name, %2$d is the product ID
+                $this->log('info', sprintf(__('Created product: %1$s (ID: %2$d)', 'bootflow-product-importer'), $product_name, $product_id), esc_html($processed_data['sku']));
             }
 
             // Process custom fields
@@ -786,8 +838,11 @@ class WC_XML_CSV_AI_Import_Importer {
                     $has_stock = false;
                     if (!empty($children)) {
                         // Check if any variation has instock status via direct DB query
+                        $placeholders = implode(',', array_fill(0, count($children), '%d'));
+                        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Placeholders dynamically built for IN clause
                         $instock_count = (int) $wpdb->get_var($wpdb->prepare(
-                            "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE post_id IN (" . implode(',', array_map('intval', $children)) . ") AND meta_key = '_stock_status' AND meta_value = 'instock'"
+                            "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE post_id IN ({$placeholders}) AND meta_key = '_stock_status' AND meta_value = 'instock'",
+                            array_map('intval', $children)
                         ));
                         $has_stock = ($instock_count > 0);
                     }
@@ -809,7 +864,8 @@ class WC_XML_CSV_AI_Import_Importer {
             return $product_id;
 
         } catch (Exception $e) {
-            throw new Exception(sprintf(__('Error importing product: %s', 'bootflow-woocommerce-xml-csv-importer'), $e->getMessage()));
+            // translators: %s is the error message
+            throw new Exception(sprintf(esc_html__('Error importing product: %s', 'bootflow-product-importer'), esc_html($e->getMessage())));
         }
     }
 
@@ -876,7 +932,8 @@ class WC_XML_CSV_AI_Import_Importer {
         if ($existing_product_id && $update_existing) {
             $product_id = $this->update_product($existing_product_id, $processed_data, $mapped_data);
         } else if ($existing_product_id && !$update_existing) {
-            throw new Exception(sprintf(__('Product with SKU "%s" already exists and update is disabled.', 'bootflow-woocommerce-xml-csv-importer'), $processed_data['sku']));
+            // translators: placeholder values
+            throw new Exception(sprintf(esc_html__('Product with SKU "%s" already exists and update is disabled.', 'bootflow-product-importer'), esc_html($processed_data['sku'])));
         } else {
             $product_id = $this->create_product($processed_data, $mapped_data);
         }
@@ -1107,7 +1164,8 @@ class WC_XML_CSV_AI_Import_Importer {
         
         
         $product_name = !empty($processed_data['name']) ? $processed_data['name'] : 'Variable Product';
-        $this->log('info', sprintf(__('Imported variable product: %s with %d variations', 'bootflow-woocommerce-xml-csv-importer'), $product_name, $variation_count), $processed_data['sku'] ?? '');
+        // translators: %1$s is the product name, %2$d is the number of variations
+        $this->log('info', sprintf(__('Imported variable product: %1$s with %2$d variations', 'bootflow-product-importer'), $product_name, $variation_count), $processed_data['sku'] ?? '');
         
         
         return $product_id;
@@ -1236,7 +1294,8 @@ class WC_XML_CSV_AI_Import_Importer {
             case 'regex_match':
                 // Validate regex pattern to prevent fatal errors
                 if (@preg_match($expected, '') === false) {
-                    $this->log('warning', sprintf(__('Invalid regex pattern: %s', 'bootflow-woocommerce-xml-csv-importer'), $expected));
+                    // translators: placeholder values
+                    $this->log('warning', sprintf(__('Invalid regex pattern: %s', 'bootflow-product-importer'), $expected));
                     return true; // Invalid regex = pass (safe default)
                 }
                 return preg_match($expected, $actual) === 1;
@@ -1244,7 +1303,8 @@ class WC_XML_CSV_AI_Import_Importer {
             case 'regex_not_match':
                 // Validate regex pattern to prevent fatal errors
                 if (@preg_match($expected, '') === false) {
-                    $this->log('warning', sprintf(__('Invalid regex pattern: %s', 'bootflow-woocommerce-xml-csv-importer'), $expected));
+                    // translators: placeholder values
+                    $this->log('warning', sprintf(__('Invalid regex pattern: %s', 'bootflow-product-importer'), $expected));
                     return true; // Invalid regex = pass (safe default)
                 }
                 return preg_match($expected, $actual) !== 1;
@@ -1373,7 +1433,7 @@ class WC_XML_CSV_AI_Import_Importer {
                 $generated_sku = $pattern;
                 $generated_sku = str_replace('{row}', $row_number, $generated_sku);
                 $generated_sku = str_replace('{timestamp}', time(), $generated_sku);
-                $generated_sku = str_replace('{random}', strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 6)), $generated_sku);
+                $generated_sku = str_replace('{random}', strtoupper(substr(md5(uniqid(wp_rand(), true)), 0, 6)), $generated_sku);
                 $generated_sku = str_replace('{name}', $product_name, $generated_sku);
                 $generated_sku = str_replace('{md5}', substr(md5($product_name . $row_number), 0, 8), $generated_sku);
                 
@@ -1849,22 +1909,26 @@ class WC_XML_CSV_AI_Import_Importer {
         foreach ($required_fields as $field) {
             if (empty($product_data[$field])) {
                 if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import - Missing required field: ' . $field . ' - Product data keys: ' . print_r(array_keys($product_data), true)); }
-                throw new Exception(sprintf(__('Required field "%s" is missing or empty.', 'bootflow-woocommerce-xml-csv-importer'), $field));
+                // translators: placeholder values
+                throw new Exception(sprintf(esc_html__('Required field "%s" is missing or empty.', 'bootflow-product-importer'), esc_html($field)));
             }
         }
 
         // Validate SKU if provided
         if (!empty($product_data['sku']) && !preg_match('/^[a-zA-Z0-9\-_.]+$/', $product_data['sku'])) {
-            throw new Exception(sprintf(__('Invalid SKU format: %s', 'bootflow-woocommerce-xml-csv-importer'), $product_data['sku']));
+            // translators: placeholder values
+            throw new Exception(sprintf(esc_html__('Invalid SKU format: %s', 'bootflow-product-importer'), esc_html($product_data['sku'])));
         }
 
         // Validate prices
         if (isset($product_data['regular_price']) && !is_numeric($product_data['regular_price'])) {
-            throw new Exception(sprintf(__('Invalid regular price: %s', 'bootflow-woocommerce-xml-csv-importer'), $product_data['regular_price']));
+            // translators: placeholder values
+            throw new Exception(sprintf(esc_html__('Invalid regular price: %s', 'bootflow-product-importer'), esc_html($product_data['regular_price'])));
         }
 
         if (isset($product_data['sale_price']) && !empty($product_data['sale_price']) && !is_numeric($product_data['sale_price'])) {
-            throw new Exception(sprintf(__('Invalid sale price: %s', 'bootflow-woocommerce-xml-csv-importer'), $product_data['sale_price']));
+            // translators: placeholder values
+            throw new Exception(sprintf(esc_html__('Invalid sale price: %s', 'bootflow-product-importer'), esc_html($product_data['sale_price'])));
         }
     }
 
@@ -1886,12 +1950,14 @@ class WC_XML_CSV_AI_Import_Importer {
             // If grouped_products field has values, it's a Grouped product
             if (!empty($product_data['grouped_products'])) {
                 $product_type = 'grouped';
-                $this->log('info', sprintf(__('Auto-detected Grouped product type for "%s" (has grouped_products field)', 'bootflow-woocommerce-xml-csv-importer'), $product_data['name'] ?? $product_data['sku'] ?? 'Unknown'));
+                // translators: placeholder values
+                $this->log('info', sprintf(__('Auto-detected Grouped product type for "%s" (has grouped_products field)', 'bootflow-product-importer'), $product_data['name'] ?? $product_data['sku'] ?? 'Unknown'));
             }
             // If external_url is set, it's an External product
             elseif (!empty($product_data['external_url'])) {
                 $product_type = 'external';
-                $this->log('info', sprintf(__('Auto-detected External product type for "%s" (has external_url field)', 'bootflow-woocommerce-xml-csv-importer'), $product_data['name'] ?? $product_data['sku'] ?? 'Unknown'));
+                // translators: placeholder values
+                $this->log('info', sprintf(__('Auto-detected External product type for "%s" (has external_url field)', 'bootflow-product-importer'), $product_data['name'] ?? $product_data['sku'] ?? 'Unknown'));
             }
             // Default to simple
             else {
@@ -1904,7 +1970,8 @@ class WC_XML_CSV_AI_Import_Importer {
             case 'grouped':
                 // PRO feature check
                 if (!WC_XML_CSV_AI_Import_Features::is_available('variable_products')) {
-                    $this->log('warning', sprintf(__('Grouped products require PRO license. Importing "%s" as Simple product.', 'bootflow-woocommerce-xml-csv-importer'), $product_data['name']));
+                    // translators: placeholder values
+                    $this->log('warning', sprintf(__('Grouped products require PRO license. Importing "%s" as Simple product.', 'bootflow-product-importer'), $product_data['name']));
                     $product = new WC_Product_Simple();
                     $product_type = 'simple';
                 } else {
@@ -1916,7 +1983,8 @@ class WC_XML_CSV_AI_Import_Importer {
             case 'affiliate':
                 // PRO feature check
                 if (!WC_XML_CSV_AI_Import_Features::is_available('variable_products')) {
-                    $this->log('warning', sprintf(__('External products require PRO license. Importing "%s" as Simple product.', 'bootflow-woocommerce-xml-csv-importer'), $product_data['name']));
+                    // translators: placeholder values
+                    $this->log('warning', sprintf(__('External products require PRO license. Importing "%s" as Simple product.', 'bootflow-product-importer'), $product_data['name']));
                     $product = new WC_Product_Simple();
                     $product_type = 'simple';
                 } else {
@@ -2097,7 +2165,7 @@ class WC_XML_CSV_AI_Import_Importer {
         $product_id = $product->save();
 
         if (!$product_id) {
-            throw new Exception(__('Failed to create product.', 'bootflow-woocommerce-xml-csv-importer'));
+            throw new Exception(esc_html__('Failed to create product.', 'bootflow-product-importer'));
         }
         
         // SYNC _price meta - WooCommerce needs this for frontend display
@@ -2172,7 +2240,8 @@ class WC_XML_CSV_AI_Import_Importer {
             if (!empty($product_data['grouped_products'])) {
                 // Store the SKU list for phase 2 resolution (after all products are imported)
                 update_post_meta($product_id, '_pending_grouped_skus', $product_data['grouped_products']);
-                $this->log('info', sprintf(__('Grouped product "%s" - stored pending children SKUs: %s', 'bootflow-woocommerce-xml-csv-importer'), $product_data['name'], $product_data['grouped_products']));
+                // translators: placeholder values
+                $this->log('info', sprintf(__('Grouped product "%1$s" - stored pending children SKUs: %2$s', 'bootflow-product-importer'), $product_data['name'], $product_data['grouped_products']));
             }
         }
 
@@ -2368,7 +2437,8 @@ class WC_XML_CSV_AI_Import_Importer {
         $product = wc_get_product($product_id);
         
         if (!$product) {
-            throw new Exception(sprintf(__('Product with ID %d not found.', 'bootflow-woocommerce-xml-csv-importer'), $product_id));
+            // translators: placeholder values
+            throw new Exception(sprintf(esc_html__('Product with ID %d not found.', 'bootflow-product-importer'), intval($product_id)));
         }
         
         // DEBUG: Log update_product call
@@ -3832,7 +3902,7 @@ class WC_XML_CSV_AI_Import_Importer {
                 $attachment_id = media_handle_sideload($file_array, $product_id);
                 
                 // Clean up temp file
-                @unlink($temp_file);
+                @wp_delete_file($temp_file);
                 
                 if (is_wp_error($attachment_id)) {
                     $this->log('warning', 'Failed to attach image ' . ($index + 1) . ': ' . $attachment_id->get_error_message());
@@ -3876,14 +3946,14 @@ class WC_XML_CSV_AI_Import_Importer {
         $temp_file = download_url($image_url);
 
         if (is_wp_error($temp_file)) {
-            throw new Exception($temp_file->get_error_message());
+            throw new Exception(esc_html($temp_file->get_error_message()));
         }
 
         // Get file info
         $file_info = wp_check_filetype(basename($image_url));
         if (!$file_info['ext']) {
-            unlink($temp_file);
-            throw new Exception(__('Invalid image file type.', 'bootflow-woocommerce-xml-csv-importer'));
+            wp_delete_file($temp_file);
+            throw new Exception(esc_html__('Invalid image file type.', 'bootflow-product-importer'));
         }
 
         // Prepare file array
@@ -3896,10 +3966,10 @@ class WC_XML_CSV_AI_Import_Importer {
         $attachment_id = media_handle_sideload($file_array, $product_id);
 
         // Clean up temp file
-        @unlink($temp_file);
+        @wp_delete_file($temp_file);
 
         if (is_wp_error($attachment_id)) {
-            throw new Exception($attachment_id->get_error_message());
+            throw new Exception(esc_html($attachment_id->get_error_message()));
         }
 
         // Store source URL for future duplicate detection
@@ -3937,7 +4007,9 @@ class WC_XML_CSV_AI_Import_Importer {
                 continue;
             }
 
-            $field_name = sanitize_key($field_config['name']);
+            // Use sanitize_text_field instead of sanitize_key to preserve Unicode characters (like "Tesīt")
+            // sanitize_key() converts to lowercase and removes non-ASCII characters
+            $field_name = sanitize_text_field($field_config['name']);
             $source_field = $field_config['source'];
 
             // Extract value
@@ -3953,8 +4025,9 @@ class WC_XML_CSV_AI_Import_Importer {
                     $value = $this->processor->process_field($value, $field_config, $product_data);
                 }
 
-                // Save as meta
-                update_post_meta($product_id, '_' . $field_name, $value);
+                // Save as meta - use field name directly (no underscore prefix) so it shows in Custom Fields
+                // Note: Fields starting with _ are hidden in WordPress admin
+                update_post_meta($product_id, $field_name, $value);
             }
         }
     }
@@ -5607,7 +5680,7 @@ class WC_XML_CSV_AI_Import_Importer {
                 // Just URL
                 $url = $file;
                 // Generate name from filename
-                $path_parts = parse_url($url, PHP_URL_PATH);
+                $path_parts = wp_parse_url($url, PHP_URL_PATH);
                 if ($path_parts) {
                     $name = basename($path_parts);
                 } else {
@@ -5955,7 +6028,7 @@ class WC_XML_CSV_AI_Import_Importer {
     private function resolve_product_relationships() {
         global $wpdb;
         
-        $this->log('info', __('Starting Phase 2: Resolving product relationships...', 'bootflow-woocommerce-xml-csv-importer'));
+        $this->log('info', __('Starting Phase 2: Resolving product relationships...', 'bootflow-product-importer'));
         
         $resolved_count = 0;
         $error_count = 0;
@@ -5991,14 +6064,17 @@ class WC_XML_CSV_AI_Import_Importer {
                     // Remove the pending meta
                     delete_post_meta($grouped->ID, '_pending_grouped_skus');
                     
-                    $this->log('info', sprintf(__('Resolved grouped product ID %d with %d children', 'bootflow-woocommerce-xml-csv-importer'), $grouped->ID, count($child_ids)));
+                    // translators: placeholder values
+                    $this->log('info', sprintf(__('Resolved grouped product ID %1$d with %2$d children', 'bootflow-product-importer'), $grouped->ID, count($child_ids)));
                     $resolved_count++;
                 } else {
-                    $this->log('warning', sprintf(__('Could not resolve children for grouped product ID %d (SKUs: %s)', 'bootflow-woocommerce-xml-csv-importer'), $grouped->ID, $sku_list));
+                    // translators: placeholder values
+                    $this->log('warning', sprintf(__('Could not resolve children for grouped product ID %1$d (SKUs: %2$s)', 'bootflow-product-importer'), $grouped->ID, $sku_list));
                     $error_count++;
                 }
             } catch (Exception $e) {
-                $this->log('error', sprintf(__('Error resolving grouped product ID %d: %s', 'bootflow-woocommerce-xml-csv-importer'), $grouped->ID, $e->getMessage()));
+                // translators: placeholder values
+                $this->log('error', sprintf(__('Error resolving grouped product ID %1$d: %2$s', 'bootflow-product-importer'), $grouped->ID, $e->getMessage()));
                 $error_count++;
             }
         }
@@ -6069,7 +6145,8 @@ class WC_XML_CSV_AI_Import_Importer {
             }
         }
         
-        $this->log('info', sprintf(__('Phase 2 completed: %d relationships resolved, %d errors', 'bootflow-woocommerce-xml-csv-importer'), $resolved_count, $error_count));
+        // translators: placeholder values
+        $this->log('info', sprintf(__('Phase 2 completed: %1$d relationships resolved, %2$d errors', 'bootflow-product-importer'), $resolved_count, $error_count));
     }
 
     /**
@@ -6083,7 +6160,7 @@ class WC_XML_CSV_AI_Import_Importer {
     public function sync_variable_products_stock_status() {
         global $wpdb;
         
-        $this->log('info', __('Starting Phase 3: Syncing variable products stock status...', 'bootflow-woocommerce-xml-csv-importer'));
+        $this->log('info', __('Starting Phase 3: Syncing variable products stock status...', 'bootflow-product-importer'));
         
         // Get all variable products (no prepare needed - no user input)
         $variable_products = $wpdb->get_col(
@@ -6112,12 +6189,15 @@ class WC_XML_CSV_AI_Import_Importer {
             }
             
             // Check if any variation has instock status
-            $instock_count = (int) $wpdb->get_var(
+            $placeholders = implode(',', array_fill(0, count($children), '%d'));
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Placeholders dynamically built for IN clause
+            $instock_count = (int) $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM {$wpdb->postmeta} 
-                 WHERE post_id IN (" . implode(',', array_map('intval', $children)) . ") 
+                 WHERE post_id IN ({$placeholders}) 
                  AND meta_key = '_stock_status' 
-                 AND meta_value = 'instock'"
-            );
+                 AND meta_value = 'instock'",
+                array_map('intval', $children)
+            ));
             
             $new_stock_status = ($instock_count > 0) ? 'instock' : 'outofstock';
             
@@ -6131,7 +6211,8 @@ class WC_XML_CSV_AI_Import_Importer {
             $synced_count++;
         }
         
-        $this->log('info', sprintf(__('Phase 3 completed: %d variable products stock status synced', 'bootflow-woocommerce-xml-csv-importer'), $synced_count));
+        // translators: placeholder values
+        $this->log('info', sprintf(__('Phase 3 completed: %d variable products stock status synced', 'bootflow-product-importer'), $synced_count));
     }
 
     /**
@@ -6158,7 +6239,8 @@ class WC_XML_CSV_AI_Import_Importer {
             if ($product_id) {
                 $ids[] = $product_id;
             } else {
-                $this->log('warning', sprintf(__('Could not find product with SKU: %s', 'bootflow-woocommerce-xml-csv-importer'), $sku));
+                // translators: placeholder values
+                $this->log('warning', sprintf(__('Could not find product with SKU: %s', 'bootflow-product-importer'), $sku));
             }
         }
         
@@ -6177,7 +6259,8 @@ class WC_XML_CSV_AI_Import_Importer {
         $action = $this->config['missing_action'] ?? 'draft';
         $delete_variations = $this->config['delete_variations'] ?? 1;
         
-        $this->log('info', sprintf(__('Processing missing products with action: %s', 'bootflow-woocommerce-xml-csv-importer'), $action));
+        // translators: placeholder values
+        $this->log('info', sprintf(__('Processing missing products with action: %s', 'bootflow-product-importer'), $action));
         
         // Find all products that:
         // 1. Have _wc_import_id = current import ID (were last updated by this import)
@@ -6223,7 +6306,7 @@ class WC_XML_CSV_AI_Import_Importer {
         $count = count($missing_products);
         
         if ($count === 0) {
-            $this->log('info', __('No missing products found.', 'bootflow-woocommerce-xml-csv-importer'));
+            $this->log('info', __('No missing products found.', 'bootflow-product-importer'));
             return;
         }
         
@@ -6255,7 +6338,8 @@ class WC_XML_CSV_AI_Import_Importer {
                             'ID' => $product_id,
                             'post_status' => 'draft'
                         ));
-                        $this->log('info', sprintf(__('Product "%s" (SKU: %s) moved to draft - no longer in feed.', 'bootflow-woocommerce-xml-csv-importer'), $product->post_title, $sku), $sku);
+                        // translators: placeholder values
+                        $this->log('info', sprintf(__('Product "%1$s" (SKU: %2$s) moved to draft - no longer in feed.', 'bootflow-product-importer'), $product->post_title, $sku), $sku);
                         break;
                         
                     case 'outofstock':
@@ -6264,7 +6348,8 @@ class WC_XML_CSV_AI_Import_Importer {
                         $wc_product->set_manage_stock(true);
                         $wc_product->set_stock_quantity(0);
                         $wc_product->save();
-                        $this->log('info', sprintf(__('Product "%s" (SKU: %s) marked as out of stock - no longer in feed.', 'bootflow-woocommerce-xml-csv-importer'), $product->post_title, $sku), $sku);
+                        // translators: placeholder values
+                        $this->log('info', sprintf(__('Product "%1$s" (SKU: %2$s) marked as out of stock - no longer in feed.', 'bootflow-product-importer'), $product->post_title, $sku), $sku);
                         break;
                         
                     case 'backorder':
@@ -6274,19 +6359,22 @@ class WC_XML_CSV_AI_Import_Importer {
                         $wc_product->set_stock_quantity(0);
                         $wc_product->set_backorders('yes');
                         $wc_product->save();
-                        $this->log('info', sprintf(__('Product "%s" (SKU: %s) set to backorder - no longer in feed.', 'bootflow-woocommerce-xml-csv-importer'), $product->post_title, $sku), $sku);
+                        // translators: placeholder values
+                        $this->log('info', sprintf(__('Product "%1$s" (SKU: %2$s) set to backorder - no longer in feed.', 'bootflow-product-importer'), $product->post_title, $sku), $sku);
                         break;
                         
                     case 'trash':
                         // Move to trash
                         wp_trash_post($product_id);
-                        $this->log('info', sprintf(__('Product "%s" (SKU: %s) moved to trash - no longer in feed.', 'bootflow-woocommerce-xml-csv-importer'), $product->post_title, $sku), $sku);
+                        // translators: placeholder values
+                        $this->log('info', sprintf(__('Product "%1$s" (SKU: %2$s) moved to trash - no longer in feed.', 'bootflow-product-importer'), $product->post_title, $sku), $sku);
                         break;
                         
                     case 'delete':
                         // Permanently delete
                         wp_delete_post($product_id, true);
-                        $this->log('warning', sprintf(__('Product "%s" (SKU: %s) permanently deleted - no longer in feed.', 'bootflow-woocommerce-xml-csv-importer'), $product->post_title, $sku), $sku);
+                        // translators: placeholder values
+                        $this->log('warning', sprintf(__('Product "%1$s" (SKU: %2$s) permanently deleted - no longer in feed.', 'bootflow-product-importer'), $product->post_title, $sku), $sku);
                         break;
                 }
                 
@@ -6323,11 +6411,13 @@ class WC_XML_CSV_AI_Import_Importer {
                 
             } catch (Exception $e) {
                 $errors++;
-                $this->log('error', sprintf(__('Error processing missing product ID %d: %s', 'bootflow-woocommerce-xml-csv-importer'), $product->ID, $e->getMessage()));
+                // translators: placeholder values
+                $this->log('error', sprintf(__('Error processing missing product ID %1$d: %2$s', 'bootflow-product-importer'), $product->ID, $e->getMessage()));
             }
         }
         
-        $this->log('info', sprintf(__('Missing products cleanup completed: %d processed, %d errors.', 'bootflow-woocommerce-xml-csv-importer'), $processed, $errors));
+        // translators: placeholder values
+        $this->log('info', sprintf(__('Missing products cleanup completed: %1$d processed, %2$d errors.', 'bootflow-product-importer'), $processed, $errors));
         
         // Clean up the import start time option after processing is complete
         delete_option($import_start_option_key);
@@ -6375,15 +6465,15 @@ class WC_XML_CSV_AI_Import_Importer {
     private function validate_import_data($import_data) {
         $import_name = $import_data['import_name'] ?? $import_data['name'] ?? '';
         if (empty($import_name)) {
-            throw new Exception(__('Import name is required.', 'bootflow-woocommerce-xml-csv-importer'));
+            throw new Exception(esc_html__('Import name is required.', 'bootflow-product-importer'));
         }
 
         if (empty($import_data['file_path']) || !file_exists($import_data['file_path'])) {
-            throw new Exception(__('Valid file path is required.', 'bootflow-woocommerce-xml-csv-importer'));
+            throw new Exception(esc_html__('Valid file path is required.', 'bootflow-product-importer'));
         }
 
         if (!in_array($import_data['file_type'], array('xml', 'csv'))) {
-            throw new Exception(__('File type must be XML or CSV.', 'bootflow-woocommerce-xml-csv-importer'));
+            throw new Exception(esc_html__('File type must be XML or CSV.', 'bootflow-product-importer'));
         }
     }
 

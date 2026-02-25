@@ -37,9 +37,9 @@ if (!$keep_data) {
     $table_imports = $wpdb->prefix . 'wc_itp_imports';
     $table_logs = $wpdb->prefix . 'wc_itp_import_logs';
     
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Uninstall cleanup
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQLPlaceholders.UnsupportedIdentifierPlaceholder -- Uninstall cleanup, %i requires WP 6.2+
     $wpdb->query($wpdb->prepare("DROP TABLE IF EXISTS %i", $table_imports));
-    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Uninstall cleanup
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQLPlaceholders.UnsupportedIdentifierPlaceholder -- Uninstall cleanup, %i requires WP 6.2+
     $wpdb->query($wpdb->prepare("DROP TABLE IF EXISTS %i", $table_logs));
     
     // Delete plugin options - only this plugin's options with specific prefix
@@ -145,5 +145,6 @@ function wc_xml_csv_ai_import_delete_directory($dir) {
         }
     }
     
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Required for recursive directory removal
     return rmdir($dir);
 }

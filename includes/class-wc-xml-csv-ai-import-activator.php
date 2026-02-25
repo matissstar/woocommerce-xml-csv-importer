@@ -26,7 +26,7 @@ class WC_XML_CSV_AI_Import_Activator {
         // Check if WooCommerce is active
         if (!class_exists('WooCommerce')) {
             deactivate_plugins(plugin_basename(__FILE__));
-            wp_die(__('This plugin requires WooCommerce to be installed and active.', 'bootflow-woocommerce-xml-csv-importer'));
+            wp_die(esc_html__('This plugin requires WooCommerce to be installed and active.', 'bootflow-product-importer'));
         }
 
         // Create database tables
