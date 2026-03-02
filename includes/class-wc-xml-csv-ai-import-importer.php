@@ -725,6 +725,27 @@ class WC_XML_CSV_AI_Import_Importer {
             }
             $is_existing_product = !empty($existing_product_id);
 
+            // Get update_existing and skip_unchanged settings from import record (cached per import)
+            global $wpdb;
+            if (!isset($this->_cached_import_settings)) {
+                $this->_cached_import_settings = $wpdb->get_row($wpdb->prepare("SELECT update_existing, skip_unchanged FROM {$wpdb->prefix}wc_itp_imports WHERE id = %d", $this->import_id), ARRAY_A);
+            }
+            $import_record = $this->_cached_import_settings;
+            $update_existing = ($import_record && $import_record['update_existing'] === '1') ? true : false;
+            $skip_unchanged = ($import_record && $import_record['skip_unchanged'] === '1') ? true : false;
+
+            // ─── FAST SYNC PATH ────────────────────────────────────────────────
+            // When an existing product only needs simple meta fields synced (price, qty, stock_status),
+            // bypass the entire WooCommerce product load/save pipeline and do direct DB updates.
+            // This reduces ~20 DB queries per product down to ~3-5.
+            if ($is_existing_product && $update_existing) {
+                $fast_sync_result = $this->try_fast_sync($existing_product_id, $mapped_data, $product_data, $skip_unchanged);
+                if ($fast_sync_result !== false) {
+                    return $fast_sync_result;
+                }
+            }
+            // ─── END FAST SYNC PATH ────────────────────────────────────────────
+
             // Process fields through configured processors
             // Pass existing_product_id to skip expensive processing for fields with update_on_sync=0
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('[IMPORT_PROCESS] About to process product fields (existing: ' . ($is_existing_product ? 'YES' : 'NO') . ')'); }
@@ -740,18 +761,9 @@ class WC_XML_CSV_AI_Import_Importer {
             if ($force_status !== null) {
                 $processed_data['status'] = $force_status;
             }
-            
-            // DEBUG: Log update detection
 
             // Validate required fields (name only required for new products)
             $this->validate_product_data($processed_data, $existing_product_id);
-
-            // Get update_existing setting from import record
-            global $wpdb;
-            $import_record = $wpdb->get_row($wpdb->prepare("SELECT update_existing, skip_unchanged FROM {$wpdb->prefix}wc_itp_imports WHERE id = %d", $this->import_id), ARRAY_A);
-            $update_existing = ($import_record && $import_record['update_existing'] === '1') ? true : false;
-            $skip_unchanged = ($import_record && $import_record['skip_unchanged'] === '1') ? true : false;
-            
 
             if ($existing_product_id && !$update_existing) {
                 // translators: placeholder values
@@ -762,6 +774,12 @@ class WC_XML_CSV_AI_Import_Importer {
             if ($existing_product_id && $update_existing) {
                 // Check if we should skip unchanged products
                 if ($skip_unchanged && !$this->has_product_data_changed($existing_product_id, $processed_data)) {
+                    // CRITICAL: Still update import tracking even for unchanged products!
+                    // handle_missing_products() uses _wc_import_date to identify products in the feed.
+                    // Without this, skipped products get incorrectly treated as "missing" and moved to draft.
+                    update_post_meta($existing_product_id, '_wc_import_id', $this->import_id);
+                    update_post_meta($existing_product_id, '_wc_import_date', current_time('mysql'));
+
                     $product_name = !empty($processed_data['name']) ? $processed_data['name'] : 'Product';
                     // translators: %1$s is the product name, %2$d is the product ID
                     $this->log('info', sprintf(__('Skipped product (unchanged): %1$s (ID: %2$d)', 'bootflow-product-importer'), $product_name, $existing_product_id), esc_html($processed_data['sku']));
@@ -2262,6 +2280,247 @@ class WC_XML_CSV_AI_Import_Importer {
     }
 
     /**
+     * Fast sync path for simple meta field updates (price, qty, stock_status).
+     * Bypasses WooCommerce product load/save pipeline and does direct DB updates.
+     * Returns product ID if fast sync was used, or false to fall back to full pipeline.
+     *
+     * @since    1.3.0
+     * @param    int   $product_id      Existing product ID
+     * @param    array $mapped_data     Mapped field data (raw from XML/CSV)
+     * @param    array $raw_product_data Raw product data from source
+     * @param    bool  $skip_unchanged  Whether to skip unchanged products
+     * @return   int|false Product ID if fast synced, false to use full pipeline
+     */
+    private function try_fast_sync($product_id, $mapped_data, $raw_product_data, $skip_unchanged) {
+        // Fast sync only works for fields that can be updated via direct post_meta
+        $fast_sync_fields = array(
+            'regular_price' => '_regular_price',
+            'sale_price'    => '_sale_price',
+            'stock_quantity'=> '_stock',
+            'stock_status'  => '_stock_status',
+            'manage_stock'  => '_manage_stock',
+        );
+
+        // Post fields that can be updated via wp_update_post (not post_meta)
+        $fast_sync_post_fields = array('status' => 'post_status');
+
+        $field_mappings = $this->config['field_mapping'] ?? array();
+
+        // Determine which fields have update_on_sync=1
+        $sync_fields = array();
+        foreach ($field_mappings as $field_key => $mapping) {
+            if (!is_array($mapping)) continue;
+            if (isset($mapping['update_on_sync']) && ($mapping['update_on_sync'] === '1' || $mapping['update_on_sync'] === 1 || $mapping['update_on_sync'] === true)) {
+                $sync_fields[] = $field_key;
+            }
+        }
+
+        // If NO sync fields defined, can't use fast path (will update everything)
+        if (empty($sync_fields)) {
+            return false;
+        }
+
+        // Check if ALL sync fields are fast-syncable (meta fields OR simple post fields like status)
+        foreach ($sync_fields as $field) {
+            if (!isset($fast_sync_fields[$field]) && !isset($fast_sync_post_fields[$field])) {
+                // This field requires the full WooCommerce pipeline (e.g., name, description, categories, images)
+                return false;
+            }
+        }
+
+        // Check if any sync field uses AI processing (API calls - needs full pipeline)
+        // PHP formulas are OK - they are processed inline by the processor
+        foreach ($sync_fields as $field) {
+            $processing_mode = $field_mappings[$field]['processing_mode'] ?? 'direct';
+            if ($processing_mode === 'ai_processing') {
+                return false;
+            }
+        }
+
+        // Check if Pricing Engine is active (needs full pipeline for price calculations)
+        $pricing_config = $field_mappings['pricing_engine'] ?? null;
+        if ($pricing_config && !empty($pricing_config['enabled'])) {
+            // Only bail if price fields are being synced
+            if (in_array('regular_price', $sync_fields) || in_array('sale_price', $sync_fields)) {
+                return false;
+            }
+        }
+
+        // ── All checks passed - we can use fast sync! ──
+
+        global $wpdb;
+
+        // Extract new values from source data using field mappings
+        $new_values = array();
+        foreach ($sync_fields as $field) {
+            $mapping = $field_mappings[$field];
+            
+            // Handle select_mode: "fixed" (e.g., status field with fixed_value "publish")
+            $select_mode = $mapping['select_mode'] ?? 'source';
+            if ($select_mode === 'fixed') {
+                $fixed_value = $mapping['fixed_value'] ?? '';
+                if (!empty($fixed_value)) {
+                    $new_values[$field] = $fixed_value;
+                }
+                continue;
+            }
+            
+            $source = $mapping['source'] ?? '';
+            if (empty($source)) continue;
+
+            // Extract value from raw data (simple direct extraction)
+            if (strpos($source, '{') !== false) {
+                // Template string - extract with parser
+                $value = $this->parse_template_string($source, $raw_product_data);
+            } else {
+                if (!empty($this->xml_parser)) {
+                    $value = $this->xml_parser->extract_field_value($raw_product_data, $source);
+                } else {
+                    $value = $this->csv_parser->extract_field_value($raw_product_data, $source);
+                }
+            }
+
+            if ($value !== null) {
+                $new_values[$field] = $value;
+            }
+        }
+
+        if (empty($new_values)) {
+            return false; // No values extracted, fall back
+        }
+
+        // Process field values through the processor (for direct/simple modes only)
+        foreach ($new_values as $field => &$value) {
+            $config = $field_mappings[$field] ?? array();
+            $processing_mode = $config['processing_mode'] ?? 'direct';
+            if ($processing_mode === 'direct' || empty($processing_mode)) {
+                // Direct mode - keep value as is (maybe trim)
+                $value = trim((string)$value);
+            } else {
+                // Process through the standard processor
+                $value = $this->processor->process_field($value, $config, $raw_product_data);
+            }
+        }
+        unset($value);
+
+        // ── Skip unchanged check (direct DB comparison) ──
+        if ($skip_unchanged) {
+            $changed = false;
+            foreach ($new_values as $field => $new_value) {
+                // Status is a post field, not meta
+                if (isset($fast_sync_post_fields[$field])) {
+                    $current = get_post_status($product_id);
+                    if (trim((string)$current) !== trim((string)$new_value)) {
+                        $changed = true;
+                        break;
+                    }
+                    continue;
+                }
+
+                $meta_key = $fast_sync_fields[$field];
+                $current = $wpdb->get_var($wpdb->prepare(
+                    "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s",
+                    $product_id, $meta_key
+                ));
+
+                // Normalize for comparison
+                if (in_array($field, array('regular_price', 'sale_price'))) {
+                    if (floatval($current) !== floatval($new_value)) {
+                        $changed = true;
+                        break;
+                    }
+                } elseif ($field === 'stock_quantity') {
+                    if (intval($current) !== intval($new_value)) {
+                        $changed = true;
+                        break;
+                    }
+                } else {
+                    if (trim((string)$current) !== trim((string)$new_value)) {
+                        $changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$changed) {
+                // CRITICAL: Still update import tracking even for unchanged products!
+                // handle_missing_products() uses _wc_import_date to identify products that were in the feed.
+                // Without this, unchanged products get incorrectly treated as "missing from feed" and moved to draft.
+                update_post_meta($product_id, '_wc_import_id', $this->import_id);
+                update_post_meta($product_id, '_wc_import_date', current_time('mysql'));
+
+                $sku = $mapped_data['sku'] ?? '?';
+                $this->log('info', sprintf('Fast-sync skipped (unchanged) product ID %d, SKU: %s', $product_id, $sku), esc_html($sku));
+                return $product_id;
+            }
+        }
+
+        // ── Apply updates directly via post_meta ──
+        $updated_fields = array();
+        $post_update = array(); // For post fields (status) that need wp_update_post
+        foreach ($new_values as $field => $new_value) {
+            // Handle post fields (status → post_status)
+            if (isset($fast_sync_post_fields[$field])) {
+                $valid_statuses = array('publish', 'draft', 'pending', 'private');
+                $status = sanitize_text_field($new_value);
+                if (in_array($status, $valid_statuses)) {
+                    $post_update['post_status'] = $status;
+                    $updated_fields[] = "status={$status}";
+                }
+                continue;
+            }
+
+            $meta_key = $fast_sync_fields[$field];
+
+            if ($field === 'stock_quantity') {
+                update_post_meta($product_id, $meta_key, intval($new_value));
+                update_post_meta($product_id, '_manage_stock', 'yes');
+                // Auto-set stock status based on quantity
+                $qty = intval($new_value);
+                $stock_status = ($qty > 0) ? 'instock' : 'outofstock';
+                update_post_meta($product_id, '_stock_status', $stock_status);
+                $updated_fields[] = "qty={$qty}";
+            } elseif (in_array($field, array('regular_price', 'sale_price'))) {
+                $price_val = wc_format_decimal($new_value);
+                update_post_meta($product_id, $meta_key, $price_val);
+                $updated_fields[] = "{$field}={$price_val}";
+            } elseif ($field === 'manage_stock') {
+                $manage = ($new_value === 'yes' || $new_value === '1' || $new_value === true) ? 'yes' : 'no';
+                update_post_meta($product_id, $meta_key, $manage);
+            } elseif ($field === 'stock_status') {
+                update_post_meta($product_id, $meta_key, sanitize_text_field($new_value));
+                $updated_fields[] = "stock_status={$new_value}";
+            }
+        }
+
+        // Apply post field updates (status) via direct SQL for speed
+        if (!empty($post_update)) {
+            $post_update['ID'] = $product_id;
+            wp_update_post($post_update);
+        }
+
+        // Sync _price meta (WooCommerce needs this for frontend display/sorting)
+        if (isset($new_values['regular_price']) || isset($new_values['sale_price'])) {
+            $regular = get_post_meta($product_id, '_regular_price', true);
+            $sale = get_post_meta($product_id, '_sale_price', true);
+            $price = ('' !== $sale && $sale !== null && floatval($sale) > 0) ? $sale : $regular;
+            update_post_meta($product_id, '_price', $price);
+        }
+
+        // Update import tracking (lightweight)
+        update_post_meta($product_id, '_wc_import_id', $this->import_id);
+        update_post_meta($product_id, '_wc_import_date', current_time('mysql'));
+
+        // Clear WooCommerce transients for this product
+        wc_delete_product_transients($product_id);
+
+        $sku = $mapped_data['sku'] ?? '?';
+        $this->log('info', sprintf('⚡ Fast-synced product ID %d, SKU: %s (%s)', $product_id, $sku, implode(', ', $updated_fields)), esc_html($sku));
+
+        return $product_id;
+    }
+
+    /**
      * Compare product data to check if update is needed.
      *
      * @since    1.0.0
@@ -2275,6 +2534,10 @@ class WC_XML_CSV_AI_Import_Importer {
         if (!$product) {
             return true; // Product doesn't exist, needs creation
         }
+
+        // Only compare fields that have update_on_sync=1
+        // Comparing non-sync fields causes false positives (e.g. UTF-8 encoding diffs in description)
+        $sync_fields = $this->get_sync_field_keys();
 
         // Compare basic fields
         $fields_to_compare = array(
@@ -2293,6 +2556,11 @@ class WC_XML_CSV_AI_Import_Importer {
         foreach ($fields_to_compare as $field => $getter) {
             if (!isset($new_data[$field])) {
                 continue; // Field not mapped, skip comparison
+            }
+
+            // Skip fields that are NOT being synced (update_on_sync=0)
+            if (!empty($sync_fields) && !in_array($field, $sync_fields)) {
+                continue;
             }
 
             $current_value = $product->$getter();
@@ -2325,8 +2593,8 @@ class WC_XML_CSV_AI_Import_Importer {
             }
         }
 
-        // Compare categories
-        if (isset($new_data['categories'])) {
+        // Compare categories - only if syncing categories
+        if (isset($new_data['categories']) && (empty($sync_fields) || in_array('categories', $sync_fields))) {
             $current_categories = wp_get_post_terms($product_id, 'product_cat', array('fields' => 'names'));
             $new_categories = is_array($new_data['categories']) ? $new_data['categories'] : array($new_data['categories']);
             
@@ -2339,8 +2607,8 @@ class WC_XML_CSV_AI_Import_Importer {
             }
         }
 
-        // Compare tags
-        if (isset($new_data['tags'])) {
+        // Compare tags - only if syncing tags
+        if (isset($new_data['tags']) && (empty($sync_fields) || in_array('tags', $sync_fields))) {
             $current_tags = wp_get_post_terms($product_id, 'product_tag', array('fields' => 'names'));
             $new_tags = is_array($new_data['tags']) ? $new_data['tags'] : explode(',', $new_data['tags']);
             $new_tags = array_map('trim', $new_tags);
@@ -2354,8 +2622,8 @@ class WC_XML_CSV_AI_Import_Importer {
             }
         }
 
-        // Compare brand
-        if (isset($new_data['brand'])) {
+        // Compare brand - only if syncing brand
+        if (isset($new_data['brand']) && (empty($sync_fields) || in_array('brand', $sync_fields))) {
             $current_brands = wp_get_post_terms($product_id, 'product_brand', array('fields' => 'names'));
             $new_brand = is_array($new_data['brand']) ? $new_data['brand'] : array($new_data['brand']);
             $new_brand = array_map('trim', $new_brand);
@@ -2371,6 +2639,37 @@ class WC_XML_CSV_AI_Import_Importer {
 
         $this->log('debug', 'No changes detected - all data identical');
         return false; // No changes detected
+    }
+
+    /**
+     * Get list of field keys that have update_on_sync=1.
+     * Returns empty array if no sync fields defined (means update all).
+     *
+     * @since    1.3.0
+     * @return   array
+     */
+    private function get_sync_field_keys() {
+        if (isset($this->_cached_sync_fields)) {
+            return $this->_cached_sync_fields;
+        }
+
+        $field_mappings = $this->config['field_mapping'] ?? array();
+        $sync_fields = array();
+        $has_any_sync_setting = false;
+
+        foreach ($field_mappings as $field_key => $mapping) {
+            if (!is_array($mapping)) continue;
+            if (isset($mapping['update_on_sync'])) {
+                $has_any_sync_setting = true;
+                if ($mapping['update_on_sync'] === '1' || $mapping['update_on_sync'] === 1 || $mapping['update_on_sync'] === true) {
+                    $sync_fields[] = $field_key;
+                }
+            }
+        }
+
+        // If no fields have update_on_sync setting at all, return empty (update all for backwards compat)
+        $this->_cached_sync_fields = $has_any_sync_setting ? $sync_fields : array();
+        return $this->_cached_sync_fields;
     }
 
     /**

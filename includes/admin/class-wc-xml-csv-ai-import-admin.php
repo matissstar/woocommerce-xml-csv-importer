@@ -595,7 +595,46 @@ class WC_XML_CSV_AI_Import_Admin {
                 echo '<td>' . esc_html(ucfirst($import['status'])) . '</td>';
                 echo '<td>' . esc_html($schedule_label) . '</td>';
                 echo '<td>' . esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import['created_at']))) . '</td>';
-                echo '<td>' . ($import['last_run'] ? esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import['last_run']))) : esc_html__('Never', 'bootflow-product-importer')) . '</td>';
+                echo '<td>';
+                if ($import['last_run']) {
+                    $last_run_ts = strtotime($import['last_run']);
+                    $ago_seconds = current_time('timestamp') - $last_run_ts;
+                    if ($ago_seconds < 60) {
+                        $ago_text = __('just now', 'bootflow-product-importer');
+                    } elseif ($ago_seconds < 3600) {
+                        $ago_text = sprintf(__('%d min ago', 'bootflow-product-importer'), intval($ago_seconds / 60));
+                    } elseif ($ago_seconds < 86400) {
+                        $hours = intval($ago_seconds / 3600);
+                        $mins = intval(($ago_seconds % 3600) / 60);
+                        $ago_text = sprintf(__('%dh %dm ago', 'bootflow-product-importer'), $hours, $mins);
+                    } else {
+                        $ago_text = sprintf(__('%d days ago', 'bootflow-product-importer'), intval($ago_seconds / 86400));
+                    }
+                    echo esc_html(date_i18n('d.m.Y H:i:s', $last_run_ts));
+                    echo '<br><small style="color:#888;">(' . esc_html($ago_text) . ')</small>';
+                    // Show next scheduled run
+                    if (!empty($import['schedule_type']) && $import['schedule_type'] !== 'none' && $import['schedule_type'] !== 'disabled') {
+                        $intervals = array('15min'=>900, 'hourly'=>3600, '6hours'=>21600, 'daily'=>86400, 'weekly'=>604800, 'monthly'=>2592000);
+                        $interval = $intervals[$import['schedule_type']] ?? 0;
+                        if ($interval > 0) {
+                            $next_run_ts = $last_run_ts + $interval;
+                            $until_seconds = $next_run_ts - current_time('timestamp');
+                            if ($until_seconds <= 0) {
+                                $next_text = __('⏳ due now', 'bootflow-product-importer');
+                            } elseif ($until_seconds < 60) {
+                                $next_text = __('⏳ <1 min', 'bootflow-product-importer');
+                            } elseif ($until_seconds < 3600) {
+                                $next_text = sprintf(__('⏳ in %d min', 'bootflow-product-importer'), intval($until_seconds / 60));
+                            } else {
+                                $next_text = sprintf(__('⏳ in %dh %dm', 'bootflow-product-importer'), intval($until_seconds / 3600), intval(($until_seconds % 3600) / 60));
+                            }
+                            echo '<br><small style="color:#0073aa;">' . esc_html($next_text) . '</small>';
+                        }
+                    }
+                } else {
+                    echo esc_html__('Never', 'bootflow-product-importer');
+                }
+                echo '</td>';
                 echo '<td>';
                 
                 // Edit button
@@ -2862,10 +2901,11 @@ class WC_XML_CSV_AI_Import_Admin {
         $table_name = $wpdb->prefix . 'wc_itp_imports';
         $current_time = current_time('mysql');
         
-        $scheduled_imports = $wpdb->get_results(
+        // Query 1: New imports due for a fresh run (scheduled or completed)
+        $new_imports = $wpdb->get_results(
             $wpdb->prepare("
                 SELECT * FROM {$table_name}
-                WHERE status IN ('scheduled', 'processing', 'completed')
+                WHERE status IN ('scheduled', 'completed')
                 AND schedule_type IN ('15min', 'hourly', '6hours', 'daily', 'weekly', 'monthly')
                 AND (last_run IS NULL OR DATE_ADD(last_run, INTERVAL 
                     CASE schedule_type
@@ -2883,70 +2923,129 @@ class WC_XML_CSV_AI_Import_Admin {
             ARRAY_A
         );
         
+        // Query 2: Stuck/interrupted imports that need resuming (processing but no activity for 2+ minutes)
+        $stuck_imports = $wpdb->get_results(
+            $wpdb->prepare("
+                SELECT * FROM {$table_name}
+                WHERE status = 'processing'
+                AND schedule_type IN ('15min', 'hourly', '6hours', 'daily', 'weekly', 'monthly')
+                AND processed_products < total_products
+                AND updated_at < DATE_SUB(%s, INTERVAL 2 MINUTE)
+                LIMIT 5
+            ", $current_time),
+            ARRAY_A
+        );
+        
+        // Merge both lists, avoiding duplicates
+        $scheduled_imports = $new_imports ?: array();
+        $seen_ids = array_column($scheduled_imports, 'id');
+        foreach (($stuck_imports ?: array()) as $stuck) {
+            if (!in_array($stuck['id'], $seen_ids)) {
+                $scheduled_imports[] = $stuck;
+            }
+        }
+        
         if (empty($scheduled_imports)) {
             if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: No imports ready to run'); }
             echo 'No imports scheduled';
             exit;
         }
         
-        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Found ' . count($scheduled_imports) . ' imports to run'); }
+        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Found ' . count($scheduled_imports) . ' imports to run (new=' . count($new_imports ?: array()) . ', stuck=' . count($stuck_imports ?: array()) . ')'); }
         
         // Process each scheduled import
         foreach ($scheduled_imports as $import) {
             try {
-                if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Starting import ID ' . $import['id']); }
+                // Determine if this is a RESUME (stuck processing) or a NEW run
+                $is_resuming = ($import['status'] === 'processing' && intval($import['processed_products']) > 0);
                 
-                // Reset processed_products to 0 for new scheduled run and update status
-                $wpdb->update(
-                    $table_name,
-                    array(
-                        'status' => 'processing',
-                        'processed_products' => 0,
-                        'last_run' => current_time('mysql')
-                    ),
-                    array('id' => $import['id']),
-                    array('%s', '%d', '%s'),
-                    array('%d')
-                );
+                if ($is_resuming) {
+                    // RESUME: Continue from where we left off - do NOT reset processed_products!
+                    $offset = intval($import['processed_products']);
+                    $wpdb->update(
+                        $table_name,
+                        array('last_run' => current_time('mysql')),
+                        array('id' => $import['id']),
+                        array('%s'),
+                        array('%d')
+                    );
+                    if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: RESUMING import ID ' . $import['id'] . ' from offset ' . $offset . '/' . $import['total_products']); }
+                } else {
+                    // NEW RUN: Reset and start from 0
+                    $offset = 0;
+                    $wpdb->update(
+                        $table_name,
+                        array(
+                            'status' => 'processing',
+                            'processed_products' => 0,
+                            'last_run' => current_time('mysql')
+                        ),
+                        array('id' => $import['id']),
+                        array('%s', '%d', '%s'),
+                        array('%d')
+                    );
+                    if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Starting NEW import ID ' . $import['id']); }
+                }
                 
-                // Run the import - process ALL products in a loop until completed
+                // Run the import in chunks with a TIME LIMIT
                 $importer = new WC_XML_CSV_AI_Import_Importer();
-                $offset = 0; // Always start from 0 for scheduled imports
                 // Use import-specific batch_size if set, otherwise fall back to global chunk_size
+                // Cap at 100 to avoid memory/timeout issues with large batches
                 $chunk_size = intval($import['batch_size'] ?? $settings['chunk_size'] ?? 50);
-                if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: import[batch_size]=' . ($import['batch_size'] ?? 'NULL') . ', settings[chunk_size]=' . ($settings['chunk_size'] ?? 'NULL') . ', final chunk_size=' . $chunk_size); }
+                $chunk_size = min($chunk_size, 100); // Safety cap
+                if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: chunk_size=' . $chunk_size . ', starting offset=' . $offset); }
                 
-                // Try to set unlimited time for cron execution
-                @set_time_limit(0);
-                @ini_set('max_execution_time', 0);
+                // Try to set generous time limit
+                @set_time_limit(300);
+                @ini_set('max_execution_time', 300);
                 
-                // Loop until all products are processed (no time limit for server cron)
+                // Loop with a TIME LIMIT - don't try to process everything in one HTTP request!
+                // Shared hosting typically kills processes after 60-300 seconds.
+                // Process for max 120 seconds, then exit cleanly. Next cron call will continue.
                 $completed = false;
+                $max_execution_seconds = 270; // 4.5 minutes max per cron call
+                $cron_start_time = time();
                 $max_iterations = 10000; // Safety limit to prevent infinite loops
                 $iteration = 0;
                 
                 while (!$completed && $iteration < $max_iterations) {
                     $iteration++;
                     
+                    // CHECK TIME LIMIT before each chunk
+                    $elapsed = time() - $cron_start_time;
+                    if ($elapsed >= $max_execution_seconds) {
+                        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Time limit (' . $max_execution_seconds . 's) reached after ' . $iteration . ' chunks at offset ' . $offset . '. Will continue on next cron run.'); }
+                        break;
+                    }
+                    
                     $result = $importer->process_import_chunk($offset, $chunk_size, $import['id']);
                     
-                    if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Processed chunk offset=' . $offset . ', processed=' . ($result['processed'] ?? 0) . ', completed=' . ($result['completed'] ? 'YES' : 'NO')); }
+                    if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Chunk #' . $iteration . ' offset=' . $offset . ', processed=' . ($result['processed'] ?? 0) . ', total_processed=' . ($result['total_processed'] ?? '?') . ', completed=' . ($result['completed'] ? 'YES' : 'NO') . ' [' . $elapsed . 's elapsed]'); }
                     
                     if ($result['completed']) {
                         $completed = true;
                     } else if (isset($result['locked']) && $result['locked']) {
-                        // Another process is running, wait and retry
-                        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Locked, waiting...'); }
-                        sleep(2);
+                        // Another process is running, wait and retry (max 2 times)
+                        if ($iteration > 2) {
+                            if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Still locked after retries, exiting'); }
+                            break;
+                        }
+                        if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Locked, waiting 5s...'); }
+                        sleep(5);
                     } else if (isset($result['stopped']) && $result['stopped']) {
                         // Import was stopped/failed
                         if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Import stopped/failed'); }
                         break;
+                    } else if (isset($result['skipped']) && $result['skipped']) {
+                        // Chunk was skipped (already processed), use total_processed as next offset
+                        $offset = $result['total_processed'] ?? ($offset + $chunk_size);
                     } else {
                         // Continue to next chunk
                         $offset = $result['total_processed'] ?? ($offset + $chunk_size);
                     }
                 }
+                
+                $total_elapsed = time() - $cron_start_time;
                 
                 // Update status based on result
                 if ($completed) {
@@ -2957,10 +3056,10 @@ class WC_XML_CSV_AI_Import_Admin {
                         array('%s'),
                         array('%d')
                     );
-                    if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Completed import ID ' . $import['id']); }
+                    if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: COMPLETED import ID ' . $import['id'] . ' in ' . $total_elapsed . 's (' . $iteration . ' chunks)'); }
                 } else {
-                    // Still processing, will continue on next cron run
-                    if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Import ID ' . $import['id'] . ' paused at offset ' . $offset . ', will continue on next run'); }
+                    // Still processing - status stays as 'processing', next cron call will resume
+                    if (defined('WP_DEBUG') && WP_DEBUG) { error_log('WC XML CSV AI Import Cron: Import ID ' . $import['id'] . ' paused at offset ' . $offset . ', elapsed=' . $total_elapsed . 's, will RESUME on next cron call'); }
                 }
                 
             } catch (Exception $e) {

@@ -110,7 +110,50 @@ if (!empty($import['file_path']) && file_exists($import['file_path'])) {
             </tr>
             <tr>
                 <th><?php esc_html_e('Last Run', 'bootflow-product-importer'); ?></th>
-                <td><?php echo $import['last_run'] ? esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($import['last_run']))) : esc_html__('Never', 'bootflow-product-importer'); ?></td>
+                <td>
+                    <?php if ($import['last_run']): ?>
+                        <?php
+                        $last_run_ts = strtotime($import['last_run']);
+                        $ago_seconds = current_time('timestamp') - $last_run_ts;
+                        if ($ago_seconds < 60) {
+                            $ago_text = __('just now', 'bootflow-product-importer');
+                        } elseif ($ago_seconds < 3600) {
+                            $ago_text = sprintf(__('%d min ago', 'bootflow-product-importer'), intval($ago_seconds / 60));
+                        } elseif ($ago_seconds < 86400) {
+                            $hours = intval($ago_seconds / 3600);
+                            $mins = intval(($ago_seconds % 3600) / 60);
+                            $ago_text = sprintf(__('%dh %dm ago', 'bootflow-product-importer'), $hours, $mins);
+                        } else {
+                            $ago_text = sprintf(__('%d days ago', 'bootflow-product-importer'), intval($ago_seconds / 86400));
+                        }
+                        ?>
+                        <?php echo esc_html(date_i18n('d.m.Y H:i:s', $last_run_ts)); ?>
+                        <span style="color:#888; margin-left:8px;">(<?php echo esc_html($ago_text); ?>)</span>
+                        <?php
+                        // Show next scheduled run
+                        if (!empty($import['schedule_type']) && $import['schedule_type'] !== 'none' && $import['schedule_type'] !== 'disabled') {
+                            $intervals = array('15min'=>900, 'hourly'=>3600, '6hours'=>21600, 'daily'=>86400, 'weekly'=>604800, 'monthly'=>2592000);
+                            $interval = $intervals[$import['schedule_type']] ?? 0;
+                            if ($interval > 0) {
+                                $next_run_ts = $last_run_ts + $interval;
+                                $until_seconds = $next_run_ts - current_time('timestamp');
+                                if ($until_seconds <= 0) {
+                                    $next_text = __('⏳ due now', 'bootflow-product-importer');
+                                } elseif ($until_seconds < 60) {
+                                    $next_text = __('⏳ in less than 1 min', 'bootflow-product-importer');
+                                } elseif ($until_seconds < 3600) {
+                                    $next_text = sprintf(__('⏳ next run in %d min', 'bootflow-product-importer'), intval($until_seconds / 60));
+                                } else {
+                                    $next_text = sprintf(__('⏳ next run in %dh %dm', 'bootflow-product-importer'), intval($until_seconds / 3600), intval(($until_seconds % 3600) / 60));
+                                }
+                                echo '<br><span style="color:#0073aa;">' . esc_html($next_text) . '</span>';
+                            }
+                        }
+                        ?>
+                    <?php else: ?>
+                        <?php esc_html_e('Never', 'bootflow-product-importer'); ?>
+                    <?php endif; ?>
+                </td>
             </tr>
             <tr>
                 <th><?php esc_html_e('Batch Size', 'bootflow-product-importer'); ?></th>
