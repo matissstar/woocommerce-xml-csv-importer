@@ -437,7 +437,21 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                                 }, 500);
                             }, 500);
                         } else {
-                            // Simple product - apply mappings immediately
+                            // Check if there are attribute:* mappings → enable "With Attributes" mode
+                            var hasAttributeMappings = false;
+                            $.each(mappings, function(source, target) {
+                                if (typeof target === 'string' && target.indexOf('attribute:') === 0) {
+                                    hasAttributeMappings = true;
+                                    return false; // break
+                                }
+                            });
+                            
+                            if (hasAttributeMappings) {
+                                console.log('★★★ Attributes detected in simple product - enabling "With Attributes" mode');
+                                applyDisplayAttributes(mappings);
+                            }
+                            
+                            // Apply field mappings
                             applyAiMappings(mappings, confidence);
                         }
                         
@@ -507,8 +521,8 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                         }
                         
                         if (unmapped.length > 0) {
-                            resultHtml += '<div style="margin-top: 8px; font-size: 11px; opacity: 0.8;">';
-                            resultHtml += 'Unmapped: ' + unmapped.join(', ');
+                            resultHtml += '<div style="margin-top: 8px; font-size: 12px; color: #dc3545; font-weight: 600;">';
+                            resultHtml += '⚠ Unmapped: ' + unmapped.join(', ');
                             resultHtml += '</div>';
                         }
                         
@@ -567,6 +581,124 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                 $msg.fadeOut(500, function() { $msg.remove(); });
             }, 3000);
         });
+    }
+    
+    /**
+     * Auto-fill Display Attributes for "With Attributes" mode (simple products with attributes)
+     * Called when AI mappings contain attribute:* targets but has_variations is false.
+     * Detects attribute names and source fields, enables "With Attributes" mode, 
+     * and populates attribute rows.
+     */
+    function applyDisplayAttributes(mappings) {
+        // Collect attribute mappings: {attrName: sourceField}
+        var attrs = {};
+        $.each(mappings, function(sourceField, targetField) {
+            if (typeof targetField === 'string' && targetField.indexOf('attribute:') === 0) {
+                // Skip @attributes.* fields — these are XML metadata, not product attributes
+                if (sourceField.indexOf('@attributes') !== -1) {
+                    console.log('★★★ Skipping XML metadata field:', sourceField);
+                    return true; // continue
+                }
+                // Skip #text fields from attribute containers (handled by auto-detect)
+                if (/attributes\.attribute.*#text/.test(sourceField)) {
+                    console.log('★★★ Skipping attribute #text field:', sourceField);
+                    return true; // continue
+                }
+                var attrName = targetField.replace('attribute:', '');
+                attrs[attrName] = sourceField;
+            }
+        });
+        
+        if ($.isEmptyObject(attrs)) return;
+        
+        console.log('★★★ applyDisplayAttributes() - found attributes:', attrs);
+        
+        // 1. Activate "With Attributes" mode
+        var $attrRadio = $('input[name="product_mode"][value="attributes"]');
+        if ($attrRadio.length > 0) {
+            $attrRadio.prop('checked', true).trigger('change');
+            console.log('★★★ Set product_mode to: attributes');
+        }
+        
+        // 2. Detect if this is a Key-Value pattern (source fields end with .name)
+        var isKeyValue = false;
+        var nameFieldPath = null;
+        var valueFieldPath = null;
+        $.each(attrs, function(attrName, sourceField) {
+            if (/\.name$/i.test(sourceField)) {
+                isKeyValue = true;
+                nameFieldPath = sourceField;
+                // Guess value field by replacing .name with .value
+                valueFieldPath = sourceField.replace(/\.name$/i, '.value');
+            }
+        });
+        
+        // Wait for mode panel to render
+        setTimeout(function() {
+            if (isKeyValue) {
+                // Key-Value Pairs mode (e.g., attributes.attribute.name + attributes.attribute.value)
+                console.log('★★★ Detected Key-Value attribute pattern');
+                var $kvRadio = $('input[name="attr_input_mode"][value="key_value"]');
+                if ($kvRadio.length > 0) {
+                    $kvRadio.prop('checked', true).trigger('change');
+                }
+                
+                setTimeout(function() {
+                    // Add one Key-Value pair row
+                    $('#btn-add-attribute-pair').trigger('click');
+                    
+                    setTimeout(function() {
+                        var $row = $('#attribute-pairs-list .attr-pair-row:last');
+                        if ($row.length > 0) {
+                            // Set name field
+                            var $nameTextarea = $row.find('textarea[name*="[name_field]"]');
+                            if ($nameTextarea.length > 0 && nameFieldPath) {
+                                $nameTextarea.val('{' + nameFieldPath + '}');
+                                $nameTextarea.css({ 'background': '#c8e6c9', 'border-color': '#4caf50' });
+                            }
+                            // Set value field
+                            var $valueTextarea = $row.find('textarea[name*="[value_field]"]');
+                            if ($valueTextarea.length > 0 && valueFieldPath) {
+                                $valueTextarea.val('{' + valueFieldPath + '}');
+                                $valueTextarea.css({ 'background': '#c8e6c9', 'border-color': '#4caf50' });
+                            }
+                            console.log('★★★ Set Key-Value pair:', nameFieldPath, '→', valueFieldPath);
+                        }
+                    }, 200);
+                }, 200);
+            } else {
+                // Standard mode — one row per attribute
+                console.log('★★★ Using Standard attribute mode');
+                var attrIndex = 0;
+                $.each(attrs, function(attrName, sourceField) {
+                    // Add attribute row
+                    addAttributeRow('attributes-list');
+                    
+                    // Fill in values after DOM update
+                    (function(name, source, idx) {
+                        setTimeout(function() {
+                            var $rows = $('#attributes-list .attr-row');
+                            var $row = $rows.eq(idx);
+                            if ($row.length > 0) {
+                                // Set attribute name (capitalize first letter)
+                                var displayName = name.charAt(0).toUpperCase() + name.slice(1);
+                                $row.find('input[name*="[name]"]').val(displayName);
+                                
+                                // Set source field
+                                var $sourceTextarea = $row.find('textarea[name*="[source]"]');
+                                if ($sourceTextarea.length > 0) {
+                                    $sourceTextarea.val('{' + source + '}');
+                                    $sourceTextarea.css({ 'background': '#c8e6c9', 'border-color': '#4caf50' });
+                                }
+                                console.log('★★★ Added display attribute:', displayName, '→ {' + source + '}');
+                            }
+                        }, 150 * (idx + 1));
+                    })(attrName, sourceField, attrIndex);
+                    
+                    attrIndex++;
+                });
+            }
+        }, 400);
     }
     
     /**
@@ -4307,6 +4439,13 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             console.log('★★★ COLLECTED PRICING ENGINE:', pricingEngineConfig);
         }
 
+        // Collect Shipping Class Engine config
+        if (typeof window.getShippingClassEngineConfig === 'function') {
+            var shippingClassEngineConfig = window.getShippingClassEngineConfig();
+            data.field_mapping.shipping_class_engine = shippingClassEngineConfig;
+            console.log('★★★ COLLECTED SHIPPING CLASS ENGINE:', shippingClassEngineConfig);
+        }
+
         return data;
     }
 
@@ -5920,24 +6059,54 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
             
             // If in variation context, try to convert absolute path to relative
             if (isVariationContext) {
-                var prefixPatterns = [
-                    variationPathPrefix + '[0].',
-                    variationPathPrefix + '[1].',
-                    variationPathPrefix + '[2].',
-                    variationPathPrefix + '.',
-                    'variations.variation[0].',
-                    'variations.variation.',
-                ];
+                // Strip any [N] index from variation path prefix using regex
+                // This handles [0], [1], [4], [99], etc.
+                var indexedPattern = new RegExp('^' + variationPathPrefix.replace(/\./g, '\\.') + '\\[\\d+\\]\\.', '');
+                var genericPattern = new RegExp('^' + variationPathPrefix.replace(/\./g, '\\.') + '\\.', '');
+                var fallbackIndexed = /^variations\.variation\[\d+\]\./;
+                var fallbackGeneric = /^variations\.variation\./;
                 
-                for (var i = 0; i < prefixPatterns.length; i++) {
-                    if (fieldPath.indexOf(prefixPatterns[i]) === 0) {
-                        fieldPath = fieldPath.substring(prefixPatterns[i].length);
-                        break;
-                    }
+                if (indexedPattern.test(fieldPath)) {
+                    fieldPath = fieldPath.replace(indexedPattern, '');
+                } else if (genericPattern.test(fieldPath)) {
+                    fieldPath = fieldPath.replace(genericPattern, '');
+                } else if (fallbackIndexed.test(fieldPath)) {
+                    fieldPath = fieldPath.replace(fallbackIndexed, '');
+                } else if (fallbackGeneric.test(fieldPath)) {
+                    fieldPath = fieldPath.replace(fallbackGeneric, '');
                 }
             }
             
             var value = getNestedValue(data, fieldPath);
+            
+            // If value not found and path contains [N] index, try stripping the index
+            // e.g., "variations.variation[4].weight" → try "variations.variation.weight" on parent data
+            if (value === undefined && /\[\d+\]/.test(fieldPath)) {
+                var strippedPath = fieldPath.replace(/\[\d+\]/g, '');
+                value = getNestedValue(data, strippedPath);
+                
+                // If still not found, try resolving as first variation's data
+                if (value === undefined) {
+                    var variationPrefix = ($('#variation_path').val() || 'variations.variation');
+                    var stripRegex = new RegExp('^' + variationPrefix.replace(/\./g, '\\.') + '\\[\\d+\\]\\.', '');
+                    if (stripRegex.test(fieldPath)) {
+                        var relativePath = fieldPath.replace(stripRegex, '');
+                        var variations = getNestedValue(data, variationPrefix);
+                        if (variations && Array.isArray(variations) && variations.length > 0) {
+                            // Extract index from original path
+                            var idxMatch = fieldPath.match(/\[(\d+)\]/);
+                            var idx = idxMatch ? parseInt(idxMatch[1]) : 0;
+                            if (idx < variations.length) {
+                                value = getNestedValue(variations[idx], relativePath);
+                            }
+                            // Fallback to first variation
+                            if (value === undefined) {
+                                value = getNestedValue(variations[0], relativePath);
+                            }
+                        }
+                    }
+                }
+            }
             
             if (value === undefined) {
                 errors.push('Unknown field: ' + fieldPath);
@@ -6086,12 +6255,19 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
                     clearInterval(checkInterval);
                     initTextareaMappingUI();
                     initPricingEngine(); // Initialize Pricing Engine
+                    initShippingClassEngine(); // Initialize Shipping Class Engine
                     
                     // Restore Pricing Engine config after initialization
                     // (loadSavedMappings runs before initPricingEngine, so we need to restore again)
                     if (typeof wcAiImportData !== 'undefined' && wcAiImportData.saved_mappings && wcAiImportData.saved_mappings.pricing_engine) {
                         console.log('★★★ Restoring Pricing Engine config after init:', wcAiImportData.saved_mappings.pricing_engine);
                         window.restorePricingEngineConfig(wcAiImportData.saved_mappings.pricing_engine);
+                    }
+                    
+                    // Restore Shipping Class Engine config after initialization
+                    if (typeof wcAiImportData !== 'undefined' && wcAiImportData.saved_mappings && wcAiImportData.saved_mappings.shipping_class_engine) {
+                        console.log('★★★ Restoring Shipping Class Engine config after init:', wcAiImportData.saved_mappings.shipping_class_engine);
+                        window.restoreShippingClassEngineConfig(wcAiImportData.saved_mappings.shipping_class_engine);
                     }
                 }
             }, 500);
@@ -6604,6 +6780,347 @@ window.populateFieldSelectorsForRowGlobal = function($row) {
         }
         
         updatePricingPreview();
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SHIPPING CLASS ENGINE - Assign shipping classes via conditional rules
+    // Pipeline: Product Data → Match Rules → Assign Shipping Class
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    var shippingRuleCounter = 0;
+
+    /**
+     * Initialize Shipping Class Engine functionality
+     */
+    function initShippingClassEngine() {
+        console.log('★★★ initShippingClassEngine() CALLED ★★★');
+        
+        // Toggle enable/disable
+        $('#shipping_class_engine_enabled').on('change', function() {
+            var enabled = $(this).is(':checked');
+            if (enabled) {
+                $('#shipping-class-engine-settings').slideDown(300);
+                $('#shipping-class-engine-disabled-msg').slideUp(300);
+            } else {
+                $('#shipping-class-engine-settings').slideUp(300);
+                $('#shipping-class-engine-disabled-msg').slideDown(300);
+            }
+        });
+        
+        // Add new shipping rule
+        $('#btn-add-shipping-rule').on('click', function() {
+            addShippingRule();
+        });
+        
+        // Remove shipping rule (delegated)
+        $(document).on('click', '.remove-shipping-rule', function() {
+            $(this).closest('.shipping-rule-row').slideUp(200, function() {
+                $(this).remove();
+                updateShippingRuleNumbers();
+            });
+        });
+        
+        // Condition type change - show/hide relevant fields
+        $(document).on('change', '.shipping-condition-type', function() {
+            var $conditionRow = $(this).closest('.shipping-condition-row');
+            var type = $(this).val();
+            
+            // Hide all condition fields
+            $conditionRow.find('.shipping-condition-fields').hide();
+            
+            // Show relevant one
+            $conditionRow.find('.shipping-condition-' + type).css('display', 'flex');
+        });
+        
+        // Add condition to a shipping rule
+        $(document).on('click', '.add-shipping-condition', function() {
+            var $rule = $(this).closest('.shipping-rule-row');
+            var ruleId = $rule.data('rule-id');
+            addShippingConditionToRule($rule, ruleId);
+        });
+        
+        // Remove shipping condition
+        $(document).on('click', '.remove-shipping-condition', function() {
+            var $conditionsList = $(this).closest('.shipping-conditions-list');
+            if ($conditionsList.find('.shipping-condition-row').length > 1) {
+                $(this).closest('.shipping-condition-row').remove();
+            } else {
+                alert('At least one condition is required');
+            }
+        });
+        
+        // Populate XML field selects in shipping rules
+        populateShippingXmlFieldSelects($('#shipping-class-rules-list'));
+    }
+    
+    /**
+     * Add a new shipping class rule
+     */
+    function addShippingRule() {
+        shippingRuleCounter++;
+        var ruleId = 'srule_' + shippingRuleCounter;
+        
+        var $template = $('#shipping-rule-template');
+        if (!$template.length) {
+            console.error('Shipping rule template not found');
+            return;
+        }
+        
+        var html = $template.html().replace(/\{id\}/g, ruleId);
+        var $newRule = $(html);
+        $newRule.attr('data-rule-id', ruleId);
+        
+        // Insert before the default rule
+        var $defaultRule = $('.shipping-rule-default');
+        if ($defaultRule.length) {
+            $newRule.insertBefore($defaultRule);
+        } else {
+            $('#shipping-class-rules-list').append($newRule);
+        }
+        
+        // Populate XML field selects in the new rule
+        populateShippingXmlFieldSelects($newRule);
+        
+        // Update rule numbers
+        updateShippingRuleNumbers();
+        
+        // Animate in
+        $newRule.hide().slideDown(200);
+    }
+    
+    /**
+     * Add a condition row to a shipping rule
+     */
+    function addShippingConditionToRule($rule, ruleId) {
+        var $conditionsList = $rule.find('.shipping-conditions-list');
+        var conditionIndex = $conditionsList.find('.shipping-condition-row').length;
+        
+        // Clone the first condition row as template
+        var $firstCondition = $conditionsList.find('.shipping-condition-row:first');
+        var $newCondition = $firstCondition.clone();
+        
+        // Update names with new index
+        $newCondition.find('[name]').each(function() {
+            var name = $(this).attr('name');
+            name = name.replace(/\[conditions\]\[\d+\]/, '[conditions][' + conditionIndex + ']');
+            $(this).attr('name', name);
+        });
+        
+        // Reset values
+        $newCondition.find('input[type="text"], input[type="number"]').val('');
+        $newCondition.find('select').each(function() {
+            $(this).prop('selectedIndex', 0);
+        });
+        
+        // Show weight_range fields by default
+        $newCondition.find('.shipping-condition-fields').hide();
+        $newCondition.find('.shipping-condition-weight_range').css('display', 'flex');
+        
+        $conditionsList.append($newCondition);
+        
+        // Populate XML field selects
+        populateShippingXmlFieldSelects($newCondition);
+    }
+    
+    /**
+     * Update shipping rule numbers display
+     */
+    function updateShippingRuleNumbers() {
+        var number = 1;
+        $('.shipping-rule-conditional').each(function() {
+            $(this).find('.shipping-rule-number').text(number);
+            number++;
+        });
+    }
+    
+    /**
+     * Populate XML field selects in shipping rules
+     */
+    function populateShippingXmlFieldSelects($container) {
+        var $selects = $container.find('.shipping-xml-field-select');
+        
+        $selects.each(function() {
+            var $select = $(this);
+            $select.find('option:not(:first)').remove();
+            
+            if (window.allKnownFieldsOrder && window.allKnownFieldsOrder.length > 0) {
+                $.each(window.allKnownFieldsOrder, function(i, field) {
+                    $select.append('<option value="' + field + '">' + field + '</option>');
+                });
+            }
+        });
+    }
+    
+    /**
+     * Get shipping class engine configuration for saving
+     */
+    window.getShippingClassEngineConfig = function() {
+        var config = {
+            enabled: $('#shipping_class_engine_enabled').is(':checked'),
+            rules: []
+        };
+        
+        // Collect all rules
+        $('#shipping-class-rules-list .shipping-rule-row').each(function() {
+            var $rule = $(this);
+            var ruleId = $rule.data('rule-id');
+            var isDefault = $rule.hasClass('shipping-rule-default');
+            
+            // Determine shipping class: custom input takes priority over select
+            var shippingClassCustom = $rule.find('.shipping-class-custom').val() || '';
+            var shippingClassSelect = $rule.find('.shipping-class-select').val() || '';
+            var shippingClass = shippingClassCustom || shippingClassSelect;
+            
+            var rule = {
+                id: ruleId,
+                is_default: isDefault,
+                name: $rule.find('input[name$="[name]"]').val() || '',
+                enabled: isDefault ? true : $rule.find('input[name$="[enabled]"]').is(':checked'),
+                shipping_class: shippingClass,
+                shipping_class_custom: shippingClassCustom,
+                conditions: [],
+                condition_logic: $rule.find('select[name$="[condition_logic]"]').val() || 'AND'
+            };
+            
+            // Collect conditions (for non-default rules)
+            if (!isDefault) {
+                $rule.find('.shipping-condition-row').each(function() {
+                    var $cond = $(this);
+                    var type = $cond.find('.shipping-condition-type').val();
+                    
+                    var condition = {
+                        type: type
+                    };
+                    
+                    // Get type-specific values
+                    switch (type) {
+                        case 'weight_range':
+                            condition.weight_from = parseFloat($cond.find('input[name$="[weight_from]"]').val()) || 0;
+                            condition.weight_to = parseFloat($cond.find('input[name$="[weight_to]"]').val()) || null;
+                            break;
+                        case 'price_range':
+                            condition.price_from = parseFloat($cond.find('input[name$="[price_from]"]').val()) || 0;
+                            condition.price_to = parseFloat($cond.find('input[name$="[price_to]"]').val()) || null;
+                            break;
+                        case 'volume_range':
+                            condition.volume_from = parseFloat($cond.find('input[name$="[volume_from]"]').val()) || 0;
+                            condition.volume_to = parseFloat($cond.find('input[name$="[volume_to]"]').val()) || null;
+                            break;
+                        case 'category':
+                            condition.operator = $cond.find('select[name$="[category_operator]"]').val();
+                            condition.value = $cond.find('input[name$="[category_value]"]').val();
+                            break;
+                        case 'brand':
+                            condition.operator = $cond.find('select[name$="[brand_operator]"]').val();
+                            condition.value = $cond.find('input[name$="[brand_value]"]').val();
+                            break;
+                        case 'xml_field':
+                            condition.field = $cond.find('select[name$="[xml_field_name]"]').val();
+                            condition.operator = $cond.find('select[name$="[xml_field_operator]"]').val();
+                            condition.value = $cond.find('input[name$="[xml_field_value]"]').val();
+                            break;
+                        case 'sku_pattern':
+                            condition.operator = $cond.find('select[name$="[sku_operator]"]').val();
+                            condition.value = $cond.find('input[name$="[sku_value]"]').val();
+                            break;
+                    }
+                    
+                    rule.conditions.push(condition);
+                });
+            }
+            
+            config.rules.push(rule);
+        });
+        
+        console.log('★★★ SHIPPING CLASS ENGINE CONFIG:', config);
+        return config;
+    };
+    
+    /**
+     * Restore shipping class engine configuration
+     */
+    window.restoreShippingClassEngineConfig = function(config) {
+        if (!config) return;
+        
+        console.log('★★★ Restoring Shipping Class Engine config:', config);
+        
+        if (config.enabled) {
+            $('#shipping_class_engine_enabled').prop('checked', true).trigger('change');
+        }
+        
+        // Restore rules
+        if (config.rules && config.rules.length > 0) {
+            config.rules.forEach(function(rule) {
+                if (rule.is_default) {
+                    // Restore default rule values
+                    var $defaultRule = $('.shipping-rule-default');
+                    if (rule.shipping_class_custom) {
+                        $defaultRule.find('.shipping-class-custom').val(rule.shipping_class_custom);
+                    } else {
+                        $defaultRule.find('.shipping-class-select').val(rule.shipping_class || '');
+                    }
+                } else {
+                    // Add and restore conditional rules
+                    addShippingRule();
+                    var $newRule = $('#shipping-class-rules-list .shipping-rule-conditional:last');
+                    
+                    $newRule.find('input[name$="[name]"]').val(rule.name || '');
+                    $newRule.find('input[name$="[enabled]"]').prop('checked', rule.enabled !== false);
+                    $newRule.find('select[name$="[condition_logic]"]').val(rule.condition_logic || 'AND');
+                    
+                    // Restore shipping class
+                    if (rule.shipping_class_custom) {
+                        $newRule.find('.shipping-class-custom').val(rule.shipping_class_custom);
+                    } else {
+                        $newRule.find('.shipping-class-select').val(rule.shipping_class || '');
+                    }
+                    
+                    // Restore conditions
+                    if (rule.conditions && rule.conditions.length > 0) {
+                        rule.conditions.forEach(function(cond, index) {
+                            if (index > 0) {
+                                addShippingConditionToRule($newRule, $newRule.data('rule-id'));
+                            }
+                            
+                            var $condRow = $newRule.find('.shipping-condition-row').eq(index);
+                            $condRow.find('.shipping-condition-type').val(cond.type).trigger('change');
+                            
+                            switch (cond.type) {
+                                case 'weight_range':
+                                    $condRow.find('input[name$="[weight_from]"]').val(cond.weight_from || '');
+                                    $condRow.find('input[name$="[weight_to]"]').val(cond.weight_to || '');
+                                    break;
+                                case 'price_range':
+                                    $condRow.find('input[name$="[price_from]"]').val(cond.price_from || '');
+                                    $condRow.find('input[name$="[price_to]"]').val(cond.price_to || '');
+                                    break;
+                                case 'volume_range':
+                                    $condRow.find('input[name$="[volume_from]"]').val(cond.volume_from || '');
+                                    $condRow.find('input[name$="[volume_to]"]').val(cond.volume_to || '');
+                                    break;
+                                case 'category':
+                                    $condRow.find('select[name$="[category_operator]"]').val(cond.operator);
+                                    $condRow.find('input[name$="[category_value]"]').val(cond.value);
+                                    break;
+                                case 'brand':
+                                    $condRow.find('select[name$="[brand_operator]"]').val(cond.operator);
+                                    $condRow.find('input[name$="[brand_value]"]').val(cond.value);
+                                    break;
+                                case 'xml_field':
+                                    $condRow.find('select[name$="[xml_field_name]"]').val(cond.field);
+                                    $condRow.find('select[name$="[xml_field_operator]"]').val(cond.operator);
+                                    $condRow.find('input[name$="[xml_field_value]"]').val(cond.value);
+                                    break;
+                                case 'sku_pattern':
+                                    $condRow.find('select[name$="[sku_operator]"]').val(cond.operator);
+                                    $condRow.find('input[name$="[sku_value]"]').val(cond.value);
+                                    break;
+                            }
+                        });
+                    }
+                }
+            });
+        }
     };
 
 })(jQuery);/* Cache bust 1770061919 */

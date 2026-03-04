@@ -844,6 +844,7 @@ SKIP THESE FIELDS (metadata, not product data):
 - ANY .@attributes.* → skip (XML metadata)
 - amount_on_pallet → skip (warehouse data)
 - package_dimensions (parent object) → skip (use children instead)
+- Parent object fields that contain nested children already listed as separate fields → skip (e.g., 'dimensions' when 'dimensions.length', 'dimensions.width', 'dimensions.height' exist as separate fields)
 
 WEIGHT & DIMENSIONS (use child fields!):
 - weight, svars, gross_weight, net_weight → weight
@@ -893,8 +894,20 @@ Return ONLY valid JSON (no markdown, no explanation):
   },
   \"confidence\": {\"field\": 80, ...},
   \"unmapped\": [],
-  \"product_structure\": {\"type\": \"simple\", \"has_variations\": false}
+  \"product_structure\": {
+    \"type\": \"simple or variable\",
+    \"has_variations\": false,
+    \"variation_path\": \"path.to.variation.container (ONLY for variable products)\",
+    \"detected_attributes\": [\"attribute names like size, color, etc.\"]
+  }
 }
+
+=== PRODUCT STRUCTURE RULES ===
+If source fields contain variation/variant/offer paths (e.g., variations.variation.sku):
+  - Set type to \"variable\" and has_variations to true
+  - Set variation_path to the CONTAINER path (e.g., \"variations.variation\" from \"variations.variation.sku\")
+  - List detected attribute names in detected_attributes (e.g., [\"size\", \"color\"])
+If NO variation fields exist, set type to \"simple\" and has_variations to false.
 
 === FINAL CHECK ===
 Count your mappings - there MUST be exactly {$source_field_count} entries!
@@ -974,6 +987,16 @@ NO FIELD LEFT UNMAPPED!";
                     continue;
                 }
                 
+                // Skip @attributes.* fields — these are XML metadata, not product data
+                if (preg_match('/@attributes/', $source)) {
+                    continue;
+                }
+                
+                // Skip #text fields that are children of attribute containers (already handled by auto-detect)
+                if (preg_match('/attributes\.attribute.*#text/', $source)) {
+                    continue;
+                }
+                
                 // Allow attribute: prefix for detected attributes
                 if (strpos($target, 'attribute:') === 0) {
                     $attr_name = substr($target, 10); // Remove 'attribute:' prefix
@@ -987,6 +1010,32 @@ NO FIELD LEFT UNMAPPED!";
                 
                 // Check if target is valid WC field
                 if (array_key_exists($target, $wc_fields)) {
+                    // IMPORTANT: If source is a variation field but target is a parent field,
+                    // redirect to the variation_* equivalent.
+                    // e.g., source="variations.variation.weight" target="weight" → target="variation_weight"
+                    if (preg_match('/variation|variant|offer/i', $source)) {
+                        $parent_to_variation = array(
+                            'weight' => 'variation_weight',
+                            'length' => 'variation_length',
+                            'width' => 'variation_width',
+                            'height' => 'variation_height',
+                            'images' => 'variation_image',
+                            'featured_image' => 'variation_image',
+                            'regular_price' => 'variation_price',
+                            'sale_price' => 'variation_sale_price',
+                            'stock_quantity' => 'variation_stock',
+                            'manage_stock' => 'variation_manage_stock',
+                            'stock_status' => 'variation_stock_status',
+                            'sku' => 'variation_sku',
+                            'description' => 'variation_description',
+                            'gtin' => 'variation_gtin',
+                            'backorders' => 'variation_backorders',
+                        );
+                        if (isset($parent_to_variation[$target])) {
+                            $target = $parent_to_variation[$target];
+                        }
+                    }
+                    
                     $valid_mappings[$source] = $target;
                     if (isset($parsed['confidence'][$source])) {
                         $valid_confidence[$source] = intval($parsed['confidence'][$source]);
@@ -1031,9 +1080,18 @@ NO FIELD LEFT UNMAPPED!";
             );
             
             foreach ($unmapped_fields as $source) {
+                // Skip @attributes.* fields — XML metadata
+                if (preg_match('/@attributes/', $source)) {
+                    continue;
+                }
+                // Skip #text fields inside attribute containers (handled by auto-detect)
+                if (preg_match('/attributes\.attribute.*#text/', $source)) {
+                    continue;
+                }
+                
                 // Check if this is a variation field (contains variation path)
                 if (preg_match('/variation|variant|offer/i', $source)) {
-                    // Check for attributes path
+                    // Check for attributes path (but NOT @attributes metadata)
                     if (preg_match('/attributes?\.(\w+)$/i', $source, $attr_match)) {
                         // This is an attribute
                         $attr_name = strtolower($attr_match[1]);
@@ -1057,8 +1115,118 @@ NO FIELD LEFT UNMAPPED!";
                 }
             }
             
+            // AUTO-FILL #2: Map remaining unmapped fields by their last path segment (general patterns)
+            // This catches things like dimensions.length → length, dimensions.width → width, etc.
+            $unmapped_fields = array_diff($source_fields, array_keys($valid_mappings));
+            
+            $general_auto_map = array(
+                // Dimensions
+                'length' => 'length',
+                'width' => 'width',
+                'height' => 'height',
+                'depth' => 'length',
+                // Weight
+                'weight' => 'weight',
+                'gross_weight' => 'weight',
+                'net_weight' => 'weight',
+                'svars' => 'weight',
+                // Images
+                'image' => 'images',
+                'images' => 'images',
+                'picture' => 'images',
+                'photo' => 'images',
+                'img' => 'images',
+                'featured_image' => 'featured_image',
+                // Barcodes
+                'ean' => 'gtin',
+                'gtin' => 'gtin',
+                'upc' => 'gtin',
+                'isbn' => 'isbn',
+                'barcode' => 'gtin',
+                'mpn' => 'mpn',
+                // Categories & tags
+                'categories' => 'categories',
+                'category' => 'categories',
+                'tags' => 'tags',
+                'tag' => 'tags',
+                // Brand
+                'brand' => 'brand',
+                'manufacturer' => 'brand',
+                // Basic fields
+                'name' => 'name',
+                'title' => 'name',
+                'description' => 'description',
+                'short_description' => 'short_description',
+                'sku' => 'sku',
+                'price' => 'regular_price',
+                'regular_price' => 'regular_price',
+                'sale_price' => 'sale_price',
+                'stock_quantity' => 'stock_quantity',
+                'stock_status' => 'stock_status',
+                'manage_stock' => 'manage_stock',
+            );
+            
+            foreach ($unmapped_fields as $source) {
+                // Skip fields that look like variation paths
+                if (preg_match('/variation|variant|offer/i', $source)) {
+                    continue;
+                }
+                
+                // Skip @attributes.* fields — XML metadata
+                if (preg_match('/@attributes/', $source)) {
+                    continue;
+                }
+                
+                // Get the last part of the dot-separated path
+                $path_parts = preg_split('/[\.\[\]]+/', $source);
+                $path_parts = array_filter($path_parts); // remove empty
+                $last_part = strtolower(end($path_parts));
+                
+                // Only auto-fill if this is a nested field (has a parent)
+                // Don't auto-fill top-level fields — AI should have gotten those
+                if (count($path_parts) >= 2 && isset($general_auto_map[$last_part])) {
+                    $target = $general_auto_map[$last_part];
+                    // Don't override if the exact same target is already mapped
+                    if (!in_array($target, $valid_mappings)) {
+                        $valid_mappings[$source] = $target;
+                        $valid_confidence[$source] = 85;
+                        $auto_filled[] = $source;
+                    }
+                }
+            }
+            
             // Extract product structure info
             $product_structure = isset($parsed['product_structure']) ? $parsed['product_structure'] : array();
+            
+            // AUTO-DETECT product_structure from mappings if AI didn't provide it
+            // Check if any mappings have variation_* targets → this is a variable product
+            $has_variation_mappings = false;
+            $variation_path_candidates = array();
+            foreach ($valid_mappings as $source => $target) {
+                if (strpos($target, 'variation_') === 0 || strpos($target, 'attribute:') === 0) {
+                    $has_variation_mappings = true;
+                    // Extract variation container path from source
+                    // e.g., "variations.variation.sku" → "variations.variation"
+                    // e.g., "offers.offer.price" → "offers.offer"
+                    if (preg_match('/^(.+?)\.(variation|variant|offer|item)(\.|$)/i', $source, $vpath_match)) {
+                        $container_path = $vpath_match[1] . '.' . $vpath_match[2];
+                        $variation_path_candidates[$container_path] = 
+                            (isset($variation_path_candidates[$container_path]) ? $variation_path_candidates[$container_path] : 0) + 1;
+                    }
+                }
+            }
+            
+            // If variation mappings found but product_structure doesn't reflect it, auto-fill
+            if ($has_variation_mappings && empty($product_structure['has_variations'])) {
+                $product_structure['type'] = 'variable';
+                $product_structure['has_variations'] = true;
+                
+                // Pick the most common variation path
+                if (!empty($variation_path_candidates)) {
+                    arsort($variation_path_candidates);
+                    $product_structure['variation_path'] = key($variation_path_candidates);
+                }
+            }
             
             // Merge detected attributes from mappings and product_structure
             if (!empty($product_structure['detected_attributes'])) {
@@ -1068,6 +1236,63 @@ NO FIELD LEFT UNMAPPED!";
             
             // Calculate final unmapped count
             $final_unmapped = array_diff($source_fields, array_keys($valid_mappings));
+            
+            // Filter out fields that are already "covered" by existing mappings:
+            // 1. Parent objects whose children are mapped (e.g., "dimensions" when "dimensions.length" is mapped)
+            // 2. Array-indexed instances of mapped fields (e.g., "images.image[0]" when "images.image" is mapped)
+            // 3. Array-indexed children of mapped fields (e.g., "attributes.attribute[0].name" when "attributes.attribute.name" is mapped)
+            // 4. Wildcard/glob fields (e.g., "images.image*" when "images.image" is mapped)
+            $mapped_keys = array_keys($valid_mappings);
+            $final_unmapped = array_filter($final_unmapped, function($field) use ($mapped_keys) {
+                // 0. Skip @attributes.* fields — XML metadata, never shown as unmapped
+                if (preg_match('/@attributes/', $field)) {
+                    return false;
+                }
+                // Also skip #text fields under attribute containers
+                if (preg_match('/attributes\.attribute.*#text/', $field)) {
+                    return false;
+                }
+                
+                // Strip array indices [0], [1], etc. and trailing * to get the "base" path
+                // e.g., "images.image[0]" → "images.image", "attributes.attribute[1].name" → "attributes.attribute.name"
+                $base_field = preg_replace('/\[\d+\]/', '', $field);
+                $base_field = rtrim($base_field, '*');
+                $base_field = rtrim($base_field, '.');
+                
+                // 1. Check if the base path (without indices) is itself mapped
+                if ($base_field !== $field && in_array($base_field, $mapped_keys)) {
+                    return false; // e.g., "images.image[0]" is covered by mapped "images.image"
+                }
+                
+                // 2. Check if this is a parent object whose children are mapped
+                $prefix = $field . '.';
+                foreach ($mapped_keys as $mapped) {
+                    if (strpos($mapped, $prefix) === 0) {
+                        return false; // e.g., "dimensions" is covered by mapped "dimensions.length"
+                    }
+                }
+                
+                // 3. Check if the base path is a child of a mapped parent
+                $base_prefix = $base_field . '.';
+                if ($base_field !== $field) {
+                    foreach ($mapped_keys as $mapped) {
+                        if (strpos($mapped, $base_prefix) === 0) {
+                            return false; // e.g., "attributes.attribute[0]" is covered by mapped "attributes.attribute.name"
+                        }
+                    }
+                }
+                
+                // 4. Check if any parent prefix of the base path is mapped
+                $parts = explode('.', $base_field);
+                for ($i = count($parts) - 1; $i >= 1; $i--) {
+                    $parent = implode('.', array_slice($parts, 0, $i));
+                    if (in_array($parent, $mapped_keys)) {
+                        return false; // e.g., "attributes.attribute[0].visible" is covered by mapped "attributes.attribute"
+                    }
+                }
+                
+                return true; // Truly unmapped
+            });
             
             return array(
                 'mappings' => $valid_mappings,

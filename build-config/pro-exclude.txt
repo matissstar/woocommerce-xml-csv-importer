@@ -3,6 +3,10 @@
 
 # Build files (not needed in distribution)
 build.sh
+
+# Legacy BFI license files (replaced by unified license class)
+includes/class-bfi-license.php
+includes/class-bfi-license-admin.php
 build-config/
 .git/
 .gitignore

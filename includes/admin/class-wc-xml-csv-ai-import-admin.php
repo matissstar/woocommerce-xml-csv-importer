@@ -1103,11 +1103,9 @@ class WC_XML_CSV_AI_Import_Admin {
                     'height' => array('label' => __('Height', 'bootflow-product-importer'), 'required' => false),
                 )
             ),
-            'shipping_class_assignment' => array(
-                'title' => __('Shipping Class Assignment', 'bootflow-product-importer'),
-                'fields' => array(
-                    'shipping_class_formula' => array('label' => __('Shipping Class Formula', 'bootflow-product-importer'), 'required' => false),
-                )
+            'shipping_class_engine' => array(
+                'title' => __('Shipping Class Rules', 'bootflow-product-importer'),
+                'fields' => array()
             ),
             'media' => array(
                 'title' => __('Media Fields', 'bootflow-product-importer'),

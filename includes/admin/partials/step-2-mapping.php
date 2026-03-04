@@ -201,11 +201,10 @@ $woocommerce_fields = array(
             'shipping_class' => array('label' => __('Shipping Class', 'bootflow-product-importer'), 'required' => false, 'type' => 'text', 'description' => 'Slug of shipping class (e.g., "fragile", "heavy")'),
         )
     ),
-    'shipping_class_assignment' => array(
-        'title' => __('Shipping Class Assignment', 'bootflow-product-importer'),
-        'fields' => array(
-            'shipping_class_formula' => array('label' => __('Shipping Class Formula', 'bootflow-product-importer'), 'required' => false, 'type' => 'formula'),
-        )
+    'shipping_class_engine' => array(
+        'title' => __('Shipping Class Rules', 'bootflow-product-importer'),
+        'fields' => array(),
+        'custom_content' => true, // Flag for custom rendering (like pricing_engine)
     ),
     'media' => array(
         'title' => __('Media Fields', 'bootflow-product-importer'),
@@ -1033,6 +1032,307 @@ $ai_providers = array(
                                                 <span style="font-size: 36px; opacity: 0.5;">⚡</span>
                                                 <p style="margin: 10px 0 0 0; color: #999;">
                                                     <?php esc_html_e('Enable the Price Markup above to configure automatic price calculations', 'bootflow-product-importer'); ?>
+                                                </p>
+                                            </div>
+                                            
+                                        </div>
+                                    <?php elseif ($section_key === 'shipping_class_engine'): ?>
+                                        <?php 
+                                        // Load features config for PRO check
+                                        if (!function_exists('wc_xml_csv_ai_import_is_pro')) {
+                                            require_once dirname(dirname(dirname(__FILE__))) . '/config/features.php';
+                                        }
+                                        $is_pro_sc = wc_xml_csv_ai_import_is_pro();
+                                        // Get existing WooCommerce shipping classes
+                                        $wc_shipping_classes = get_terms(array(
+                                            'taxonomy' => 'product_shipping_class',
+                                            'hide_empty' => false,
+                                        ));
+                                        if (is_wp_error($wc_shipping_classes)) {
+                                            $wc_shipping_classes = array();
+                                        }
+                                        ?>
+                                        <!-- ═══════════════════════════════════════════════════════════════ -->
+                                        <!-- SHIPPING CLASS ENGINE - Assign shipping classes via rules       -->
+                                        <!-- Pipeline: Product Data → Match Rules → Assign Shipping Class   -->
+                                        <!-- ═══════════════════════════════════════════════════════════════ -->
+                                        <div class="shipping-class-engine-container" style="padding: 20px;">
+                                            
+                                            <!-- Enable/Disable Toggle -->
+                                            <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 8px; border-left: 4px solid #1976d2;">
+                                                <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                                                    <input type="checkbox" id="shipping_class_engine_enabled" name="shipping_class_engine_enabled" value="1" style="width: 20px; height: 20px;">
+                                                    <span>
+                                                        <strong style="font-size: 15px; color: #0d47a1;"><?php esc_html_e('Enable Shipping Class Rules', 'bootflow-product-importer'); ?></strong>
+                                                        <small style="display: block; color: #1565c0; margin-top: 3px;">
+                                                            <?php esc_html_e('Auto-assign shipping classes based on product weight, category, price, or any XML field', 'bootflow-product-importer'); ?>
+                                                        </small>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            
+                                            <!-- Shipping Class Engine Settings (shown when enabled) -->
+                                            <div id="shipping-class-engine-settings" style="display: none;">
+                                                
+                                                <!-- Info Box -->
+                                                <div style="margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                                                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                                        <span style="font-size: 24px;">📦</span>
+                                                        <div>
+                                                            <strong style="color: #1565c0;"><?php esc_html_e('How it works:', 'bootflow-product-importer'); ?></strong>
+                                                            <p style="margin: 8px 0 0 0; color: #1976d2; font-size: 13px; line-height: 1.6;">
+                                                                <?php esc_html_e('Rules are evaluated from top to bottom. First matching rule wins. The assigned shipping class will be created automatically if it doesn\'t exist.', 'bootflow-product-importer'); ?><br>
+                                                                <?php esc_html_e('Note: If you have a direct shipping_class field mapped above, it takes priority over these rules.', 'bootflow-product-importer'); ?>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- ═══════════════════════════════════════════════════════════════ -->
+                                                <!-- SHIPPING CLASS RULES                                           -->
+                                                <!-- ═══════════════════════════════════════════════════════════════ -->
+                                                <div style="margin-bottom: 20px;">
+                                                    
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;">
+                                                        <h4 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                                                            <span class="dashicons dashicons-car" style="color: #1976d2;"></span>
+                                                            <?php esc_html_e('Shipping Class Rules', 'bootflow-product-importer'); ?>
+                                                            <span style="font-size: 12px; font-weight: normal; color: #666; margin-left: 10px;">
+                                                                <?php esc_html_e('(First matching rule wins)', 'bootflow-product-importer'); ?>
+                                                            </span>
+                                                        </h4>
+                                                        <button type="button" id="btn-add-shipping-rule" class="button button-primary" style="display: flex; align-items: center; gap: 5px;">
+                                                            <span class="dashicons dashicons-plus-alt2" style="margin-top: 3px;"></span>
+                                                            <?php esc_html_e('Add Rule', 'bootflow-product-importer'); ?>
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    <!-- Rules Container -->
+                                                    <div id="shipping-class-rules-list">
+                                                        
+                                                        <!-- Default/Fallback Rule (always present) -->
+                                                        <div class="shipping-rule-row shipping-rule-default" data-rule-id="default" style="padding: 20px; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 2px solid #1976d2; border-radius: 8px; margin-bottom: 15px;">
+                                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                                    <span style="font-size: 20px;">🏠</span>
+                                                                    <strong style="color: #0d47a1; font-size: 14px;"><?php esc_html_e('Default Rule (Fallback)', 'bootflow-product-importer'); ?></strong>
+                                                                    <span style="font-size: 11px; background: #1976d2; color: white; padding: 2px 8px; border-radius: 10px;">
+                                                                        <?php esc_html_e('Always applies if no other rule matches', 'bootflow-product-importer'); ?>
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #1565c0; display: block; margin-bottom: 4px;">
+                                                                        <?php esc_html_e('Assign Shipping Class:', 'bootflow-product-importer'); ?>
+                                                                    </label>
+                                                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                                                        <select name="shipping_rule[default][shipping_class]" class="shipping-class-select" style="min-width: 200px; padding: 8px; border: 2px solid #90caf9; border-radius: 4px;">
+                                                                            <option value=""><?php esc_html_e('-- No shipping class --', 'bootflow-product-importer'); ?></option>
+                                                                            <?php foreach ($wc_shipping_classes as $sc): ?>
+                                                                                <option value="<?php echo esc_attr($sc->slug); ?>"><?php echo esc_html($sc->name); ?> (<?php echo esc_html($sc->slug); ?>)</option>
+                                                                            <?php endforeach; ?>
+                                                                        </select>
+                                                                        <span style="color: #999; font-size: 12px;"><?php esc_html_e('or type new:', 'bootflow-product-importer'); ?></span>
+                                                                        <input type="text" name="shipping_rule[default][shipping_class_custom]" placeholder="<?php esc_html_e('New class name', 'bootflow-product-importer'); ?>" 
+                                                                               class="shipping-class-custom" style="width: 150px; padding: 8px; border: 2px solid #90caf9; border-radius: 4px;">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <!-- Dynamic rules will be added here -->
+                                                        
+                                                    </div>
+                                                    
+                                                    <!-- Rule Template (hidden, cloned by JS) -->
+                                                    <template id="shipping-rule-template">
+                                                        <div class="shipping-rule-row shipping-rule-conditional" data-rule-id="" style="padding: 20px; background: #fff; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 15px; transition: all 0.2s;">
+                                                            
+                                                            <!-- Rule Header -->
+                                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                                    <span class="rule-drag-handle" style="cursor: move; color: #999; font-size: 18px;">⋮⋮</span>
+                                                                    <span class="shipping-rule-number" style="background: #1976d2; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;">1</span>
+                                                                    <input type="text" name="shipping_rule[{id}][name]" placeholder="<?php esc_html_e('Rule name (e.g., Heavy items)', 'bootflow-product-importer'); ?>" 
+                                                                           style="border: none; border-bottom: 1px dashed #ccc; padding: 5px; font-weight: 500; width: 200px;">
+                                                                </div>
+                                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                                    <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666;">
+                                                                        <input type="checkbox" name="shipping_rule[{id}][enabled]" checked>
+                                                                        <?php esc_html_e('Enabled', 'bootflow-product-importer'); ?>
+                                                                    </label>
+                                                                    <button type="button" class="button-link remove-shipping-rule" style="color: #d63638;">
+                                                                        <span class="dashicons dashicons-trash"></span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <!-- Conditions -->
+                                                            <div class="shipping-rule-conditions" style="margin-bottom: 15px; padding: 15px; background: #fafafa; border-radius: 6px;">
+                                                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                                                    <strong style="font-size: 13px; color: #333;">
+                                                                        <span class="dashicons dashicons-filter" style="color: #1976d2;"></span>
+                                                                        <?php esc_html_e('Apply when:', 'bootflow-product-importer'); ?>
+                                                                    </strong>
+                                                                    <select name="shipping_rule[{id}][condition_logic]" style="padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                                                        <option value="AND"><?php esc_html_e('ALL conditions match', 'bootflow-product-importer'); ?></option>
+                                                                        <option value="OR"><?php esc_html_e('ANY condition matches', 'bootflow-product-importer'); ?></option>
+                                                                    </select>
+                                                                </div>
+                                                                
+                                                                <div class="shipping-conditions-list" style="display: flex; flex-direction: column; gap: 8px;">
+                                                                    <!-- Condition row template -->
+                                                                    <div class="shipping-condition-row" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                                                        <select name="shipping_rule[{id}][conditions][0][type]" class="shipping-condition-type" style="padding: 6px; border-radius: 4px; min-width: 140px;">
+                                                                            <option value="weight_range">⚖️ <?php esc_html_e('Weight Range', 'bootflow-product-importer'); ?></option>
+                                                                            <option value="price_range"><?php esc_html_e('Price Range', 'bootflow-product-importer'); ?></option>
+                                                                            <option value="volume_range">📐 <?php esc_html_e('Volume (L×W×H)', 'bootflow-product-importer'); ?></option>
+                                                                            <option value="category">📁 <?php esc_html_e('Category', 'bootflow-product-importer'); ?></option>
+                                                                            <option value="brand">🏷️ <?php esc_html_e('Brand', 'bootflow-product-importer'); ?></option>
+                                                                            <option value="xml_field">📄 <?php esc_html_e('XML Field', 'bootflow-product-importer'); ?></option>
+                                                                            <option value="sku_pattern">🔢 <?php esc_html_e('SKU Pattern', 'bootflow-product-importer'); ?></option>
+                                                                        </select>
+                                                                        
+                                                                        <!-- Weight Range condition fields (shown by default) -->
+                                                                        <div class="shipping-condition-fields shipping-condition-weight_range" style="display: flex; gap: 8px; align-items: center;">
+                                                                            <span style="color: #666;"><?php esc_html_e('from', 'bootflow-product-importer'); ?></span>
+                                                                            <input type="number" name="shipping_rule[{id}][conditions][0][weight_from]" placeholder="0" min="0" step="0.01" style="width: 80px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                            <span style="color: #666;"><?php esc_html_e('to', 'bootflow-product-importer'); ?></span>
+                                                                            <input type="number" name="shipping_rule[{id}][conditions][0][weight_to]" placeholder="∞" min="0" step="0.01" style="width: 80px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                            <span style="color: #888; font-size: 11px;">kg</span>
+                                                                        </div>
+                                                                        
+                                                                        <!-- Price Range condition fields (hidden by default) -->
+                                                                        <div class="shipping-condition-fields shipping-condition-price_range" style="display: none; gap: 8px; align-items: center;">
+                                                                            <span style="color: #666;"><?php esc_html_e('from', 'bootflow-product-importer'); ?></span>
+                                                                            <input type="number" name="shipping_rule[{id}][conditions][0][price_from]" placeholder="0" min="0" step="0.01" style="width: 80px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                            <span style="color: #666;"><?php esc_html_e('to', 'bootflow-product-importer'); ?></span>
+                                                                            <input type="number" name="shipping_rule[{id}][conditions][0][price_to]" placeholder="∞" min="0" step="0.01" style="width: 80px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                            <span style="color: #888; font-size: 11px;">€</span>
+                                                                        </div>
+                                                                        
+                                                                        <!-- Volume Range condition fields (hidden by default) -->
+                                                                        <div class="shipping-condition-fields shipping-condition-volume_range" style="display: none; gap: 8px; align-items: center;">
+                                                                            <span style="color: #666;"><?php esc_html_e('from', 'bootflow-product-importer'); ?></span>
+                                                                            <input type="number" name="shipping_rule[{id}][conditions][0][volume_from]" placeholder="0" min="0" step="1" style="width: 100px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                            <span style="color: #666;"><?php esc_html_e('to', 'bootflow-product-importer'); ?></span>
+                                                                            <input type="number" name="shipping_rule[{id}][conditions][0][volume_to]" placeholder="∞" min="0" step="1" style="width: 100px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                            <span style="color: #888; font-size: 11px;">cm³</span>
+                                                                        </div>
+                                                                        
+                                                                        <!-- Category condition fields (hidden by default) -->
+                                                                        <div class="shipping-condition-fields shipping-condition-category" style="display: none; gap: 8px; align-items: center;">
+                                                                            <select name="shipping_rule[{id}][conditions][0][category_operator]" style="padding: 6px; border-radius: 4px;">
+                                                                                <option value="equals"><?php esc_html_e('equals', 'bootflow-product-importer'); ?></option>
+                                                                                <option value="contains"><?php esc_html_e('contains', 'bootflow-product-importer'); ?></option>
+                                                                                <option value="not_equals"><?php esc_html_e('not equals', 'bootflow-product-importer'); ?></option>
+                                                                            </select>
+                                                                            <input type="text" name="shipping_rule[{id}][conditions][0][category_value]" placeholder="<?php esc_html_e('Category name', 'bootflow-product-importer'); ?>" style="width: 200px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                        </div>
+                                                                        
+                                                                        <!-- Brand condition fields (hidden by default) -->
+                                                                        <div class="shipping-condition-fields shipping-condition-brand" style="display: none; gap: 8px; align-items: center;">
+                                                                            <select name="shipping_rule[{id}][conditions][0][brand_operator]" style="padding: 6px; border-radius: 4px;">
+                                                                                <option value="equals"><?php esc_html_e('equals', 'bootflow-product-importer'); ?></option>
+                                                                                <option value="contains"><?php esc_html_e('contains', 'bootflow-product-importer'); ?></option>
+                                                                                <option value="not_equals"><?php esc_html_e('not equals', 'bootflow-product-importer'); ?></option>
+                                                                            </select>
+                                                                            <input type="text" name="shipping_rule[{id}][conditions][0][brand_value]" placeholder="<?php esc_html_e('Brand name', 'bootflow-product-importer'); ?>" style="width: 200px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                        </div>
+                                                                        
+                                                                        <!-- XML Field condition fields (hidden by default) -->
+                                                                        <div class="shipping-condition-fields shipping-condition-xml_field" style="display: none; gap: 8px; align-items: center;">
+                                                                            <select name="shipping_rule[{id}][conditions][0][xml_field_name]" class="shipping-xml-field-select" style="padding: 6px; border-radius: 4px; min-width: 120px;">
+                                                                                <option value=""><?php esc_html_e('-- Field --', 'bootflow-product-importer'); ?></option>
+                                                                            </select>
+                                                                            <select name="shipping_rule[{id}][conditions][0][xml_field_operator]" style="padding: 6px; border-radius: 4px;">
+                                                                                <option value="equals">=</option>
+                                                                                <option value="not_equals">≠</option>
+                                                                                <option value="contains"><?php esc_html_e('contains', 'bootflow-product-importer'); ?></option>
+                                                                                <option value="gt">></option>
+                                                                                <option value="lt"><</option>
+                                                                                <option value="gte">≥</option>
+                                                                                <option value="lte">≤</option>
+                                                                            </select>
+                                                                            <input type="text" name="shipping_rule[{id}][conditions][0][xml_field_value]" placeholder="<?php esc_html_e('Value', 'bootflow-product-importer'); ?>" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                        </div>
+                                                                        
+                                                                        <!-- SKU Pattern condition fields (hidden by default) -->
+                                                                        <div class="shipping-condition-fields shipping-condition-sku_pattern" style="display: none; gap: 8px; align-items: center;">
+                                                                            <select name="shipping_rule[{id}][conditions][0][sku_operator]" style="padding: 6px; border-radius: 4px;">
+                                                                                <option value="starts_with"><?php esc_html_e('starts with', 'bootflow-product-importer'); ?></option>
+                                                                                <option value="ends_with"><?php esc_html_e('ends with', 'bootflow-product-importer'); ?></option>
+                                                                                <option value="contains"><?php esc_html_e('contains', 'bootflow-product-importer'); ?></option>
+                                                                                <option value="regex"><?php esc_html_e('matches regex', 'bootflow-product-importer'); ?></option>
+                                                                            </select>
+                                                                            <input type="text" name="shipping_rule[{id}][conditions][0][sku_value]" placeholder="<?php esc_html_e('Pattern', 'bootflow-product-importer'); ?>" style="width: 150px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                                                                        </div>
+                                                                        
+                                                                        <button type="button" class="button-link remove-shipping-condition" style="color: #999; padding: 5px;" title="<?php esc_html_e('Remove condition', 'bootflow-product-importer'); ?>">✕</button>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <button type="button" class="button button-small add-shipping-condition" style="margin-top: 10px;">
+                                                                    <span class="dashicons dashicons-plus" style="font-size: 14px; line-height: 1.4;"></span>
+                                                                    <?php esc_html_e('Add Condition', 'bootflow-product-importer'); ?>
+                                                                </button>
+                                                            </div>
+                                                            
+                                                            <!-- Shipping Class Assignment -->
+                                                            <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end;">
+                                                                <div>
+                                                                    <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">
+                                                                        <?php esc_html_e('Assign Shipping Class:', 'bootflow-product-importer'); ?>
+                                                                    </label>
+                                                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                                                        <select name="shipping_rule[{id}][shipping_class]" class="shipping-class-select" style="min-width: 200px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                                                            <option value=""><?php esc_html_e('-- No shipping class --', 'bootflow-product-importer'); ?></option>
+                                                                            <?php foreach ($wc_shipping_classes as $sc): ?>
+                                                                                <option value="<?php echo esc_attr($sc->slug); ?>"><?php echo esc_html($sc->name); ?> (<?php echo esc_html($sc->slug); ?>)</option>
+                                                                            <?php endforeach; ?>
+                                                                        </select>
+                                                                        <span style="color: #999; font-size: 12px;"><?php esc_html_e('or type new:', 'bootflow-product-importer'); ?></span>
+                                                                        <input type="text" name="shipping_rule[{id}][shipping_class_custom]" placeholder="<?php esc_html_e('New class name', 'bootflow-product-importer'); ?>" 
+                                                                               class="shipping-class-custom" style="width: 150px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                        </div>
+                                                    </template>
+                                                    
+                                                </div>
+                                                
+                                                <!-- Existing Shipping Classes Reference -->
+                                                <div style="padding: 15px; background: #f5f5f5; border-radius: 8px; margin-top: 15px;">
+                                                    <strong style="color: #333; font-size: 13px;">
+                                                        <span class="dashicons dashicons-info-outline" style="color: #666;"></span>
+                                                        <?php esc_html_e('Available WooCommerce Shipping Classes:', 'bootflow-product-importer'); ?>
+                                                    </strong>
+                                                    <div style="margin-top: 8px;">
+                                                        <?php if (!empty($wc_shipping_classes)): ?>
+                                                            <?php foreach ($wc_shipping_classes as $sc): ?>
+                                                                <span style="display: inline-block; padding: 3px 10px; background: #fff; border: 1px solid #ddd; border-radius: 12px; margin: 3px; font-size: 12px;">
+                                                                    <strong><?php echo esc_html($sc->name); ?></strong>
+                                                                    <code style="font-size: 11px; color: #666;"><?php echo esc_html($sc->slug); ?></code>
+                                                                </span>
+                                                            <?php endforeach; ?>
+                                                        <?php else: ?>
+                                                            <p style="color: #999; margin: 5px 0; font-size: 12px;">
+                                                                <?php esc_html_e('No shipping classes found. They will be created automatically during import, or create them in WooCommerce → Settings → Shipping → Shipping Classes.', 'bootflow-product-importer'); ?>
+                                                            </p>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                                
+                                            </div>
+                                            
+                                            <!-- Disabled State Message -->
+                                            <div id="shipping-class-engine-disabled-msg" style="padding: 25px; background: #f5f5f5; border-radius: 8px; text-align: center;">
+                                                <span style="font-size: 36px; opacity: 0.5;">📦</span>
+                                                <p style="margin: 10px 0 0 0; color: #999;">
+                                                    <?php esc_html_e('Enable Shipping Class Rules above to automatically assign shipping classes based on product data', 'bootflow-product-importer'); ?>
                                                 </p>
                                             </div>
                                             

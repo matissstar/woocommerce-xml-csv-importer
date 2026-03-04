@@ -207,6 +207,9 @@ class WC_XML_CSV_AI_Import {
         $this->loader->add_action('wp_ajax_wc_xml_csv_ai_import_activate_license', $plugin_admin, 'handle_activate_license');
         $this->loader->add_action('wp_ajax_wc_xml_csv_ai_import_deactivate_license', $plugin_admin, 'handle_deactivate_license');
         
+        // Admin notice for PRO plugin without active license
+        $this->loader->add_action('admin_notices', 'WC_XML_CSV_AI_Import_License', 'maybe_show_license_notice');
+        
         // Import management
         $this->loader->add_action('wp_ajax_wc_xml_csv_ai_import_update_url', $plugin_admin, 'handle_update_import_url');
         

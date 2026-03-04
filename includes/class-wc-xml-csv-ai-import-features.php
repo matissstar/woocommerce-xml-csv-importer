@@ -167,6 +167,9 @@ class WC_XML_CSV_AI_Import_Features {
 
     /**
      * Get current edition (free or pro)
+     * 
+     * Delegates to WC_XML_CSV_AI_Import_License::get_tier() which checks
+     * actual license activation status for PRO plugin.
      *
      * @return string 'free' or 'pro'
      */
@@ -175,23 +178,13 @@ class WC_XML_CSV_AI_Import_Features {
             return self::$cached_edition;
         }
 
-        // Check if this is the Pro version constant
-        if (defined('WC_XML_CSV_AI_IMPORT_IS_PRO') && WC_XML_CSV_AI_IMPORT_IS_PRO === true) {
-            // Pro version - for now, skip license check (development mode)
-            // TODO: Enable license validation when bootflow.io API is ready
-            // if (class_exists('WC_XML_CSV_AI_Import_License')) {
-            //     $license = new WC_XML_CSV_AI_Import_License();
-            //     if ($license->is_valid()) {
-            //         self::$cached_edition = 'pro';
-            //         return 'pro';
-            //     }
-            // }
-            
-            // Temporarily return 'pro' if IS_PRO constant is true
-            self::$cached_edition = 'pro';
-            return 'pro';
+        // Use the license class as single source of truth
+        if (class_exists('WC_XML_CSV_AI_Import_License')) {
+            self::$cached_edition = WC_XML_CSV_AI_Import_License::get_tier();
+            return self::$cached_edition;
         }
 
+        // Fallback if license class not loaded
         self::$cached_edition = 'free';
         return 'free';
     }

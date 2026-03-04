@@ -133,35 +133,54 @@ $security_settings = get_option('wc_xml_csv_ai_import_security_settings', array(
             
             <?php
             $current_tier = WC_XML_CSV_AI_Import_License::get_tier();
-            $plugin_settings = get_option('wc_xml_csv_ai_import_settings', array());
-            $license_key = isset($plugin_settings['license_key']) ? $plugin_settings['license_key'] : '';
-            $license_status = !empty($license_key) ? 'active' : 'inactive';
+            $is_pro_plugin = WC_XML_CSV_AI_Import_License::is_pro_plugin();
+            $license_key = WC_XML_CSV_AI_Import_License::get_license_key();
+            $license_status = WC_XML_CSV_AI_Import_License::get_license_status();
+            $license_active = ($license_status === 'active' && $current_tier === 'pro');
             
-            // Tier colors and icons (2-tier system: FREE and PRO)
+            // Tier colors and icons
             $tier_configs = array(
                 'free' => array('color' => '#6c757d', 'gradient' => 'linear-gradient(135deg, #6c757d 0%, #95a5a6 100%)', 'icon' => '🆓'),
                 'pro' => array('color' => '#0d7377', 'gradient' => 'linear-gradient(135deg, #0d7377 0%, #14919b 100%)', 'icon' => '⚡')
             );
-            $tier_config = $tier_configs[$current_tier] ?? $tier_configs['free'];
+            
+            // PRO plugin without active license = special "locked" state
+            if ($is_pro_plugin && !$license_active) {
+                $tier_config = array('color' => '#b45309', 'gradient' => 'linear-gradient(135deg, #b45309 0%, #d97706 100%)', 'icon' => '🔒');
+            } else {
+                $tier_config = $tier_configs[$current_tier] ?? $tier_configs['free'];
+            }
             ?>
             
             <!-- Current Tier Display -->
             <div style="background: <?php echo esc_attr($tier_config['gradient']); ?>; border-radius: 12px; padding: 25px; margin-bottom: 25px; color: white; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
                 <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-                    <div style="font-size: 48px;"><?php echo esc_attr($tier_config['icon']); ?></div>
+                    <div style="font-size: 48px;"><?php echo esc_html($tier_config['icon']); ?></div>
                     <div style="flex: 1;">
-                        <h3 style="margin: 0 0 5px 0; color: white; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">
-                            <?php echo esc_html(strtoupper($current_tier)); ?> <?php esc_html_e('Edition', 'bootflow-product-importer'); ?>
-                        </h3>
-                        <p style="margin: 0; font-size: 14px; color: rgba(255,255,255,0.9);">
-                            <?php if ($current_tier === 'free'): ?>
-                                <?php esc_html_e('Full manual import tool. Upgrade to PRO for automation, templates, and AI features!', 'bootflow-product-importer'); ?>
-                            <?php else: ?>
+                        <?php if ($is_pro_plugin && $license_active): ?>
+                            <h3 style="margin: 0 0 5px 0; color: white; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">
+                                PRO <?php esc_html_e('Edition', 'bootflow-product-importer'); ?>
+                            </h3>
+                            <p style="margin: 0; font-size: 14px; color: rgba(255,255,255,0.9);">
                                 <?php esc_html_e('All features unlocked including AI Auto-Mapping, templates, and scheduled imports!', 'bootflow-product-importer'); ?>
-                            <?php endif; ?>
-                        </p>
+                            </p>
+                        <?php elseif ($is_pro_plugin && !$license_active): ?>
+                            <h3 style="margin: 0 0 5px 0; color: white; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">
+                                PRO <?php esc_html_e('Edition', 'bootflow-product-importer'); ?> — <?php esc_html_e('License Required', 'bootflow-product-importer'); ?>
+                            </h3>
+                            <p style="margin: 0; font-size: 14px; color: rgba(255,255,255,0.9);">
+                                <?php esc_html_e('Enter your license key below to activate PRO features. Without a license, the plugin runs in free mode.', 'bootflow-product-importer'); ?>
+                            </p>
+                        <?php else: ?>
+                            <h3 style="margin: 0 0 5px 0; color: white; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">
+                                FREE <?php esc_html_e('Edition', 'bootflow-product-importer'); ?>
+                            </h3>
+                            <p style="margin: 0; font-size: 14px; color: rgba(255,255,255,0.9);">
+                                <?php esc_html_e('Full manual import tool. Upgrade to PRO for automation, templates, and AI features!', 'bootflow-product-importer'); ?>
+                            </p>
+                        <?php endif; ?>
                     </div>
-                    <?php if ($license_status === 'active' && !empty($license_key)): ?>
+                    <?php if ($license_active): ?>
                         <div style="text-align: right;">
                             <span style="background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; font-size: 12px;">
                                 ✓ <?php esc_html_e('License Active', 'bootflow-product-importer'); ?>
@@ -171,7 +190,8 @@ $security_settings = get_option('wc_xml_csv_ai_import_security_settings', array(
                 </div>
             </div>
             
-            <!-- License Key Input -->
+            <!-- License Key Input (PRO plugin only) -->
+            <?php if ($is_pro_plugin): ?>
             <div style="background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 25px; margin-bottom: 25px;">
                 <h3 style="margin: 0 0 15px 0; display: flex; align-items: center; gap: 10px;">
                     <span class="dashicons dashicons-admin-network"></span>
@@ -189,7 +209,7 @@ $security_settings = get_option('wc_xml_csv_ai_import_security_settings', array(
                                id="license_key" 
                                name="license_key" 
                                value="<?php echo esc_attr($license_key); ?>" 
-                               placeholder="<?php esc_attr_e('Enter your license key (e.g., PRO-XXXX-XXXX-XXXX)', 'bootflow-product-importer'); ?>" 
+                               placeholder="<?php esc_attr_e('Enter your license key', 'bootflow-product-importer'); ?>" 
                                class="regular-text" 
                                style="width: 100%; height: 40px; font-size: 14px; font-family: monospace;"
                         />
@@ -198,7 +218,7 @@ $security_settings = get_option('wc_xml_csv_ai_import_security_settings', array(
                         <span class="dashicons dashicons-yes" style="margin-top: 7px; margin-right: 3px;"></span>
                         <?php esc_html_e('Activate', 'bootflow-product-importer'); ?>
                     </button>
-                    <?php if ($license_status === 'active' && !empty($license_key)): ?>
+                    <?php if ($license_active): ?>
                         <button type="button" id="btn-deactivate-license" class="button" style="height: 40px; padding: 0 25px; color: #dc3545; border-color: #dc3545;">
                             <span class="dashicons dashicons-no" style="margin-top: 7px; margin-right: 3px;"></span>
                             <?php esc_html_e('Deactivate', 'bootflow-product-importer'); ?>
@@ -206,8 +226,27 @@ $security_settings = get_option('wc_xml_csv_ai_import_security_settings', array(
                     <?php endif; ?>
                 </div>
                 
+                <?php if ($license_status === 'invalid'): ?>
+                <div style="margin-top: 15px;">
+                    <div class="notice notice-error inline"><p><?php esc_html_e('License key is invalid or expired. Please enter a valid license key.', 'bootflow-product-importer'); ?></p></div>
+                </div>
+                <?php endif; ?>
+                
                 <div id="license-activation-result" style="margin-top: 15px; display: none;"></div>
             </div>
+            <?php else: ?>
+            <!-- FREE version: no license input, just upgrade CTA -->
+            <div style="background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 25px; margin-bottom: 25px; text-align: center;">
+                <span class="dashicons dashicons-lock" style="font-size: 36px; color: #6c757d; margin-bottom: 10px;"></span>
+                <h3 style="margin: 0 0 10px 0;"><?php esc_html_e('Want PRO features?', 'bootflow-product-importer'); ?></h3>
+                <p class="description" style="margin-bottom: 20px; max-width: 500px; margin-left: auto; margin-right: auto;">
+                    <?php esc_html_e('Get scheduled imports, AI auto-mapping, advanced formulas, selective field updates, and more.', 'bootflow-product-importer'); ?>
+                </p>
+                <a href="https://bootflow.io/pricing" target="_blank" class="button button-primary button-hero" style="background: linear-gradient(135deg, #0d7377 0%, #14919b 100%); border: none;">
+                    <?php esc_html_e('Get PRO Version', 'bootflow-product-importer'); ?> →
+                </a>
+            </div>
+            <?php endif; ?>
             
             <!-- Feature Comparison Table -->
             <div style="background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 25px;">

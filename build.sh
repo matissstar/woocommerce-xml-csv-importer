@@ -151,13 +151,36 @@ class WC_XML_CSV_AI_Import_License {
         return 'free';
     }
     
-    public static function is_pro() {
+    public static function is_valid() {
         return false;
     }
     
-    public static function is_feature_available($feature) {
-        $free_features = array('manual_import', 'xml_import', 'csv_import', 'field_mapping', 'variable_products', 'attributes', 'unlimited_products');
-        return in_array($feature, $free_features);
+    public static function is_pro_plugin() {
+        return false;
+    }
+    
+    public static function get_license_key() {
+        return '';
+    }
+    
+    public static function get_license_data() {
+        return array();
+    }
+    
+    public static function get_license_status() {
+        return '';
+    }
+    
+    public static function can($feature) {
+        return false;
+    }
+    
+    public static function is_at_least($minimum_tier) {
+        return $minimum_tier === 'free';
+    }
+    
+    public static function get_limit($feature, $default = 0) {
+        return $default;
     }
     
     public static function get_upgrade_url() {
@@ -168,6 +191,16 @@ class WC_XML_CSV_AI_Import_License {
         return 'Free';
     }
     
+    public static function clear_cache() {}
+    
+    public static function get_all_features() {
+        return array();
+    }
+    
+    public static function render_upgrade_notice($feature_name = '') {
+        return '<div class="notice notice-info"><p>' . esc_html__('Upgrade to PRO for this feature.', 'bootflow-product-importer') . ' <a href="https://bootflow.io/pricing" target="_blank">bootflow.io/pricing</a></p></div>';
+    }
+    
     public static function activate_license($license_key) {
         return array('success' => false, 'message' => __('License activation is only available in the Pro version.', 'bootflow-product-importer'));
     }
@@ -175,6 +208,8 @@ class WC_XML_CSV_AI_Import_License {
     public static function deactivate_license() {
         return array('success' => false, 'message' => __('License deactivation is only available in the Pro version.', 'bootflow-product-importer'));
     }
+    
+    public static function maybe_show_license_notice() {}
 }
 
 function wc_xml_csv_ai_get_tier() {

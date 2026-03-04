@@ -786,11 +786,15 @@ class WC_XML_CSV_AI_Import_Importer {
                     return $existing_product_id; // Return existing ID without updating
                 }
                 
+                // Store raw product data for Shipping Class Engine (variable products need variation prices)
+                $this->_current_raw_product_data = $product_data;
                 $product_id = $this->update_product($existing_product_id, $processed_data, $mapped_data);
                 $product_name = !empty($processed_data['name']) ? $processed_data['name'] : 'Product';
                 // translators: %1$s is the product name, %2$d is the product ID
                 $this->log('info', sprintf(__('Updated product: %1$s (ID: %2$d)', 'bootflow-product-importer'), $product_name, $product_id), esc_html($processed_data['sku']));
             } else {
+                // Store raw product data for Shipping Class Engine (variable products need variation prices)
+                $this->_current_raw_product_data = $product_data;
                 $product_id = $this->create_product($processed_data, $mapped_data);
                 $product_name = !empty($processed_data['name']) ? $processed_data['name'] : 'Product';
                 // translators: %1$s is the product name, %2$d is the product ID
@@ -947,6 +951,8 @@ class WC_XML_CSV_AI_Import_Importer {
         unset($processed_data['manage_stock']);
         
         // Create or update parent product
+        // Store raw product data for Shipping Class Engine (Format A parent)
+        $this->_current_raw_product_data = $parent_data;
         if ($existing_product_id && $update_existing) {
             $product_id = $this->update_product($existing_product_id, $processed_data, $mapped_data);
         } else if ($existing_product_id && !$update_existing) {
@@ -1129,6 +1135,30 @@ class WC_XML_CSV_AI_Import_Importer {
             
             // Set enabled
             $variation->set_status('publish');
+            
+            // Apply Shipping Class Engine per-variation (Format A CSV)
+            // First check if variation has direct shipping_class field in CSV
+            $var_shipping_field = $var_data[$csv_fields['shipping_class'] ?? 'Shipping Class'] ?? '';
+            if (!empty($var_shipping_field)) {
+                $sc_id = $this->get_shipping_class_id($var_shipping_field);
+                if ($sc_id) {
+                    $variation->set_shipping_class_id($sc_id);
+                }
+            } else {
+                $var_product_data = array(
+                    'regular_price' => $variation->get_regular_price(),
+                    'price'         => $variation->get_price(),
+                    'weight'        => $variation->get_weight(),
+                    'length'        => $variation->get_length(),
+                    'width'         => $variation->get_width(),
+                    'height'        => $variation->get_height(),
+                    'sku'           => $variation->get_sku(),
+                );
+                $saved_raw = $this->_current_raw_product_data ?? null;
+                $this->_current_raw_product_data = null;
+                $this->apply_shipping_class_engine($variation, $var_product_data);
+                $this->_current_raw_product_data = $saved_raw;
+            }
             
             // Save variation with error handling
             try {
@@ -1938,8 +1968,8 @@ class WC_XML_CSV_AI_Import_Importer {
             throw new Exception(sprintf(esc_html__('Invalid SKU format: %s', 'bootflow-product-importer'), esc_html($product_data['sku'])));
         }
 
-        // Validate prices
-        if (isset($product_data['regular_price']) && !is_numeric($product_data['regular_price'])) {
+        // Validate prices (allow empty — variable products may have prices only on variations)
+        if (isset($product_data['regular_price']) && $product_data['regular_price'] !== '' && $product_data['regular_price'] !== null && !is_numeric($product_data['regular_price'])) {
             // translators: placeholder values
             throw new Exception(sprintf(esc_html__('Invalid regular price: %s', 'bootflow-product-importer'), esc_html($product_data['regular_price'])));
         }
@@ -2059,23 +2089,32 @@ class WC_XML_CSV_AI_Import_Importer {
             $product->set_tax_class($product_data['tax_class']);
         }
 
-        // Set inventory
-        if (isset($product_data['manage_stock'])) {
-            $manage = $product_data['manage_stock'];
-            $product->set_manage_stock($manage === 'yes' || $manage === '1' || $manage === true || $manage === 1);
-        }
+        // Set inventory (SKIP for External products - WooCommerce doesn't allow stock management for External)
+        if ($product_type !== 'external') {
+            if (isset($product_data['manage_stock'])) {
+                $manage = $product_data['manage_stock'];
+                $product->set_manage_stock($manage === 'yes' || $manage === '1' || $manage === true || $manage === 1);
+            }
 
-        // If stock quantity is provided, force-enable manage_stock and set quantity
-        if (isset($product_data['stock_quantity'])) {
-            $product->set_manage_stock(true);
-            $product->set_stock_quantity((int) $product_data['stock_quantity']);
-        }
+            // If stock quantity is provided, force-enable manage_stock and set quantity
+            if (isset($product_data['stock_quantity'])) {
+                $product->set_manage_stock(true);
+                $product->set_stock_quantity((int) $product_data['stock_quantity']);
+            }
 
-        // Store stock_status for forcing after save
-        $force_stock_status = null;
-        if (!empty($product_data['stock_status'])) {
-            $force_stock_status = $product_data['stock_status'];
-            $product->set_stock_status($product_data['stock_status']);
+            // Store stock_status for forcing after save
+            $force_stock_status = null;
+            if (!empty($product_data['stock_status'])) {
+                $force_stock_status = $product_data['stock_status'];
+                $product->set_stock_status($product_data['stock_status']);
+            }
+        } else {
+            // External products: skip stock management, just set stock_status if provided
+            $force_stock_status = null;
+            if (!empty($product_data['stock_status'])) {
+                $force_stock_status = $product_data['stock_status'];
+            }
+            $this->log('debug', sprintf('Skipping stock management for External product: %s', $product_data['sku'] ?? 'unknown'));
         }
 
         // Set dimensions
@@ -2132,7 +2171,7 @@ class WC_XML_CSV_AI_Import_Importer {
             $product->set_reviews_allowed($product_data['reviews_allowed'] === 'yes' || $product_data['reviews_allowed'] === '1' || $product_data['reviews_allowed'] === true);
         }
 
-        // Set shipping class - direct mapping first
+        // Set shipping class - direct mapping first, then engine, then old formula fallback
         if (isset($product_data['shipping_class']) && !empty($product_data['shipping_class'])) {
             $shipping_class_slug = sanitize_title($product_data['shipping_class']);
             $shipping_class_term = get_term_by('slug', $shipping_class_slug, 'product_shipping_class');
@@ -2155,8 +2194,13 @@ class WC_XML_CSV_AI_Import_Importer {
                 $this->log('debug', sprintf('Set shipping class: %s for product: %s', $product_data['shipping_class'], $product_data['sku'] ?? 'unknown'));
             }
         } else {
-            // Auto-assign shipping class based on dimensions and weight (only if no direct mapping)
-            $this->auto_assign_shipping_class($product, $product_data);
+            // Try Shipping Class Engine first (rules-based)
+            $engine_assigned = $this->apply_shipping_class_engine($product, $product_data);
+            
+            if (!$engine_assigned) {
+                // Fallback: old formula-based auto-assignment
+                $this->auto_assign_shipping_class($product, $product_data);
+            }
         }
 
         // Set status - validate that status is a valid WordPress post_status
@@ -2852,8 +2896,13 @@ class WC_XML_CSV_AI_Import_Importer {
                 $product->set_shipping_class_id($shipping_class_term->term_id);
             }
         } elseif ($this->should_update_field('shipping_class', null, false)) {
-            // Auto-assign shipping class based on formula
-            $this->auto_assign_shipping_class($product, $product_data);
+            // Try Shipping Class Engine first (rules-based)
+            $engine_assigned = $this->apply_shipping_class_engine($product, $product_data);
+            
+            if (!$engine_assigned) {
+                // Fallback: old formula-based auto-assignment
+                $this->auto_assign_shipping_class($product, $product_data);
+            }
         }
 
         // Update status if provided - validate that status is a valid WordPress post_status
@@ -4513,6 +4562,85 @@ class WC_XML_CSV_AI_Import_Importer {
                         
                         // Create attributes config from detected keys
                         $auto_attributes = array();
+                        
+                        // ════════════════════════════════════════════════════════
+                        // FORMAT A: <attribute name="Size">S</attribute>
+                        // Parsed as: ['attribute' => [['@attributes' => ['name' => 'Size'], '#text' => 'S'], ...]]
+                        // ════════════════════════════════════════════════════════
+                        if (isset($attrs_data['attribute']) && is_array($attrs_data['attribute'])) {
+                            $attr_items = $attrs_data['attribute'];
+                            // Normalize single attribute to array
+                            if (!isset($attr_items[0])) {
+                                $attr_items = array($attr_items);
+                            }
+                            
+                            // Check if first item has @attributes.name (XML attribute format)
+                            $first_item = $attr_items[0];
+                            if (is_array($first_item) && (
+                                isset($first_item['@attributes']['name']) || 
+                                isset($first_item['@name']) || 
+                                (isset($first_item['name']) && isset($first_item['value']))
+                            )) {
+                                // Collect all unique attribute names from ALL variations
+                                $all_attr_names = array();
+                                foreach ($variations_data as $var) {
+                                    $var_attrs = $this->get_nested_value($var, 'attributes');
+                                    if (!empty($var_attrs) && isset($var_attrs['attribute'])) {
+                                        $items = $var_attrs['attribute'];
+                                        if (!isset($items[0])) $items = array($items);
+                                        foreach ($items as $item) {
+                                            if (is_array($item)) {
+                                                $aname = $item['@attributes']['name'] ?? $item['@name'] ?? $item['name'] ?? '';
+                                                if (!empty($aname) && !in_array($aname, $all_attr_names)) {
+                                                    $all_attr_names[] = $aname;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // For each unique attribute name, collect all values across all variations
+                                foreach ($all_attr_names as $attr_name) {
+                                    $all_values = array();
+                                    foreach ($variations_data as $var) {
+                                        $var_attrs = $this->get_nested_value($var, 'attributes');
+                                        if (!empty($var_attrs) && isset($var_attrs['attribute'])) {
+                                            $items = $var_attrs['attribute'];
+                                            if (!isset($items[0])) $items = array($items);
+                                            foreach ($items as $item) {
+                                                if (is_array($item)) {
+                                                    $iname = $item['@attributes']['name'] ?? $item['@name'] ?? $item['name'] ?? '';
+                                                    if (strcasecmp($iname, $attr_name) === 0) {
+                                                        $val = $item['#text'] ?? $item['#value'] ?? $item['value'] ?? '';
+                                                        if (!empty($val) && is_string($val)) {
+                                                            $all_values[] = trim($val);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    $all_values = array_unique($all_values);
+                                    
+                                    if (!empty($all_values)) {
+                                        $auto_attributes[] = array(
+                                            'name' => $attr_name,
+                                            'xml_attribute_key' => $attr_name,
+                                            'values_source' => '',
+                                            'visible' => 1,
+                                            'used_for_variations' => 1,
+                                            '_auto_values' => $all_values
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // ════════════════════════════════════════════════════════
+                        // FORMAT B: <size>S</size> <color>Red</color>
+                        // Parsed as: ['size' => 'S', 'color' => 'Red']
+                        // ════════════════════════════════════════════════════════
+                        if (empty($auto_attributes)) {
                         foreach (array_keys($attrs_data) as $attr_key) {
                             // Skip numeric keys and special elements
                             if (is_numeric($attr_key) || $attr_key === '@attributes') {
@@ -4540,6 +4668,7 @@ class WC_XML_CSV_AI_Import_Importer {
                             );
                             
                         }
+                        } // End FORMAT B (if empty($auto_attributes))
                         
                         // Replace empty attributes with auto-detected ones
                         if (!empty($auto_attributes)) {
@@ -4868,6 +4997,8 @@ class WC_XML_CSV_AI_Import_Importer {
         // =====================================================
         // PROCESS KEY-VALUE ATTRIBUTE PAIRS (BigBuy format)
         // e.g., {attribute1} → "Colour", {value1} → "Blue"
+        // Also handles ARRAY-based Key-Value pairs:
+        // e.g., attributes.attribute[0].name → "Material", attributes.attribute[0].value → "100% Cotton"
         // =====================================================
         $attribute_pairs = $attributes_config['attribute_pairs'] ?? array();
         $attr_input_mode = $attributes_config['attr_input_mode'] ?? 'standard';
@@ -4884,7 +5015,104 @@ class WC_XML_CSV_AI_Import_Importer {
                     continue;
                 }
                 
-                // Parse attribute name from template (e.g., {attribute1} → "Colour")
+                // Detect array-based key-value pairs:
+                // If name_field contains a path like {attributes.attribute.name}, it may reference an array
+                // Extract the base container path and child field names
+                $array_pairs = array(); // Will hold array of [name, value] pairs if array-based
+                
+                if (preg_match('/^\{([^}]+)\}$/', trim($name_field), $nm) && preg_match('/^\{([^}]+)\}$/', trim($value_field), $vm)) {
+                    $name_path = $nm[1]; // e.g., "attributes.attribute.name"
+                    $value_path = $vm[1]; // e.g., "attributes.attribute.value"
+                    
+                    // Find the common parent path and the child field names
+                    $name_parts = explode('.', $name_path);
+                    $value_parts = explode('.', $value_path);
+                    $name_child = array_pop($name_parts); // "name"
+                    $value_child = array_pop($value_parts); // "value"
+                    $name_parent = implode('.', $name_parts); // "attributes.attribute"
+                    $value_parent = implode('.', $value_parts); // "attributes.attribute"
+                    
+                    // If both share the same parent, try to get the array
+                    if ($name_parent === $value_parent && !empty($name_parent)) {
+                        $container_data = $this->get_nested_value($product_data, $name_parent);
+                        
+                        if (is_array($container_data)) {
+                            // Check if it's a sequential array (indexed)
+                            if (isset($container_data[0])) {
+                                // Array of items: [{name: "Material", value: "Cotton"}, ...]
+                                foreach ($container_data as $item) {
+                                    if (is_array($item) && !empty($item[$name_child]) && !empty($item[$value_child])) {
+                                        $array_pairs[] = array(
+                                            'name' => trim($item[$name_child]),
+                                            'value' => trim($item[$value_child])
+                                        );
+                                    }
+                                }
+                            } elseif (isset($container_data[$name_child]) && isset($container_data[$value_child])) {
+                                // Single item: {name: "Material", value: "Cotton"}
+                                $array_pairs[] = array(
+                                    'name' => trim($container_data[$name_child]),
+                                    'value' => trim($container_data[$value_child])
+                                );
+                            }
+                        }
+                    }
+                }
+                
+                // If we found array-based pairs, process each one
+                if (!empty($array_pairs)) {
+                    foreach ($array_pairs as $ap) {
+                        $original_name = $ap['name'];
+                        $attr_value_str = $ap['value'];
+                        
+                        if (empty($original_name) || empty($attr_value_str)) continue;
+                        
+                        if (strpos($original_name, 'pa_') !== 0) {
+                            $attr_name = 'pa_' . sanitize_title($original_name);
+                            $attr_label = $original_name;
+                        } else {
+                            $attr_name = sanitize_title($original_name);
+                            $attr_label = str_replace('pa_', '', $original_name);
+                        }
+                        
+                        // Parse values
+                        $values = array();
+                        if (preg_match('/[,|]/', $attr_value_str)) {
+                            $values = array_map('trim', preg_split('/[,|]/', $attr_value_str));
+                        } else {
+                            $values = array(trim($attr_value_str));
+                        }
+                        $values = array_filter($values, function($v) { return !empty($v); });
+                        
+                        if (empty($values)) continue;
+                        
+                        // Register attribute taxonomy
+                        $this->register_attribute_taxonomy($attr_name, $attr_label);
+                        
+                        // Create/get terms
+                        $term_ids = array();
+                        foreach ($values as $value) {
+                            $term_result = $this->get_or_create_attribute_term($value, $attr_name);
+                            if ($term_result && isset($term_result->term_id)) {
+                                $term_ids[] = $term_result->term_id;
+                            }
+                        }
+                        
+                        if (empty($term_ids)) continue;
+                        
+                        $product_attributes[$attr_name] = array(
+                            'name' => $attr_name,
+                            'value' => '',
+                            'position' => $attr_position++,
+                            'is_visible' => 1,
+                            'is_variation' => 0,
+                            'is_taxonomy' => 1
+                        );
+                        
+                        wp_set_object_terms($product_id, $term_ids, $attr_name);
+                    }
+                } else {
+                // Original single-pair logic (BigBuy format: {attribute1} → "Colour")
                 $attr_name_value = $this->parse_template_string($name_field, $product_data);
                 if (empty($attr_name_value)) {
                     continue;
@@ -4957,6 +5185,7 @@ class WC_XML_CSV_AI_Import_Importer {
                 
                 // Set terms to product
                 wp_set_object_terms($product_id, $term_ids, $attr_name);
+            } // end else (single-pair logic)
             }
             
         }
@@ -5696,6 +5925,25 @@ class WC_XML_CSV_AI_Import_Importer {
                 if ($shipping_class_id) {
                     $variation->set_shipping_class_id($shipping_class_id);
                 }
+            } else {
+                // No direct shipping class mapping — apply Shipping Class Engine per-variation
+                // Build a pseudo product_data with this variation's own price/weight for condition checks
+                $var_product_data = array(
+                    'regular_price' => $variation->get_regular_price(),
+                    'price'         => $variation->get_price(),
+                    'weight'        => $variation->get_weight(),
+                    'length'        => $variation->get_length(),
+                    'width'         => $variation->get_width(),
+                    'height'        => $variation->get_height(),
+                    'sku'           => $variation->get_sku(),
+                    'categories'    => '', // inherit from parent context if needed
+                    'brand'         => '',
+                );
+                // Temporarily clear raw data so engine uses variation's own values (not parent fallback)
+                $saved_raw = $this->_current_raw_product_data ?? null;
+                $this->_current_raw_product_data = null;
+                $this->apply_shipping_class_engine($variation, $var_product_data);
+                $this->_current_raw_product_data = $saved_raw;
             }
             
             // Set Low Stock Amount
@@ -6159,6 +6407,21 @@ class WC_XML_CSV_AI_Import_Importer {
             $variation->set_downloadable($parent_product->get_downloadable());
             if (defined('WP_DEBUG') && WP_DEBUG) { 
             }
+            
+            // Apply Shipping Class Engine per-variation (auto variations inherit parent price)
+            $var_product_data = array(
+                'regular_price' => $variation->get_regular_price(),
+                'price'         => $variation->get_price(),
+                'weight'        => $variation->get_weight(),
+                'length'        => $variation->get_length(),
+                'width'         => $variation->get_width(),
+                'height'        => $variation->get_height(),
+                'sku'           => $variation->get_sku(),
+            );
+            $saved_raw = $this->_current_raw_product_data ?? null;
+            $this->_current_raw_product_data = null;
+            $this->apply_shipping_class_engine($variation, $var_product_data);
+            $this->_current_raw_product_data = $saved_raw;
             
             $variation_id = $variation->save();
             
@@ -6774,6 +7037,278 @@ class WC_XML_CSV_AI_Import_Importer {
         if (!in_array($import_data['file_type'], array('xml', 'csv'))) {
             throw new Exception(esc_html__('File type must be XML or CSV.', 'bootflow-product-importer'));
         }
+    }
+
+    /**
+     * Apply Shipping Class Engine rules to assign shipping class.
+     * Evaluates rules top-to-bottom, first matching rule wins.
+     *
+     * @since    1.0.0
+     * @param    WC_Product $product Product object
+     * @param    array $product_data Product data array
+     * @return   bool True if a shipping class was assigned, false otherwise
+     */
+    private function apply_shipping_class_engine($product, $product_data) {
+        $sc_config = $this->config['field_mapping']['shipping_class_engine'] ?? null;
+        
+        // Check if shipping class engine is enabled
+        if (empty($sc_config) || empty($sc_config['enabled'])) {
+            return false;
+        }
+        
+        $rules = $sc_config['rules'] ?? array();
+        if (empty($rules)) {
+            return false;
+        }
+        
+        $this->log('debug', 'Shipping Class Engine: evaluating ' . count($rules) . ' rules');
+        
+        $matched_class = '';
+        $matched_rule_name = '';
+        
+        // Separate conditional rules from default
+        $conditional_rules = array();
+        $default_rule = null;
+        
+        foreach ($rules as $rule) {
+            if (!empty($rule['is_default'])) {
+                $default_rule = $rule;
+            } else {
+                $conditional_rules[] = $rule;
+            }
+        }
+        
+        // Evaluate conditional rules first (top-to-bottom, first match wins)
+        foreach ($conditional_rules as $rule) {
+            if (empty($rule['enabled'])) {
+                continue;
+            }
+            
+            $shipping_class = $rule['shipping_class'] ?? '';
+            if (empty($shipping_class)) {
+                continue;
+            }
+            
+            // Check conditions
+            if ($this->check_shipping_rule_conditions($rule, $product_data)) {
+                $matched_class = $shipping_class;
+                $matched_rule_name = $rule['name'] ?? $rule['id'] ?? 'unnamed';
+                $this->log('debug', sprintf('Shipping Class Engine: Rule "%s" matched → class "%s"', $matched_rule_name, $matched_class));
+                break;
+            }
+        }
+        
+        // If no conditional rule matched, use default
+        if (empty($matched_class) && $default_rule) {
+            $matched_class = $default_rule['shipping_class'] ?? '';
+            $matched_rule_name = 'Default';
+        }
+        
+        // Assign shipping class if we have one
+        if (!empty($matched_class)) {
+            $shipping_class_slug = sanitize_title($matched_class);
+            $shipping_class_term = get_term_by('slug', $shipping_class_slug, 'product_shipping_class');
+            
+            // Create shipping class if it doesn't exist
+            if (!$shipping_class_term || is_wp_error($shipping_class_term)) {
+                $new_term = wp_insert_term(
+                    $matched_class, // Original name (or slug if no name)
+                    'product_shipping_class',
+                    array('slug' => $shipping_class_slug)
+                );
+                if (!is_wp_error($new_term)) {
+                    $shipping_class_term = get_term($new_term['term_id'], 'product_shipping_class');
+                    $this->log('debug', sprintf('Shipping Class Engine: Created new shipping class "%s"', $matched_class));
+                } else {
+                    $this->log('error', sprintf('Shipping Class Engine: Failed to create shipping class "%s": %s', $matched_class, $new_term->get_error_message()));
+                    return false;
+                }
+            }
+            
+            if ($shipping_class_term && !is_wp_error($shipping_class_term)) {
+                $product->set_shipping_class_id($shipping_class_term->term_id);
+                $this->log('debug', sprintf('Shipping Class Engine: Assigned "%s" (rule: %s) to SKU: %s', 
+                    $matched_class, $matched_rule_name, $product_data['sku'] ?? 'unknown'));
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Extract the maximum value of a specific field from variation data in raw XML/CSV.
+     * Used by Shipping Class Engine to get max variation price/weight when parent values are 0.
+     *
+     * @since    1.0.0
+     * @param    array $raw_data Raw product data (XML/CSV)
+     * @param    string $field_type 'price' or 'weight'
+     * @return   float Maximum variation value, or 0 if not found
+     */
+    private function extract_max_variation_value($raw_data, $field_type = 'price') {
+        // Try to find variations in raw data using common paths
+        $variations_data = null;
+        $possible_paths = array(
+            'variations.variation',
+            'variations',
+            'variants.variant',
+            'variants',
+            'variation',
+            'variant'
+        );
+        
+        foreach ($possible_paths as $path) {
+            $data = $this->get_nested_value($raw_data, $path);
+            if (!empty($data) && is_array($data)) {
+                $variations_data = $data;
+                break;
+            }
+        }
+        
+        if (empty($variations_data)) {
+            return 0;
+        }
+        
+        // Normalize: if single variation (associative array), wrap in numeric array
+        if (!isset($variations_data[0])) {
+            $variations_data = array($variations_data);
+        }
+        
+        // Define field paths to check based on type
+        if ($field_type === 'price') {
+            $field_paths = array('regular_price', 'price', 'Price', 'RegularPrice', 'sale_price');
+        } elseif ($field_type === 'weight') {
+            $field_paths = array('weight', 'Weight', 'package_weight');
+        } else {
+            return 0;
+        }
+        
+        $max_value = 0;
+        foreach ($variations_data as $var_data) {
+            if (!is_array($var_data)) {
+                continue;
+            }
+            foreach ($field_paths as $field_path) {
+                $value = $this->get_nested_value($var_data, $field_path);
+                if ($value !== null && $value !== '') {
+                    $clean_value = preg_replace('/[^0-9.,]/', '', (string) $value);
+                    $clean_value = str_replace(',', '.', $clean_value);
+                    $numeric_value = floatval($clean_value);
+                    if ($numeric_value > $max_value) {
+                        $max_value = $numeric_value;
+                    }
+                    break; // Found a value for this variation, move to next
+                }
+            }
+        }
+        
+        return $max_value;
+    }
+
+    /**
+     * Check if a shipping class rule's conditions are met.
+     *
+     * @since    1.0.0
+     * @param    array $rule Rule configuration
+     * @param    array $product_data Product data
+     * @return   bool True if conditions match
+     */
+    private function check_shipping_rule_conditions($rule, $product_data) {
+        $conditions = $rule['conditions'] ?? array();
+        $logic = $rule['condition_logic'] ?? 'AND';
+        
+        if (empty($conditions)) {
+            return true; // No conditions = always matches
+        }
+        
+        foreach ($conditions as $condition) {
+            $type = $condition['type'] ?? '';
+            $matches = false;
+            
+            switch ($type) {
+                case 'weight_range':
+                    $weight = floatval($product_data['weight'] ?? 0);
+                    // For variable products, parent weight may be 0 — use max variation weight instead
+                    if ($weight <= 0 && !empty($this->_current_raw_product_data)) {
+                        $max_var_weight = $this->extract_max_variation_value($this->_current_raw_product_data, 'weight');
+                        if ($max_var_weight > 0) {
+                            $weight = $max_var_weight;
+                            $this->log('debug', sprintf('Shipping Class Engine: Using max variation weight %.2f (parent weight was 0)', $weight));
+                        }
+                    }
+                    $from = floatval($condition['weight_from'] ?? 0);
+                    $to = !empty($condition['weight_to']) ? floatval($condition['weight_to']) : PHP_FLOAT_MAX;
+                    $matches = ($weight >= $from && $weight <= $to);
+                    break;
+                    
+                case 'price_range':
+                    $price = floatval($product_data['regular_price'] ?? ($product_data['price'] ?? 0));
+                    // For variable products, parent price is 0 — use max variation price instead
+                    if ($price <= 0 && !empty($this->_current_raw_product_data)) {
+                        $max_var_price = $this->extract_max_variation_value($this->_current_raw_product_data, 'price');
+                        if ($max_var_price > 0) {
+                            $price = $max_var_price;
+                            $this->log('debug', sprintf('Shipping Class Engine: Using max variation price %.2f (parent price was 0)', $price));
+                        }
+                    }
+                    $from = floatval($condition['price_from'] ?? 0);
+                    $to = !empty($condition['price_to']) ? floatval($condition['price_to']) : PHP_FLOAT_MAX;
+                    $matches = ($price >= $from && $price <= $to);
+                    break;
+                    
+                case 'volume_range':
+                    $length = floatval($product_data['length'] ?? 0);
+                    $width = floatval($product_data['width'] ?? 0);
+                    $height = floatval($product_data['height'] ?? 0);
+                    $volume = $length * $width * $height;
+                    $from = floatval($condition['volume_from'] ?? 0);
+                    $to = !empty($condition['volume_to']) ? floatval($condition['volume_to']) : PHP_FLOAT_MAX;
+                    $matches = ($volume >= $from && $volume <= $to);
+                    break;
+                    
+                case 'category':
+                    $category = $product_data['categories'] ?? '';
+                    $operator = $condition['operator'] ?? 'contains';
+                    $value = $condition['value'] ?? '';
+                    $matches = $this->check_condition_operator($category, $operator, $value);
+                    break;
+                    
+                case 'brand':
+                    $brand = $product_data['brand'] ?? '';
+                    $operator = $condition['operator'] ?? 'contains';
+                    $value = $condition['value'] ?? '';
+                    $matches = $this->check_condition_operator($brand, $operator, $value);
+                    break;
+                    
+                case 'xml_field':
+                    $field_name = $condition['field'] ?? '';
+                    $field_value = $product_data[$field_name] ?? '';
+                    $operator = $condition['operator'] ?? 'equals';
+                    $value = $condition['value'] ?? '';
+                    $matches = $this->check_condition_operator($field_value, $operator, $value);
+                    break;
+                    
+                case 'sku_pattern':
+                    $sku = $product_data['sku'] ?? '';
+                    $operator = $condition['operator'] ?? 'contains';
+                    $value = $condition['value'] ?? '';
+                    $matches = $this->check_condition_operator($sku, $operator, $value);
+                    break;
+            }
+            
+            // AND logic: all must match (short-circuit on first fail)
+            if ($logic === 'AND' && !$matches) {
+                return false;
+            }
+            
+            // OR logic: any can match (short-circuit on first success)
+            if ($logic === 'OR' && $matches) {
+                return true;
+            }
+        }
+        
+        // AND: all passed → true. OR: none passed → false
+        return ($logic === 'AND');
     }
 
     /**

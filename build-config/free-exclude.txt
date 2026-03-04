@@ -8,6 +8,10 @@
 # AI Provider (AI auto-mapping, AI processing)
 includes/class-wc-xml-csv-ai-import-ai-providers.php
 
+# Legacy BFI license files (replaced by unified license class)
+includes/class-bfi-license.php
+includes/class-bfi-license-admin.php
+
 # Scheduler (Cron/automated imports)
 includes/class-wc-xml-csv-ai-import-scheduler.php
 
